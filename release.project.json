@@ -1,0 +1,19 @@
+{
+	"name": "metauniOS",
+	"tree": {
+		"$className": "Folder",
+		"$path": "src/server",
+
+		"version": {
+			"$path": "./version.txt"
+		},
+
+		"metauniOSCommon": {
+			"$path": "src/common"
+		},
+
+		"metauniOSPlayer" : {
+			"$path": "src/client"
+		}
+	}
+}

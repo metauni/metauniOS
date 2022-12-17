@@ -1,0 +1,24 @@
+{
+	"name": "metauniOS",
+	"tree": {
+		"$className": "DataModel",
+
+		"ServerScriptService": {
+			"$className": "ServerScriptService",
+			"$ignoreUnknownInstances": true,
+
+			"metauniOS": {
+				"$className": "Folder",
+				"$path": "src/server",
+
+				"metauniOSCommon": {
+					"$path": "src/common"
+				},
+
+				"metauniOSPlayer" : {
+					"$path": "src/client"
+				}
+			}
+		}
+	}
+}
