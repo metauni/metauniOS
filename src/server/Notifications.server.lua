@@ -60,9 +60,6 @@ local function updateBoardSubscriberDisplays(subscriberCountForBoards)
 		if not board:IsDescendantOf(game.Workspace) then continue end
 		
 		local boardKey = tostring(board.PersistId.Value)
-		if pocketId then
-			boardKey = pocketId .. "-" .. boardKey
-		end
 		
 		if (not subscriberCountForBoards[boardKey]) or subscriberCountForBoards[boardKey] == 0 then
 			local countPart = board:FindFirstChild("SubscriberCountPart")
@@ -72,12 +69,19 @@ local function updateBoardSubscriberDisplays(subscriberCountForBoards)
 		
 		local subscriberCount = tonumber(subscriberCountForBoards[boardKey])
 		
-		local countPartWidth = 7
-		local countPartHeight = 1.125
+        -- On the old-school "large" boards, like the ones in TRS, which are
+        -- 27, 20.25, 0.113 we use a display of size 7 x 1.125. We scale
+        -- proportionately for other boards
+
+        local boardPart = if board:IsA("Model") then board.PrimaryPart else board
+
+        local scaleFactor = boardPart.Size.Y / 20.25
+		local countPartWidth = 7 * scaleFactor
+		local countPartHeight = 1.125 * scaleFactor
 		
 		local countPart = board:FindFirstChild("SubscriberCountPart")
 		if not countPart then
-			local boardPart = if board:IsA("Model") then board.PrimaryPart else board
+			
 			countPart = Instance.new("Part")
 			countPart.Name = "SubscriberCountPart"
 			countPart.Size = Vector3.new(countPartWidth, countPartHeight, 0.1)
@@ -118,8 +122,13 @@ local function updateBoardSubscriberDisplays(subscriberCountForBoards)
 	end
 end
 
-local WAIT_TIME = 60
+task.wait(10)
 
+-- Sync the indicators of number of board subscribers
+local subscriberCountForBoards = NotificationService.GetNumberOfSubscribers(pocketId)
+updateBoardSubscriberDisplays(subscriberCountForBoards)
+
+local WAIT_TIME = 60
 task.spawn(function()
 	while task.wait(WAIT_TIME) do
 		-- Send notifications to the server about board changes

@@ -140,12 +140,18 @@ end
 
 function AIService.OCRBoard(boardInstance)
 	local board = BoardService.Boards[boardInstance]
+    if board == nil then
+        print("[AIService] Failed to fetch board data from BoardService")
+        return nil
+    end
+
+    local serialisedBoardData = serialiseBoard(board)
 	local json = HttpService:JSONEncode({RequestType = "OCR", 
-			Content = serialiseBoard(board)})
+			Content = serialisedBoardData})
 	
 	local success, response = pcall(function()
 		return HttpService:PostAsync(
-			SecretService.metauniServiceAddress,
+			VISION_API_URL,
 			json,
 			Enum.HttpContentType.ApplicationJson,
 			false)

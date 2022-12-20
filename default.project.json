@@ -17,6 +17,10 @@
 
 				"metauniOSPlayer" : {
 					"$path": "src/client"
+				},
+
+                "metauniOSGui" : {
+					"$path": "src/gui"
 				}
 			}
 		}
