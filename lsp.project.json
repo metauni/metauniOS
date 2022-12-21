@@ -1,0 +1,39 @@
+{
+	"name": "metauniOS (LSP)",
+	"tree": {
+		"$className": "DataModel",
+
+		"ServerScriptService": {
+			"$className": "ServerScriptService",
+			"$ignoreUnknownInstances": true,
+			"$path": "src/ServerScriptService",
+	
+			"metauniOS": {
+				"$path": "src/metauniOS.server.lua"
+			}
+		},
+
+		"ReplicatedStorage": {
+			"$className": "ReplicatedStorage",
+			"$ignoreUnknownInstances": true,
+			"$path": "src/ReplicatedStorage"
+		},
+
+		"StarterGui": {
+			"$className": "StarterGui",
+			"$ignoreUnknownInstances": true,
+			"$path": "src/StarterGui"
+		},
+
+		"StarterPlayer": {
+			"$className": "StarterPlayer",
+			"$ignoreUnknownInstances": true,
+
+			"StarterPlayerScripts": {
+				"$className": "StarterPlayerScripts",
+				"$ignoreUnknownInstances": true,
+				"$path": "src/StarterPlayer"
+			}
+		}
+	}
+}

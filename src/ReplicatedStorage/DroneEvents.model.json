@@ -1,0 +1,17 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "DetachDrone",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "ReattachDrone",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "UnlinkDrone",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}

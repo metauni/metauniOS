@@ -1,2 +1,9 @@
 # metauniOS
-Monorepo for metauni projects
+The metauni Operating System.
+
+## Setup
+```bash
+aftman install
+wally install
+rojo serve
+```

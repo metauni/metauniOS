@@ -8,19 +8,10 @@
 			"$ignoreUnknownInstances": true,
 
 			"metauniOS": {
-				"$className": "Folder",
-				"$path": "src/server",
+				"$path": "src",
 
-				"metauniOSCommon": {
-					"$path": "src/common"
-				},
-
-				"metauniOSPlayer" : {
-					"$path": "src/client"
-				},
-
-                "metauniOSGui" : {
-					"$path": "src/gui"
+				"Packages": {
+					"$path": "Packages"
 				}
 			}
 		}

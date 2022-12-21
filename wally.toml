@@ -1,0 +1,8 @@
+[package]
+name = "metauni/metaunios"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+Feather = "blinkybool/feather@0.1.0"
