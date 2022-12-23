@@ -28,6 +28,7 @@ for _, board in boards do
 	for _, e in events do
 		local remoteEvent = board.metaboardRemotes:WaitForChild(e)
 		remoteEvent.OnServerEvent:Connect(function()
+            print("Got event " .. e .. " for board")
 			boardModified[board] = tick()
 		end)	
 	end

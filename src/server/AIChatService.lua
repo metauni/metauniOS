@@ -110,9 +110,11 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
         -- or it could be a metaorb_poi, in which case it may have
         -- targets
         if CollectionService:HasTag(poi, "metaboard") then
-            local boardText = AIService.OCRBoard(poi)	
-		    if boardText ~= nil then
-			    questionSubText = string.gsub(questionSubText, "board", "\"" .. boardText .. "\"")
+            if string.match(questionSubText, "board") then
+                local boardText = AIService.OCRBoard(poi)	
+                if boardText ~= nil then
+                    questionSubText = string.gsub(questionSubText, "board", "\"" .. boardText .. "\"")
+                end
             end
 		else
             local targets = {}
@@ -235,8 +237,9 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
 	local billboardQ = messageTemplate:Clone()
 	billboardQ.Parent = messageFolder
 	billboardQ.Name = "Question"
-	billboardQ.PrimaryPart.Transparency = 0.9
-	billboardQ.PrimaryPart.SurfaceGui.TextLabel.TextColor3 = Color3.new(0,0,0) 
+	billboardQ.PrimaryPart.Transparency = 0
+    billboardQ.PrimaryPart.Color = Color3.fromRGB(240, 244, 253)
+	billboardQ.PrimaryPart.SurfaceGui.TextLabel.TextColor3 = Color3.new(0,0,0)
 	if AIChatService.PlayerThumbnails[plr.UserId] ~= nil then
 		local thumbnailPart = billboardQ.Thumbnail
 		thumbnailPart.SurfaceGui.ImageLabel.Visible = true

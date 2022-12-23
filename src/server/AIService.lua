@@ -138,6 +138,45 @@ function AIService.GPTPrompt(promptText, maxTokens, plr)
 	end
 end
 
+function AIService.ObjectLocalizationForBoard(boardInstance)
+    local board = BoardService.Boards[boardInstance]
+    if board == nil then
+        print("[AIService] Failed to fetch board data from BoardService")
+        return nil
+    end
+
+    local serialisedBoardData = serialiseBoard(board)
+	local json = HttpService:JSONEncode({RequestType = "ObjectLocalization", 
+			Content = serialisedBoardData})
+	
+	local success, response = pcall(function()
+		return HttpService:PostAsync(
+			VISION_API_URL,
+			json,
+			Enum.HttpContentType.ApplicationJson,
+			false)
+	end)
+
+	if success then
+		if response == nil then
+			print("[AIService] Got a bad response from ObjectLocalization PostAsync")
+			return nil
+		end
+
+		local responseData = HttpService:JSONDecode(response)
+		if responseData == nil then
+			print("[AIService] ObjectLocalization JSONDecode on response failed")
+			return nil
+		end
+
+		local responseDict = responseData["objects"]
+		return responseDict
+	else
+		print("[AIService] ObjectLocalization HTTPService PostAsync failed ".. response)
+		return nil
+	end
+end
+
 function AIService.OCRBoard(boardInstance)
 	local board = BoardService.Boards[boardInstance]
     if board == nil then

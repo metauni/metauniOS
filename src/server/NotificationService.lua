@@ -32,7 +32,7 @@ function NotificationService.GetNumberOfSubscribers(pocketId)
 	if success then
 		if response == nil then
 			print("[NotificationService] Got a bad response from PostAsync")
-			return nil
+			return {}
 		end
 
 		local successJson, responseData = pcall(function()
@@ -42,17 +42,17 @@ function NotificationService.GetNumberOfSubscribers(pocketId)
 		if successJson then
 			if responseData == nil then
 				print("[NotificationService] JSONDecode on response failed")
-				return nil
+				return {}
 			end
 		else
 			print("[NotificationService] Can't parse JSON")
-			return
+			return {}
 		end
 
 		return responseData
 	else
 		print("[NotificationService] HTTPService PostAsync failed ".. response)
-		return nil
+		return {}
 	end
 end
 
