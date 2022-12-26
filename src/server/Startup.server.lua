@@ -9,7 +9,12 @@ local SecretService = require(ServerScriptService.SecretService)
 do
 	-- Move folder/guis around if this is the package version
 	local Common = script.Parent:FindFirstChild("metauniOSCommon")
+
 	if Common then
+        if Common:FindFirstChild("GameAnalytics") then
+            Common.GameAnalytics.Parent = ReplicatedStorage
+        end
+
 		Common.Parent = ReplicatedStorage
 	end
 	
@@ -45,3 +50,43 @@ ScriptContext.Error:Connect(onError)
 local RavenErrorLogRemoteEvent = Instance.new("RemoteEvent", ReplicatedStorage)
 RavenErrorLogRemoteEvent.Name = "RavenErrorLog"
 client:ConnectRemoteEvent(RavenErrorLogRemoteEvent)
+
+-- Game analytics
+local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
+GameAnalytics:setEnabledInfoLog(true)
+--GameAnalytics:setEnabledVerboseLog(true)
+GameAnalytics:initServer(SecretService.GAMEANALYTICS_GAME_KEY, SecretService.GAMEANALYTICS_SECRET_KEY)
+
+--
+-- MetaPortal
+--
+
+local metaPortalFolder = ServerScriptService.metaportal
+do
+	-- Move folder/guis around if this is the package version
+	local metaPortalCommon = metaPortalFolder:FindFirstChild("MetaPortalCommon")
+	if metaPortalCommon then
+		if ReplicatedStorage:FindFirstChild("Icon") == nil then
+			metaPortalCommon.Packages.Icon.Parent = ReplicatedStorage
+		end
+		metaPortalCommon.Parent = ReplicatedStorage
+	end
+	
+	local metaPortalPlayer = metaPortalFolder:FindFirstChild("MetaPortalPlayer")
+	if metaPortalPlayer then
+		metaPortalPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
+	end
+	
+	local metaPortalGui = metaPortalFolder:FindFirstChild("MetaPortalGui")
+	if metaPortalGui then
+		local StarterGui = game:GetService("StarterGui")
+		-- Gui's need to be top level children of StarterGui in order for
+		-- ResetOnSpawn=false to work properly
+		for _, guiObject in ipairs(metaPortalGui:GetChildren()) do
+			guiObject.Parent = StarterGui
+		end
+	end
+end
+
+local MetaPortal = require(metaPortalFolder.MetaPortal)
+MetaPortal.Init()
