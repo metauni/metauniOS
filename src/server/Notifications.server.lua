@@ -123,7 +123,15 @@ local function updateBoardSubscriberDisplays(subscriberCountForBoards)
 	end
 end
 
-task.wait(10)
+game:BindToClose(function()
+	local boardsDelta = boardsToNotify(0)
+
+	if #boardsDelta > 0 then
+		NotificationService.SendNotification(boardsDelta)
+	end
+end)
+
+task.wait(5)
 
 -- Sync the indicators of number of board subscribers
 local subscriberCountForBoards = NotificationService.GetNumberOfSubscribers(pocketId)
@@ -142,13 +150,5 @@ task.spawn(function()
 		-- Sync the indicators of number of board subscribers
 		local subscriberCountForBoards = NotificationService.GetNumberOfSubscribers(pocketId)
 		updateBoardSubscriberDisplays(subscriberCountForBoards)
-	end
-end)
-
-game:BindToClose(function()
-	local boardsDelta = boardsToNotify(0)
-
-	if #boardsDelta > 0 then
-		NotificationService.SendNotification(boardsDelta)
 	end
 end)
