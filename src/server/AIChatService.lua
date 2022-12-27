@@ -13,6 +13,7 @@ local Players = game:GetService("Players")
 local metaboardCommon = ReplicatedStorage:WaitForChild("metaboardCommon")
 local orbCommon = ReplicatedStorage:WaitForChild("OrbCommon")
 
+local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
 local BoardService = require(metaboardCommon.BoardService)
 local AIService = require(script.Parent.AIService)
 local OrbService = require(ServerScriptService.orb.Orb)
@@ -93,6 +94,10 @@ end
 
 function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
     AIChatService.FetchPlayerThumbnail(plr.UserId)
+
+    GameAnalytics:addDesignEvent(plr.UserId, {
+        eventId = "AI:Question"
+    })
 
     local messageFolder = chatpoint.Messages
 	local messageTemplate = chatpoint.MessageTemplate

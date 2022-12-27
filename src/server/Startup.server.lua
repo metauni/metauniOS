@@ -6,8 +6,12 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local SecretService = require(ServerScriptService.SecretService)
 
+-- 
+-- Code distribution
+--
+
+-- metauniOS
 do
-	-- Move folder/guis around if this is the package version
 	local Common = script.Parent:FindFirstChild("metauniOSCommon")
 
 	if Common then
@@ -33,34 +37,7 @@ do
 	end
 end
 
--- AI services
-local AIChatService = require(script.Parent.AIChatService)
-AIChatService.Init()
-
--- Error logging using Sentry & Raven
-local Raven = require(script.Parent.Raven)
-local client = Raven:Client(SecretService.SENTRY_DSN)
--- NOTE: This is what Sentry now calls the Deprecated DSN
-
-local function onError(message, trace, script)
-    client:SendException(Raven.ExceptionType.Server, message, trace)
-end
-ScriptContext.Error:Connect(onError)
-
-local RavenErrorLogRemoteEvent = Instance.new("RemoteEvent", ReplicatedStorage)
-RavenErrorLogRemoteEvent.Name = "RavenErrorLog"
-client:ConnectRemoteEvent(RavenErrorLogRemoteEvent)
-
--- Game analytics
-local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
-GameAnalytics:setEnabledInfoLog(true)
---GameAnalytics:setEnabledVerboseLog(true)
-GameAnalytics:initServer(SecretService.GAMEANALYTICS_GAME_KEY, SecretService.GAMEANALYTICS_SECRET_KEY)
-
---
--- MetaPortal
---
-
+-- metaportal
 local metaPortalFolder = ServerScriptService.metaportal
 do
 	-- Move folder/guis around if this is the package version
@@ -88,5 +65,66 @@ do
 	end
 end
 
+-- orb
+local orbFolder = ServerScriptService.orb
+do
+	local orbCommon = orbFolder:FindFirstChild("OrbCommon")
+	if orbCommon then
+		if ReplicatedStorage:FindFirstChild("Icon") == nil then
+			orbCommon.Packages.Icon.Parent = ReplicatedStorage
+		end
+		orbCommon.Parent = ReplicatedStorage
+	end
+
+	local orbPlayer = orbFolder:FindFirstChild("OrbPlayer")
+	if orbPlayer then
+		orbPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
+	end
+end
+
+--
+-- Error Logging
+--
+
+local Raven = require(script.Parent.Raven)
+local client = Raven:Client(SecretService.SENTRY_DSN)
+-- NOTE: This is what Sentry now calls the Deprecated DSN
+
+local function onError(message, trace, script)
+    client:SendException(Raven.ExceptionType.Server, message, trace)
+end
+ScriptContext.Error:Connect(onError)
+
+local RavenErrorLogRemoteEvent = Instance.new("RemoteEvent", ReplicatedStorage)
+RavenErrorLogRemoteEvent.Name = "RavenErrorLog"
+client:ConnectRemoteEvent(RavenErrorLogRemoteEvent)
+
+--
+-- GameAnalytics
+--
+
+local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
+GameAnalytics:setEnabledInfoLog(true)
+--GameAnalytics:setEnabledVerboseLog(true)
+GameAnalytics:initServer(SecretService.GAMEANALYTICS_GAME_KEY, SecretService.GAMEANALYTICS_SECRET_KEY)
+
+--
+-- MetaPortal
+--
+
 local MetaPortal = require(metaPortalFolder.MetaPortal)
 MetaPortal.Init()
+
+--
+-- Orb
+--
+
+local Orb = require(orbFolder.Orb)
+Orb.Init()
+
+--
+-- AI
+--
+
+local AIChatService = require(script.Parent.AIChatService)
+AIChatService.Init()

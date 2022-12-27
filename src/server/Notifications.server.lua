@@ -27,8 +27,10 @@ for _, board in boards do
 	local events = {"FinishDrawingTask", "Undo", "Redo", "Clear"}
 	for _, e in events do
 		local remoteEvent = board.metaboardRemotes:WaitForChild(e)
-		remoteEvent.OnServerEvent:Connect(function()
-            print("Got event " .. e .. " for board")
+		remoteEvent.OnServerEvent:Connect(function(plr)
+            GameAnalytics:addDesignEvent(plr.UserId, {
+                eventId = "Boards:" .. e
+            })
 			boardModified[board] = tick()
 		end)	
 	end
