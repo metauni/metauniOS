@@ -134,6 +134,5 @@ AIChatService.Init()
 --
 -- (depends on MetaPortal)
 
-task.wait(10)
 local NotificationService = require(script.Parent.NotificationService)
 NotificationService.Init()

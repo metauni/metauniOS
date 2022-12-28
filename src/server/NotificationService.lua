@@ -213,6 +213,8 @@ function NotificationService.Init()
         end
     end)
 
+    task.wait(10)
+
     local boards = CollectionService:GetTagged("metaboard")
     for _, board in boards do
         if board:FindFirstChild("PersistId") == nil then continue end
