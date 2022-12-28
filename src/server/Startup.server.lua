@@ -128,3 +128,10 @@ Orb.Init()
 
 local AIChatService = require(script.Parent.AIChatService)
 AIChatService.Init()
+
+--
+-- Notifications
+--
+
+local NotificationService = require(script.Parent.NotificationService)
+NotificationService.Init()
