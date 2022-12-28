@@ -104,7 +104,7 @@ client:ConnectRemoteEvent(RavenErrorLogRemoteEvent)
 --
 
 local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
-GameAnalytics:setEnabledInfoLog(true)
+--GameAnalytics:setEnabledInfoLog(true)
 --GameAnalytics:setEnabledVerboseLog(true)
 GameAnalytics:initServer(SecretService.GAMEANALYTICS_GAME_KEY, SecretService.GAMEANALYTICS_SECRET_KEY)
 
@@ -134,5 +134,6 @@ AIChatService.Init()
 --
 -- (depends on MetaPortal)
 
+task.wait(10)
 local NotificationService = require(script.Parent.NotificationService)
 NotificationService.Init()

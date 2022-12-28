@@ -183,18 +183,19 @@ function NotificationService.BoardsToNotify(delay)
         if board:FindFirstChild("PersistId") == nil then continue end
         if not board:IsDescendantOf(game.Workspace) then continue end
 
-        local boardKey = tostring(board.PersistId.Value)
-        if NotificationService.BoardsModified[boardKey] == nil then continue end
+        local boardId = tostring(board.PersistId.Value)
+        if NotificationService.BoardsModified[boardId] == nil then continue end
 
-        if NotificationService.BoardsModified[boardKey] + delay < tick() then
-			local boardKey = tostring(board.PersistId.Value)
+        if NotificationService.BoardsModified[boardId] + delay < tick() then
+            NotificationService.BoardsModified[boardId] = nil
+            boardKey = boardId
+
             if isPocket() then
                 local pocketId = ServerScriptService.metaportal:GetAttribute("PocketId")
                 boardKey = pocketId .. "-" .. boardKey
             end
 
 			table.insert(boardsDelta, boardKey)
-			NotificationService.BoardsModified[boardKey] = nil
 		end
 	end
 	
@@ -221,18 +222,23 @@ function NotificationService.Init()
 		    board:GetAttributeChangedSignal("BoardServerInitialised"):Wait()
         end
 
+        board:WaitForChild("metaboardRemotes")
         local boardKey = tostring(board.PersistId.Value)
 
         local events = {"FinishDrawingTask", "Undo", "Redo", "Clear"}
         for _, e in events do
             local remoteEvent = board.metaboardRemotes:FindFirstChild(e)
+            if remoteEvent == nil then
+                print("[NotificationService] Failed to get event for board")
+                continue
+            end
+
             remoteEvent.OnServerEvent:Connect(function(plr)
                 NotificationService.BoardsModified[boardKey] = tick()
             end)	
         end
     end
 
-    task.wait(5)
     NotificationService.UpdateBoardSubscriberDisplays()
 
     local WAIT_TIME = 60

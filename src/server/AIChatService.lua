@@ -10,18 +10,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
 local Players = game:GetService("Players")
 
-local metaboardCommon = ReplicatedStorage:WaitForChild("metaboardCommon")
 local orbCommon = ReplicatedStorage:WaitForChild("OrbCommon")
 
 local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
-local BoardService = require(metaboardCommon.BoardService)
 local AIService = require(script.Parent.AIService)
 local OrbService = require(ServerScriptService.orb.Orb)
-
-local Figure = require(metaboardCommon.Figure)
-local Sift = require(metaboardCommon.Packages.Sift)
-local Config = require(metaboardCommon.Config)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 local AskQuestionRemoteEvent = orbCommon.Remotes.AskQuestion
 
