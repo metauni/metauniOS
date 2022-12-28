@@ -95,9 +95,16 @@ end
 function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
     AIChatService.FetchPlayerThumbnail(plr.UserId)
 
-    GameAnalytics:addDesignEvent(plr.UserId, {
-        eventId = "AI:Question"
-    })
+    local success, err = pcall(function()
+		GameAnalytics:addDesignEvent(plr.UserId, {
+            eventId = "AI:Question"
+        })
+	end)	
+	
+	if not success then
+		print("[AIChatService] GameAnalytics addDesignEvent failed ".. err)
+		return {}
+	end
 
     local messageFolder = chatpoint.Messages
 	local messageTemplate = chatpoint.MessageTemplate

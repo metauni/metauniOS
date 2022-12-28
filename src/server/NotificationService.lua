@@ -227,9 +227,6 @@ function NotificationService.Init()
         for _, e in events do
             local remoteEvent = board.metaboardRemotes:FindFirstChild(e)
             remoteEvent.OnServerEvent:Connect(function(plr)
-                --GameAnalytics:addDesignEvent(plr.UserId, {
-                --    eventId = "Boards:" .. e
-                --})
                 NotificationService.BoardsModified[boardKey] = tick()
             end)	
         end
