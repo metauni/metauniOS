@@ -132,6 +132,7 @@ AIChatService.Init()
 --
 -- Notifications
 --
+-- (depends on MetaPortal)
 
 local NotificationService = require(script.Parent.NotificationService)
 NotificationService.Init()

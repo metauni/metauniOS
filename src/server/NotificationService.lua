@@ -9,15 +9,22 @@ local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
-local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
+--local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
 
 metauniServiceAddress = "http://34.116.106.66:8080"
-	
+
+function isPocket()
+	return (game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0)
+end
+
 local NotificationService = {}
 NotificationService.__index = NotificationService
 
 function NotificationService.GetNumberOfSubscribers()
-    local pocketId = NotificationService.PocketId or ""
+    local pocketId = ""
+    if isPocket() then
+        pocketId = ServerScriptService.metaportal:GetAttribute("PocketId")
+    end
 	
 	local json = HttpService:JSONEncode({RequestType = "GetBoardNotificationSubscriberNumbers", 
 		Content = pocketId})
@@ -178,13 +185,14 @@ function NotificationService.BoardsToNotify(delay)
 
         local boardKey = tostring(board.PersistId.Value)
         if NotificationService.BoardsModified[boardKey] == nil then continue end
-        
+
         if NotificationService.BoardsModified[boardKey] + delay < tick() then
 			local boardKey = tostring(board.PersistId.Value)
-			if NotificationService.PocketId then
-				boardKey = NotificationService.PocketId .. "-" .. boardKey
-			end
-			
+            if isPocket() then
+                local pocketId = ServerScriptService.metaportal:GetAttribute("PocketId")
+                boardKey = pocketId .. "-" .. boardKey
+            end
+
 			table.insert(boardsDelta, boardKey)
 			NotificationService.BoardsModified[boardKey] = nil
 		end
@@ -195,36 +203,6 @@ end
 
 function NotificationService.Init()
     NotificationService.BoardsModified = {} -- Maps persistIds (as strings) to times
-    NotificationService.PocketId = nil
-
-    local metaPortal = ServerScriptService:FindFirstChild("metaportal")
-    if metaPortal and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0 then
-        if metaPortal:GetAttribute("PocketId") == nil then
-            metaPortal:GetAttributeChangedSignal("PocketId"):Wait()
-        end
-    
-        NotificationService.PocketId = metaPortal:GetAttribute("PocketId")
-    end
-
-    local boards = CollectionService:GetTagged("metaboard")
-    for _, board in boards do
-        if board:FindFirstChild("PersistId") == nil then continue end
-        if not board:IsDescendantOf(game.Workspace) then continue end
-        
-        local boardKey = tostring(board.PersistId.Value)
-
-        board:WaitForChild("metaboardRemotes")
-        local events = {"FinishDrawingTask", "Undo", "Redo", "Clear"}
-        for _, e in events do
-            local remoteEvent = board.metaboardRemotes:WaitForChild(e)
-            remoteEvent.OnServerEvent:Connect(function(plr)
-                GameAnalytics:addDesignEvent(plr.UserId, {
-                    eventId = "Boards:" .. e
-                })
-                NotificationService.BoardsModified[boardKey] = tick()
-            end)	
-        end
-    end
 
     game:BindToClose(function()
         local boardsDelta = NotificationService.BoardsToNotify(0)
@@ -233,6 +211,29 @@ function NotificationService.Init()
             NotificationService.SendNotification(boardsDelta)
         end
     end)
+
+    local boards = CollectionService:GetTagged("metaboard")
+    for _, board in boards do
+        if board:FindFirstChild("PersistId") == nil then continue end
+        if not board:IsDescendantOf(game.Workspace) then continue end
+        
+        if not board:GetAttribute("BoardServerInitialised") then
+		    board:GetAttributeChangedSignal("BoardServerInitialised"):Wait()
+        end
+
+        local boardKey = tostring(board.PersistId.Value)
+
+        local events = {"FinishDrawingTask", "Undo", "Redo", "Clear"}
+        for _, e in events do
+            local remoteEvent = board.metaboardRemotes:FindFirstChild(e)
+            remoteEvent.OnServerEvent:Connect(function(plr)
+                --GameAnalytics:addDesignEvent(plr.UserId, {
+                --    eventId = "Boards:" .. e
+                --})
+                NotificationService.BoardsModified[boardKey] = tick()
+            end)	
+        end
+    end
 
     task.wait(5)
     NotificationService.UpdateBoardSubscriberDisplays()
