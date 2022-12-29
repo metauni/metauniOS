@@ -21,34 +21,38 @@ ReplicatedStorage:SetAttribute("metauniOSReady", true)
 
 -- Initialise & Start Services
 
-print("[metauniOS] Initialising")
+print("[metauniOS] Initialising Services")
 
-for _, instance in ipairs(ServerScriptService:GetDescendants()) do
+for _, container in {ServerScriptService, ReplicatedStorage} do
+
+	for _, instance in container:GetDescendants() do
+		
+		if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
 	
-	if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
-
-		local service = require(instance)
-
-		if service.Init then
-			
-			print("Initalising "..instance.Name)
-			service:Init()
+			local service = require(instance)
+	
+			if typeof(service) == "table" and service.Init then
+				
+				service:Init()
+			end
 		end
 	end
 end
 
 print("[metauniOS] Starting Services")
 
-for _, instance in ipairs(ServerScriptService:GetDescendants()) do
+for _, container in {ServerScriptService, ReplicatedStorage} do
 	
-	if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
+	for _, instance in container:GetDescendants() do
 		
-		local service = require(instance)
-
-		if service.Start then
+		if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
 			
-			print("Starting "..instance.Name)
-			service:Start()
+			local service = require(instance)
+	
+			if typeof(service) == "table" and service.Start then
+				
+				service:Start()
+			end
 		end
 	end
 end
