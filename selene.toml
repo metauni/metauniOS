@@ -1,1 +1,2 @@
-std = "roblox"
+std = "roblox+remodel"
+exclude = ["update.lua"]

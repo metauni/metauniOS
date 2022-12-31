@@ -1,0 +1,85 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "OrbAttach",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbDetach",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbAttachSpeaker",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbDetachSpeaker",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbSpeakerMoved",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbTeleport",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbTweeningStart",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbTweeningStop",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbListenOn",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbListenOff",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbcamOn",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbcamOff",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "GetListeningStatus",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "GetOrbcamStatus",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "GetAttachments",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "VRSpeakerChalkEquip",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "VRSpeakerChalkUnequip",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "AskQuestion",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SpecialMove",
+			"ClassName": "RemoteEvent"
+		},
+        {
+			"Name": "NewEmoji",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}

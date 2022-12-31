@@ -9,7 +9,7 @@ local TeleportService = game:GetService("TeleportService")
 -- Imports
 local Drone = require(script.Drone)
 local Destructor = require(ReplicatedStorage.Destructor)
-local DroneEvents = ReplicatedStorage.DroneEvents
+local Remotes = ReplicatedStorage.Drone.Remotes
 
 -- Globals
 local dataStore = DataStoreService:GetDataStore("DroneToHost")
@@ -185,7 +185,7 @@ return {
 
 		Players.PlayerAdded:Connect(bindPlayer)
 
-		DroneEvents.DetachDrone.OnServerEvent:Connect(function(_player, droneUserId)
+		Remotes.DetachDrone.OnServerEvent:Connect(function(_player, droneUserId)
 
 			if not droneUserId then
 
@@ -198,7 +198,7 @@ return {
 			end
 		end)
 
-		DroneEvents.ReattachDrone.OnServerEvent:Connect(function(_player, droneUserId)
+		Remotes.ReattachDrone.OnServerEvent:Connect(function(_player, droneUserId)
 
 			if not droneUserId then
 
@@ -213,7 +213,7 @@ return {
 			end
 		end)
 
-		DroneEvents.UnlinkDrone.OnServerEvent:Connect(function(_player, droneUserId)
+		Remotes.UnlinkDrone.OnServerEvent:Connect(function(_player, droneUserId)
 
 			if not droneUserId then
 
@@ -227,7 +227,7 @@ return {
 
 			Drones[droneUserId] = nil
 			
-			DroneEvents.UnlinkDrone:FireAllClients(droneUserId)
+			Remotes.UnlinkDrone:FireAllClients(droneUserId)
 
 			while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync) <= 0 do
 			

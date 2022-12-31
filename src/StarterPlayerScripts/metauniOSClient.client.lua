@@ -1,10 +1,29 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local ScriptContext = game:GetService("ScriptContext")
+
+local RavenErrorLogRemoteEvent = ReplicatedStorage:WaitForChild("RavenErrorLog")
+
+-- Error logging
+local function onError(message, trace, script)
+
+	if not RunService:IsStudio() then
+		
+    RavenErrorLogRemoteEvent:FireServer(message, trace)
+	end
+end
+
+ScriptContext.Error:Connect(onError)
+
+-- Game analytics
+local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
+GameAnalytics:initClient()
 
 -- Wait for metauniOS to distribute files.
 
-if not ReplicatedStorage:GetAttribute("metauniOSReady") then
+if not ReplicatedStorage:GetAttribute("metauniOSInstalled") then
 	
-	ReplicatedStorage:GetAttributeChangedSignal("metauniOSReady"):Wait()
+	ReplicatedStorage:GetAttributeChangedSignal("metauniOSInstalled"):Wait()
 end
 
 -- Require any ModuleScript in PlayerScripts or ReplicatedStorage that ends with "Controller"
@@ -18,7 +37,6 @@ for _, instance in ReplicatedStorage:GetDescendants() do
 
 		if typeof(controller) == "table" and controller.Init then
 			
-			print("Initalising "..instance.Name)
 			controller:Init()
 		end
 	end
@@ -34,7 +52,6 @@ for _, instance in ReplicatedStorage:GetDescendants() do
 
 		if typeof(controller) == "table" and controller.Start then
 			
-			print("Starting "..instance.Name)
 			controller:Start()
 		end
 	end

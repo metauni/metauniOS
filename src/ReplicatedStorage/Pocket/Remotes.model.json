@@ -1,0 +1,53 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "AddGhost",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Arrive",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Bookmark",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "CreatePocket",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "FirePortal",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Goto",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "ReturnToLastPocket",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "LinkPocket",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "UnlinkPortal",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "PocketsForPlayer",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "GetLaunchData",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "SetTeleportGui",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}

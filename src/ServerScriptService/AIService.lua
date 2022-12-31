@@ -11,12 +11,12 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local SecretService = require(ServerScriptService.SecretService)
 
-local Common = ReplicatedStorage:WaitForChild("metaboardCommon")
-local Figure = require(Common.Figure)
-local Sift = require(Common.Packages.Sift)
-local Config = require(Common.Config)
+-- local Common = ReplicatedStorage:WaitForChild("metaboardCommon")
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
+local Figure = metaboard.Figure
+local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
-local BoardService = require(Common.BoardService)
+-- local BoardService = require(Common.BoardService)
 
 local VISION_API_URL = "http://34.116.106.66:8080"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
@@ -138,12 +138,7 @@ function AIService.GPTPrompt(promptText, maxTokens, plr)
 	end
 end
 
-function AIService.ObjectLocalizationForBoard(boardInstance)
-    local board = BoardService.Boards[boardInstance]
-    if board == nil then
-        print("[AIService] Failed to fetch board data from BoardService")
-        return nil
-    end
+function AIService.ObjectLocalizationForBoard(board)
 
     local serialisedBoardData = serialiseBoard(board)
 	local json = HttpService:JSONEncode({RequestType = "ObjectLocalization", 
@@ -177,14 +172,9 @@ function AIService.ObjectLocalizationForBoard(boardInstance)
 	end
 end
 
-function AIService.OCRBoard(boardInstance)
-	local board = BoardService.Boards[boardInstance]
-    if board == nil then
-        print("[AIService] Failed to fetch board data from BoardService")
-        return nil
-    end
+function AIService.OCRBoard(board)
 
-    local serialisedBoardData = serialiseBoard(board)
+	local serialisedBoardData = serialiseBoard(board)
 	local json = HttpService:JSONEncode({RequestType = "OCR", 
 			Content = serialisedBoardData})
 	

@@ -10,13 +10,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
 local Players = game:GetService("Players")
 
-local orbCommon = ReplicatedStorage:WaitForChild("OrbCommon")
-
-local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
+local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 local AIService = require(script.Parent.AIService)
-local OrbService = require(ServerScriptService.orb.Orb)
+local OrbService = require(ServerScriptService.OrbService)
+local BoardService = require(ServerScriptService.BoardService)
 
-local AskQuestionRemoteEvent = orbCommon.Remotes.AskQuestion
+local AskQuestionRemoteEvent = ReplicatedStorage.Orb.Remotes.AskQuestion
 
 local function getInstancePosition(x)
 	if x:IsA("BasePart") then return x.Position end
@@ -116,9 +115,16 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
         -- targets
         if CollectionService:HasTag(poi, "metaboard") then
             if string.match(questionSubText, "board") then
-                local boardText = AIService.OCRBoard(poi)	
-                if boardText ~= nil then
-                    questionSubText = string.gsub(questionSubText, "board", "\"" .. boardText .. "\"")
+                
+                local board = BoardService.Boards[poi]
+                if board == nil then
+                    print("[AIChatService] Failed to fetch board data from BoardService")
+                else
+
+                    local boardText = AIService.OCRBoard(board)
+                    if boardText ~= nil then
+                        questionSubText = string.gsub(questionSubText, "board", "\"" .. boardText .. "\"")
+                    end
                 end
             end
 		else
@@ -210,20 +216,38 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
                     end
 
                     if string.match(questionSubText, "leftboard") then
-                        local boardText = AIService.OCRBoard(leftBoardInstance)	
-                        if boardText ~= nil then
-                            questionSubText = string.gsub(questionSubText, "leftboard", "\"" .. boardText .. "\"")
+
+                        local board = BoardService.Boards[leftBoardInstance]
+
+                        if board == nil then
+
+                            print("[AIChatService] Failed to fetch board data from BoardService")
                         else
-                            print("[AIChatService] Failed to OCR left board")
+
+                            local boardText = AIService.OCRBoard(board)	
+                            if boardText ~= nil then
+                                questionSubText = string.gsub(questionSubText, "leftboard", "\"" .. boardText .. "\"")
+                            else
+                                print("[AIChatService] Failed to OCR left board")
+                            end
                         end
                     end
 
                     if string.match(questionSubText, "rightboard") then
-                        local boardText = AIService.OCRBoard(rightBoardInstance)	
-                        if boardText ~= nil then
-                            questionSubText = string.gsub(questionSubText, "rightboard", "\"" .. boardText .. "\"")
+                        
+                        local board = BoardService.Boards[rightBoardInstance]
+
+                        if board == nil then
+
+                            print("[AIChatService] Failed to fetch board data from BoardService")
                         else
-                            print("[AIChatService] Failed to OCR right board")
+
+                            local boardText = AIService.OCRBoard(board)	
+                            if boardText ~= nil then
+                                questionSubText = string.gsub(questionSubText, "rightboard", "\"" .. boardText .. "\"")
+                            else
+                                print("[AIChatService] Failed to OCR right board")
+                            end
                         end
                     end
                 end
