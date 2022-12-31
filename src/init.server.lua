@@ -6,7 +6,8 @@ local ScriptContext = game:GetService("ScriptContext")
 local RunService = game:GetService("RunService")
 
 local versionValue = script:FindFirstChild("version")
-print("[metauniOS] Version: "..(versionValue and versionValue.Value or "dev"))
+local Version = (versionValue and versionValue.Value or "dev")
+print("[metauniOS] Version: "..Version)
 
 local function migrate(source, target)
 
@@ -27,23 +28,43 @@ migrate(script.StarterPlayerScripts, StarterPlayer.StarterPlayerScripts)
 --
 
 local SecretService = require(ServerScriptService.SecretService)
-
 local Raven = require(ServerScriptService.Raven)
-local client = Raven:Client(SecretService.SENTRY_DSN)
--- NOTE: This is what Sentry now calls the Deprecated DSN
 
-local function onError(message, trace, script)
+if not RunService:IsStudio() then
+
+	local client = Raven:Client(SecretService.SENTRY_DSN, {
+		release = Version,
+		tags = {
+			PlaceId = game.PlaceId,
+			PlaceVersion = game.PlaceVersion,
+		}
+	})
+	-- NOTE: This is what Sentry now calls the Deprecated DSN
+
+	task.delay(5, error, "Test Error")
+
+	ScriptContext.Error:Connect(function(message, trace, _script)
 	
-	if not RunService:IsStudio() then
 		client:SendException(Raven.ExceptionType.Server, message, trace)
-	end
+	end)
+	
+	client:ConnectRemoteEvent(ReplicatedStorage.RavenErrorLog)
+	
+	task.spawn(function()
+		
+		if game.PlaceId == 8165217582 then
+			
+			client.config.tags.PocketName = "The Rising Sea"
+		else
+			
+			client.config.tags.PocketName = ReplicatedStorage.Pocket:GetAttribute("PocketName")
+			ReplicatedStorage.Pocket:GetAttributeChangedSignal("PocketName"):Connect(function()
+				
+				client.config.tags.PocketName = ReplicatedStorage.Pocket:GetAttribute("PocketName")
+			end)
+		end
+	end)
 end
-ScriptContext.Error:Connect(onError)
-
-local RavenErrorLogRemoteEvent = Instance.new("RemoteEvent")
-RavenErrorLogRemoteEvent.Name = "RavenErrorLog"
-RavenErrorLogRemoteEvent.Parent = ReplicatedStorage
-client:ConnectRemoteEvent(RavenErrorLogRemoteEvent)
 
 --
 -- GameAnalytics
