@@ -9,11 +9,10 @@ local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
---local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 
-metauniServiceAddress = "http://34.116.106.66:8080"
+local metauniServiceAddress = "http://34.116.106.66:8080"
 
-function isPocket()
+local function isPocket()
 	return (game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0)
 end
 
@@ -23,7 +22,7 @@ NotificationService.__index = NotificationService
 function NotificationService.GetNumberOfSubscribers()
     local pocketId = ""
     if isPocket() then
-        pocketId = ServerScriptService.metaportal:GetAttribute("PocketId")
+        pocketId = ReplicatedStorage.Pocket:GetAttribute("PocketId")
     end
 	
 	local json = HttpService:JSONEncode({RequestType = "GetBoardNotificationSubscriberNumbers", 
