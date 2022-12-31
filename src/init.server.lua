@@ -32,6 +32,7 @@ local Raven = require(ServerScriptService.Raven)
 
 if not RunService:IsStudio() then
 
+	-- NOTE: This is what Sentry now calls the Deprecated DSN
 	local client = Raven:Client(SecretService.SENTRY_DSN, {
 		release = Version,
 		tags = {
@@ -39,9 +40,6 @@ if not RunService:IsStudio() then
 			PlaceVersion = game.PlaceVersion,
 		}
 	})
-	-- NOTE: This is what Sentry now calls the Deprecated DSN
-
-	task.delay(5, error, "Test Error")
 
 	ScriptContext.Error:Connect(function(message, trace, _script)
 	
