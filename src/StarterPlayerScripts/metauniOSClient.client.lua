@@ -2,13 +2,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ScriptContext = game:GetService("ScriptContext")
 
-ScriptContext.Error:Connect(function(message, trace, _script)
+if not RunService:IsStudio() then
 	
-	if not RunService:IsStudio() then
+	ScriptContext.Error:Connect(function(message, trace, _script)
 		
-    ReplicatedStorage.RavenErrorLog:FireServer(message, trace)
-	end
-end)
+		ReplicatedStorage.RavenErrorLog:FireServer(message, trace)
+	end)
+end
 
 -- Game analytics
 local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
