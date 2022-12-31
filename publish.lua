@@ -79,70 +79,68 @@ versionValue.Parent = build
 
 for placeName, placeId in pairs(placeIds) do
 
+	print(string.rep("-", 20))
 	print(placeName)
+	print(string.rep("-", 20))
 
-	-- print(string.rep("-", 20))
-	-- print(placeName)
-	-- print(string.rep("-", 20))
+	print("Downloading placeId "..placeId)
+	local game = remodel.readPlaceAsset(placeId)
 
-	-- print("Downloading placeId "..placeId)
-	-- local game = remodel.readPlaceAsset(placeId)
+	-- Remove existing metauniOS(s)
 
-	-- -- Remove existing metauniOS(s)
+	local existingVersions = {}
 
-	-- local existingVersions = {}
-
-	-- for _, child in ipairs(game.ServerScriptService:GetChildren()) do
+	for _, child in ipairs(game.ServerScriptService:GetChildren()) do
 		
-	-- 	if child.Name == "metauniOS" then
+		if child.Name == "metauniOS" then
 			
-	-- 		local oldVersion do
+			local oldVersion do
 				
-	-- 			local existingVersionValue = child:FindFirstChild("version")
-	-- 			if existingVersionValue then
+				local existingVersionValue = child:FindFirstChild("version")
+				if existingVersionValue then
 					
-	-- 				table.insert(existingVersions, remodel.getRawProperty(existingVersionValue, "Value"))
-	-- 			end
-	-- 		end
-	-- 		child.Parent = nil
-	-- 	end
-	-- end
+					table.insert(existingVersions, remodel.getRawProperty(existingVersionValue, "Value"))
+				end
+			end
+			child.Parent = nil
+		end
+	end
 
-	-- -- Replace with new metauniOS
+	-- Replace with new metauniOS
 
-	-- build.Parent = game.ServerScriptService
+	build.Parent = game.ServerScriptService
 
-	-- -- Remove duplicate version values 
+	-- Remove duplicate version values 
 
-	-- for _, child in ipairs(game.ServerScriptService:GetChildren()) do
+	for _, child in ipairs(game.ServerScriptService:GetChildren()) do
 		
-	-- 	if child.ClassName == "StringValue" and child.Name == "version" then
+		if child.ClassName == "StringValue" and child.Name == "version" then
 			
-	-- 		child.Parent = nil
-	-- 	end
-	-- end
+			child.Parent = nil
+		end
+	end
 
-	-- print("metauniOS: "..table.concat(existingVersions, ", ").." => "..hashVersion)
+	print("metauniOS: "..table.concat(existingVersions, ", ").." => "..hashVersion)
 
-	-- -- UTC timestamp that matches the format used in Version History
+	-- UTC timestamp that matches the format used in Version History
 
-	-- local timestamp = os.date("!%m/%d/%Y %I:%M:%S %p")
+	local timestamp = os.date("!%m/%d/%Y %I:%M:%S %p")
 
-	-- local updateLogScript = game:GetService("ServerStorage"):FindFirstChild("metauniOSUpdateLog")
-	-- if not updateLogScript or updateLogScript.ClassName ~= "ModuleScript" then
+	local updateLogScript = game:GetService("ServerStorage"):FindFirstChild("metauniOSUpdateLog")
+	if not updateLogScript or updateLogScript.ClassName ~= "ModuleScript" then
 
-	-- 	updateLogScript = Instance.new("ModuleScript")
-	-- 	updateLogScript.Name = "metauniOSUpdateLog"
-	-- 	updateLogScript.Parent = game:GetService("ServerStorage")
+		updateLogScript = Instance.new("ModuleScript")
+		updateLogScript.Name = "metauniOSUpdateLog"
+		updateLogScript.Parent = game:GetService("ServerStorage")
 
-	-- 	remodel.setRawProperty(updateLogScript, "Source", "String", "-- metauniOS Update Log\n")
-	-- end
+		remodel.setRawProperty(updateLogScript, "Source", "String", "-- metauniOS Update Log\n")
+	end
 
-	-- local existingLog = remodel.getRawProperty(updateLogScript, "Source")
+	local existingLog = remodel.getRawProperty(updateLogScript, "Source")
 
-	-- remodel.setRawProperty(updateLogScript, "Source", "String", existingLog.."-- "..hashVersion.." "..timestamp.."\n")
+	remodel.setRawProperty(updateLogScript, "Source", "String", existingLog.."-- "..hashVersion.." "..timestamp.."\n")
 
-	-- print("Publishing updated place to "..placeId, "(timestamp: "..timestamp..")")
-	-- remodel.writeExistingPlaceAsset(game, placeId)
-	-- print(("Version History: https://www.roblox.com/places/%s/update#"):format(placeId))
+	print("Publishing updated place to "..placeId, "(timestamp: "..timestamp..")")
+	remodel.writeExistingPlaceAsset(game, placeId)
+	print(("Version History: https://www.roblox.com/places/%s/update#"):format(placeId))
 end
