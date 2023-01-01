@@ -6,7 +6,9 @@
 
 -- Services
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VRService = game:GetService("VRService")
 
 -- Imports
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
@@ -23,12 +25,21 @@ function BoardController:Init()
 end
 
 function BoardController:Start()
+	
+	-- VR Chalk
+
+	if VRService.VREnabled then
+		task.spawn(function()
+			local chalk = script.Parent.Chalk:Clone()
+			chalk.Parent = Players.LocalPlayer:WaitForChild("Backpack")
+		end)
+	end
+
+	-- Local Canvases for boards
 
 	local viewStateManager = ViewStateManager.new()
-	
 	task.spawn(function()
 		while true do
-	
 			viewStateManager:UpdateWithAllActive(self.Boards)
 			task.wait(0.5)
 		end
