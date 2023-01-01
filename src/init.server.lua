@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ServerScriptService = game:GetService("ServerScriptService")
 local StarterGui = game:GetService("StarterGui")
 local StarterPlayer = game:GetService("StarterPlayer")
@@ -17,11 +18,14 @@ local function migrate(source, target)
 	end
 end
 
+migrate(script.ReplicatedFirst, ReplicatedFirst)
+migrate(script.StarterPlayerScripts, StarterPlayer.StarterPlayerScripts)
 migrate(script.ReplicatedStorage, ReplicatedStorage)
 script.Packages.Parent = ReplicatedStorage
 migrate(script.ServerScriptService, ServerScriptService)
 migrate(script.StarterGui, StarterGui)
-migrate(script.StarterPlayerScripts, StarterPlayer.StarterPlayerScripts)
+
+ReplicatedStorage:SetAttribute("metauniOSInstalled", true)
 
 --
 -- Error Logging
@@ -73,7 +77,6 @@ local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 --GameAnalytics:setEnabledVerboseLog(true)
 GameAnalytics:initServer(SecretService.GAMEANALYTICS_GAME_KEY, SecretService.GAMEANALYTICS_SECRET_KEY)
 
-ReplicatedStorage:SetAttribute("metauniOSInstalled", true)
 
 -- Initialise & Start Services
 
@@ -112,3 +115,6 @@ for _, container in {ServerScriptService, ReplicatedStorage} do
 		end
 	end
 end
+
+print(string.rep("#", 10))
+print("DONE STARTUP")
