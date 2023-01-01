@@ -1,6 +1,6 @@
 Packages
-*.rbxmx
-*.rbxm
-*.rbxlx
-*.rbxl
+/*.rbxmx
+/*.rbxm
+/*.rbxlx
+/*.rbxl
 wally.lock
