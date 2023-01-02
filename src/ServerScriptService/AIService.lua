@@ -97,14 +97,18 @@ function AIService.CleanGPTResponse(text, extraPrefixes)
 	return text
 end
 
-function AIService.GPTPrompt(promptText, maxTokens, plr)
+function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty)
+    temperature = temperature or 0
+    freqPenalty = freqPenalty or 0.0
+    presPenalty = presPenalty or 0.0
+
 	local request = { ["model"] = "text-davinci-003",
 		["prompt"] = promptText,
-		["temperature"] = 0,
+		["temperature"] = temperature,
 		["max_tokens"] = maxTokens,
 		["top_p"] = 1.0,
-		["frequency_penalty"] = 0.0,
-		["presence_penalty"] = 0.0}
+		["frequency_penalty"] = freqPenalty,
+		["presence_penalty"] = presPenalty}
 	
 	if plr ~= nil then
 		request["user"] = tostring(plr.UserId)
