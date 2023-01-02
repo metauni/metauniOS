@@ -8,6 +8,9 @@ local TweenService = game:GetService("TweenService")
 
 if VRService.VREnabled then return end
 
+-- Only show the loading screen in TRS
+if game.PlaceId ~= 8165217582 then return end
+
 local localPlayer = Players.LocalPlayer
 local playerGui = localPlayer:WaitForChild("PlayerGui")
 local teleportData = TeleportService:GetLocalPlayerTeleportData()
