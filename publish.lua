@@ -2,22 +2,33 @@ local placeIds = require "placeIds"
 
 local args = {...}
 
-if #args > 0 then
+local placeIdsToUpdate = {}
+
+if #args == 0 then
 	
-	local newPlaceIds = {}
+	print("No arguments provided. Specify \"all\" or list place names.")
+	print("Usage: remodel run publish.lua all")
+	print("  remodel run publish.lua all")
+	print("  remodel run publish.lua <place_name> ...")
+	return
+end
+
+if #args == 1 and args[1] == "all" then
+
+	placeIdsToUpdate = placeIds
+
+elseif #args > 1 then
 
 	for _, placeName in ipairs(args) do
 		
 		if placeIds[placeName] then
 			
-			newPlaceIds[placeName] = placeIds[placeName]
+			placeIdsToUpdate[placeName] = placeIds[placeName]
 		else
 
 			error(placeName.." not listed in placeIds")
 		end
 	end
-
-	placeIds = newPlaceIds
 end
 
 local function execute(command)
@@ -77,7 +88,7 @@ versionValue.Name = "version"
 remodel.setRawProperty(versionValue, "Value", "String", hashVersion)
 versionValue.Parent = build
 
-for placeName, placeId in pairs(placeIds) do
+for placeName, placeId in pairs(placeIdsToUpdate) do
 
 	print(string.rep("-", 20))
 	print(placeName)
