@@ -1,4 +1,3 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local placeIds = require "placeIds"
 
 local args = {...}
