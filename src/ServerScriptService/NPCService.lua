@@ -15,6 +15,7 @@ local TextService = game:GetService("TextService")
 
 local AIService = require(script.Parent.AIService)
 local SecretService = require(ServerScriptService.SecretService)
+local BoardService = require(script.Parent.BoardService)
 
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
@@ -88,7 +89,7 @@ NPCService.ActionType = {
 	Wave = 3,
 	Walk = 4,
 	Say = 5,
-	Plan = 6	
+	Plan = 6
 }
 
 function NPCService.Init()
@@ -99,6 +100,7 @@ function NPCService.Init()
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
     NPCService.HearingRadius = 15
+    NPCService.GetsDetailedObservationsRadius = 20
     NPCService.PromptPrefix = SecretService.NPCSERVICE_PROMPT
 
 	NPCService.thoughtsForNPC = {}
@@ -134,7 +136,6 @@ function NPCService.Init()
 end
 
 function NPCService.Start()
-    print("[NPCService] Starting")
     task.spawn(function()
         local stepCount = 0
         
@@ -161,6 +162,85 @@ function NPCService.Start()
             end
         end
     end)
+
+    -- Keep updated observations of boards in a way that NPCs can read them
+    -- In order to avoid frequently OCRing boards that are far away from any
+    -- NPC, we only OCR boards within NPCService.GetsDetailedObservationsRadius
+    -- of an agent
+
+    task.spawn(function()    
+        while task.wait(10) do
+            local npcs = CollectionService:GetTagged(NPCService.NPCTag)
+            local function distanceToNearestNPC(pos)
+                local distance = math.huge
+                for _, npc in npcs do
+                    if not npc:IsDescendantOf(game.Workspace) then continue end
+                    if npc.PrimaryPart == nil then continue end
+                    local d = (getInstancePosition(npc) - pos).Magnitude
+                    if d < distance then
+                        distance = d
+                    end
+                end
+
+                return distance
+            end
+
+            local function observationFolder(board)
+                local obPart = board:FindFirstChild("NPCObservationPart")
+                if obPart then return obPart.Observations end
+                
+                local boardPart = if board:IsA("Model") then board.PrimaryPart else board
+                
+                local obPart = Instance.new("Part")
+                obPart.Name = "NPCObservationPart"
+                obPart.CFrame = boardPart.CFrame + boardPart.CFrame.LookVector * 10
+                obPart.Color = Color3.new(0.3,0.2,0.7)
+                obPart.Transparency = 1
+                obPart.Size = Vector3.new(4, 5.25, 2)
+                obPart.CanCollide = false
+                obPart.CastShadow = false
+                obPart.Anchored = true
+                obPart.Parent = board
+
+                CollectionService:AddTag(obPart, NPCService.ObjectTag)
+                CollectionService:AddTag(obPart, "_hidden")
+
+                local obFolder = Instance.new("Folder")
+                obFolder.Name = "Observations"
+                obFolder.Parent = obPart
+
+                return obFolder
+            end
+
+            local boards = CollectionService:GetTagged("metaboard")
+            for _, boardInstance in boards do
+                if not boardInstance:IsDescendantOf(game.Workspace) then continue end
+                local distToNPC = distanceToNearestNPC(getInstancePosition(boardInstance))
+                if distToNPC > NPCService.GetsDetailedObservationsRadius then continue end
+
+                local board = BoardService.Boards[boardInstance]
+
+                local boardText = AIService.OCRBoard(board)
+                if boardText then
+                    boardText = cleanstring(boardText)
+                    boardText = string.gsub(boardText, "\n", " ")
+
+                    local obFolder = observationFolder(boardInstance)
+                    obFolder:ClearAllChildren()
+
+                    --print("OCR board ====")
+                    --print(boardText)
+                    --print("====")
+
+                    local stringValue = Instance.new("StringValue")
+                    stringValue.Value = "The board has written on it \"" .. boardText .."\""
+                    stringValue.Parent = obFolder
+                end
+            end
+        end
+    end)
+
+    print("[NPCService] Started")
 end
 
 function NPCService.RotateNPCToFacePosition(npc, targetPos)
@@ -265,7 +345,7 @@ function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
 
 	local responseText = AIService.GPTPrompt(prompt, 200, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
-		print("[NPCService] Got nil response from GPT3")
+		warn("[NPCService] Got nil response from GPT3")
 		return
 	end
 	
@@ -292,7 +372,7 @@ function NPCService.TimestepNPC(npc:instance)
 	
 	prompt = prompt .. middle .. "Action:"
 	
-	--print(prompt)
+	--if npc.Name == "Shoal" then print(prompt) end
 	
 	local temperature = 0.8
 	local freqPenalty = 1.0
@@ -300,14 +380,16 @@ function NPCService.TimestepNPC(npc:instance)
 	
 	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
-		print("[NPCService] Got nil response from GPT3")
+		warn("[NPCService] Got nil response from GPT3")
 		return
 	end
 	
 	responseText = "Action: " .. responseText
-	--print("=== response ===")
-	--print(responseText)
-	--print("==============")
+    if npc.Name == "Shoal" then
+        print("=== response ===")
+        print(responseText)
+        print("==============")
+    end
 	
 	local actions = {}
 	local thoughts = {}
@@ -339,25 +421,36 @@ function NPCService.TimestepNPC(npc:instance)
 		NPCService.AddThought(npc, thought)
 	end
 	
-	local hasSpoken = false -- Only only one speech act per timestep
+	local hasSpoken = false -- only one speech act per timestep
+    local hasMoved = false -- only one movement per timestep
 	
 	for _, action in actions do
 		-- Do not repeat recent actions (e.g. repeating lines of text)
 		if tableContains(NPCService.RecentActions(npc),action) then continue end
 		
-		local parsedAction = NPCService.ParseAction(action)
-		if parsedAction.Type == NPCService.ActionType.Unhandled then continue end
-		
-		if parsedAction.Type == NPCService.ActionType.Say then
-			if hasSpoken then
-				continue
-			else
-				hasSpoken = true
-			end
-		end
-		
-		NPCService.AddRecentAction(npc, action)
-		NPCService.TakeAction(npc, parsedAction)
+		local parsedActionsList = NPCService.ParseActions(action)
+        for _, parsedAction in parsedActionsList do
+            if parsedAction.Type == NPCService.ActionType.Unhandled then continue end
+            
+            if parsedAction.Type == NPCService.ActionType.Say then
+                if hasSpoken then
+                    continue
+                else
+                    hasSpoken = true
+                end
+            end
+
+            if parsedAction.Type == NPCService.ActionType.Move then
+                if hasMoved then
+                    continue
+                else
+                    hasMoved = true
+                end
+            end
+            
+            NPCService.AddRecentAction(npc, action)
+            NPCService.TakeAction(npc, parsedAction)
+        end
 	end
 end
 
@@ -400,6 +493,7 @@ function NPCService.ObserveForNPC(npc:instance)
 	-- Look at other NPCS
 	for _, x in CollectionService:GetTagged(NPCService.NPCTag) do
 		if x == npc then continue end
+        if not x:IsDescendantOf(game.Workspace) then return end
 		if getInstancePosition(x) == nil then continue end
 		
 		table.insert(potentialObservations, {Object = x, 
@@ -415,6 +509,9 @@ function NPCService.ObserveForNPC(npc:instance)
 											Description = "They are a person"})
 	end
 	
+    -- Look at boards
+    -- TODO
+
 	-- Look at objects
 	for _, x in CollectionService:GetTagged(NPCService.ObjectTag) do
 		if getInstancePosition(x) == nil then continue end
@@ -435,10 +532,10 @@ function NPCService.ObserveForNPC(npc:instance)
 	local observations = {}
 	
 	local NextToMeRadius = 15
-	local GetsDetailedObservationsRadius = 20
 	local NearbyRadius = 80
 	local WalkingDistanceRadius = 200
-	
+	local observedBoardPhrases = {}
+
 	for _, obj in potentialObservations do
 		local objPos = getInstancePosition(obj.Object)
 		local distance = (objPos - pos).Magnitude
@@ -447,19 +544,36 @@ function NPCService.ObserveForNPC(npc:instance)
 		if distance > WalkingDistanceRadius then continue end
 		
 		local phrase = ""
+        local boardPhrase = ""
 		
 		if distance < NextToMeRadius then
 			phrase = "is next to me"
+            boardPhrase = "There is a board next to me"
 		elseif distance < NearbyRadius then
 			phrase = "is nearby"
+            boardPhrase = "There are boards nearby"
 		elseif distance < WalkingDistanceRadius then
 			phrase = "is within walking distance"
+            boardPhrase = "There are boards within walking distance"
 		end
 		
-		local obText = obj.Name .. " " .. phrase .. ". " .. obj.Description .. "."
-		table.insert(observations, obText)
+		local phrase = obj.Name .. " " .. phrase .. ". " .. obj.Description .. "."
+
+        -- We have special sentences for boards (because there are lots of them)
+        local objectIsBoard = CollectionService:HasTag(obj.Object, "metaboard")
+
+        -- Objects tagged with _hidden contribute Observations from their
+        -- Observations folder, but NPCs do not hear about them directly
+        if not CollectionService:HasTag(obj.Object, "_hidden") then
+            if objectIsBoard and not tableContains(observedBoardPhrases, boardPhrase) then
+                table.insert(observations, boardPhrase)
+                table.insert(observedBoardPhrases, boardPhrase)
+            else
+		        table.insert(observations, phrase)
+            end
+        end
 		
-		if distance < GetsDetailedObservationsRadius then
+		if distance < NPCService.GetsDetailedObservationsRadius then
 			if obj.Observations ~= nil then
 				for _, objOb in obj.Observations do
 					table.insert(observations, objOb)
@@ -500,9 +614,10 @@ end
 function NPCService.GetEmptySpotNearPos(pos)
 	local npcs = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npc in npcs do
+        if not npc:IsDescendantOf(game.Workspace) then continue end
 		if npc.PrimaryPart == nil then continue end
-		if (getInstancePosition(npc) - pos).Magnitude < 3 then
-			return pos + Vector3.new(math.random(-2,2),0,math.random(-2,2))
+		if (getInstancePosition(npc) - pos).Magnitude < 4 then
+			return pos + Vector3.new(math.random(-4,4),0,math.random(-4,4))
 		end
 	end
 	
@@ -548,35 +663,143 @@ end
 -- Join starsonthars and the others in the star dance by saying "/e dances"
 -- Point to the knot and say, "See that? It’s really interesting. Do you know any stories related to it?"
 -- Respond to starsonthars with “Yes, it's near the knot. Let's go explore together!”
+-- Ask the board writer, "Could you please explain a bit more about Euclid's Elements? I would really appreciate it!"
+-- Examine the boards closely and say "There's text written on them. It looks like it contains information about seminars, university services, infrastructure, personal journeys, classes and replays."
+-- Point to the boards and say "This is where we're headed!"
 
-function NPCService.ParseAction(actionText:string)
-	local actionDict = {}
-	local prefixes
-	local regexes
-	
+function NPCService.ParseActions(actionText:string)
 	-- actionDict.Type
 	-- actionDict.Target
 	-- actionDict.Content
-	
-	prefixes = {"Dance"}
-	for _, p in prefixes do
+
+    -- Walk to starsonthars and say "Hi, I'm Shoal. Do you like talking about math and science?"
+    local walkSayRegexes = {"^Walk to ([^, ]+) .+\"(.+)\"", "^Go to ([^, ]+) .+\"(.+)\"", "^Follow ([^, ]+) .+\"(.+)\""}
+    for _, r in walkSayRegexes do
+		local dest, message = string.match(actionText, r)
+		if dest ~= nil and message ~= nil then
+            local actionList = {}
+
+            local sayActionDict = {}
+            local walkActionDict = {}
+
+			sayActionDict.Type = NPCService.ActionType.Say
+            sayActionDict.Content = message
+            table.insert(actionList, sayActionDict)
+
+			local destInstance = NPCService.InstanceByName(dest)
+            if destInstance ~= nil then
+                walkActionDict.Type = NPCService.ActionType.Walk
+				walkActionDict.Target = destInstance
+                table.insert(actionList, walkActionDict)
+			end
+
+			return actionList
+		end
+	end
+
+    local waveSayRegexes = {"^Wave to ([^, ]+) .+\"(.+)\"", "^Go to ([^, ]+) .+\"(.+)\"", "^Follow ([^, ]+) .+\"(.+)\""}
+    for _, r in waveSayRegexes do
+		local dest, message = string.match(actionText, r)
+		if dest ~= nil and message ~= nil then
+            local actionList = {}
+
+            local targetInstance = NPCService.InstanceByName(target)
+            if targetInstance ~= nil then
+                local waveActionDict = {}
+			    waveActionDict.Type = NPCService.ActionType.Wave
+			    waveActionDict.Target = targetInstance
+                table.insert(actionList, waveActionDict)
+            end
+
+            local sayActionDict = {}
+            sayActionDict.Type = NPCService.ActionType.Say
+            sayActionDict.Content = message
+            table.insert(actionList, sayActionDict)
+
+			return actionList
+        end
+    end
+
+	local dancePrefixes = {"Dance"}
+	for _, p in dancePrefixes do
 		if string.match(actionText, "^" .. p) then
+            local actionDict = {}
 			actionDict.Type = NPCService.ActionType.Dance
-			return actionDict
+			return {actionDict}
 		end
 	end
 
-	prefixes = {"Laugh"}
-	for _, p in prefixes do
+	local laughPrefixes = {"Laugh"}
+	for _, p in laughPrefixes do
 		if string.match(actionText, "^" .. p) then
+            local actionDict = {}
 			actionDict.Type = NPCService.ActionType.Laugh
-			return actionDict
+			return {actionDict}
 		end
 	end
-
-	prefixes = {"Wave at", "Wave to", "Wave", "Greet", "Shake hands", "Smile"}
-	for _, p in prefixes do
+	
+	for _, obj in CollectionService:GetTagged(NPCService.ObjectTag) do
+		local name = obj.Name
+		local regexes = {"^Walk to the " .. name,"^Walk to " .. name,
+			"^Walk .+ to the " .. name, "^Walk .+ to " .. name,
+			"^Lead .+ to the " .. name, "^Lead .+ to " .. name,
+			"^Start walking .+ to the " .. name, "^Start walking .+ to " .. name,
+            "^Begin walking .+ to the " .. name, "^Begin walking .+ to " .. name,
+			"^Follow .+ to the " .. name,"^Follow .+ to " .. name,
+			"^Go to the " .. name,"^Go to " .. name,
+			"^Start walking towards the " .. name,"^Start walking towards " .. name,
+            "^Show .+ inside " .. name, "^Show .+ inside the " .. name}
+		for _, r in regexes do
+			local dest = string.match(actionText, r)
+			if dest then
+                local actionDict = {}
+				actionDict.Type = NPCService.ActionType.Walk
+				actionDict.Target = obj
+				return {actionDict}
+			end
+		end
+	end
+	
+	-- Walk to Apple Tree unhandled
+    local walkRegexes = {"^Walk to the ([^, ]+)","^Walk to ([^, ]+)",
+    "^Walk .+ to the ([^, ]+)", "^Walk .+ to ([^, ]+)",
+    "^Lead .+ to the ([^, ]+)", "^Lead .+ to ([^, ]+)",
+    "^Start walking .+ to the ([^, ]+)", "^Start walking .+ to ([^, ]+)",
+    "^Follow .+ to the ([^, ]+)","^Follow .+ to ([^, ]+)",
+    "^Follow .+ to go and see the ([^, ]+)","^Follow .+ to go and see ([^, ]+)",
+    "^Follow ([^, ]+)", -- important that this comes after more specific queries
+    "^Go to the ([^, ]+)","^Go to ([^, ]+)",
+    "^Start walking towards the ([^, ]+)","^Start walking towards ([^, ]+)"}
+	for _, r in walkRegexes do
+		local dest = string.match(actionText, r)
+		if dest then
+            local destInstance = NPCService.InstanceByName(dest)
+            if destInstance ~= nil then
+                local actionDict = {}
+			    actionDict.Type = NPCService.ActionType.Walk
+				actionDict.Target = destInstance
+                return {actionDict}
+			end
+		end
+	end
+	
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer"}
+	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
+			local message = string.match(actionText, p .. ".+\"(.+)\"")
+			if message ~= nil then
+                local actionDict = {}
+				actionDict.Type = NPCService.ActionType.Say
+				actionDict.Content = message
+				return {actionDict}
+			end
+		end
+	end
+	
+    local wavePrefixes = {"Wave at", "Wave to", "Wave", "Greet", "Shake hands", "Smile"}
+	for _, p in wavePrefixes do
+		if string.match(actionText, "^" .. p) then
+            local actionDict = {}
 			actionDict.Type = NPCService.ActionType.Wave
 			
 			local target = string.match(actionText, p .. " ([^, ]+)")
@@ -587,77 +810,23 @@ function NPCService.ParseAction(actionText:string)
                 end
             end
 
-			return actionDict
+			return {actionDict}
 		end
 	end
-	
-	for _, obj in CollectionService:GetTagged(NPCService.ObjectTag) do
-		local name = obj.Name
-		regexes = {"^Walk to the " .. name,"^Walk to " .. name,
-			"^Walk .+ to the " .. name, "^Walk .+ to " .. name,
-			"^Lead .+ to the " .. name, "^Lead .+ to " .. name,
-			"^Start walking .+ to the " .. name, "^Start walking .+ to " .. name,
-			"^Follow .+ to the " .. name,"^Follow .+ to " .. name,
-			"^Go to the " .. name,"^Go to " .. name,
-			"^Start walking towards the " .. name,"^Start walking towards " .. name}
-		for _, r in regexes do
-			local dest = string.match(actionText, r)
-			if dest then
-				actionDict.Type = NPCService.ActionType.Walk
-				actionDict.Target = obj
-				return actionDict
-			end
-		end
-	end
-	
-	-- Walk to Apple Tree unhandled
-	-- Follow starsonthars to go and see the knot.
-	regexes = {"^Walk to the ([^, ]+)","^Walk to ([^, ]+)",
-		"^Walk .+ to the ([^, ]+)", "^Walk .+ to ([^, ]+)",
-		"^Lead .+ to the ([^, ]+)", "^Lead .+ to ([^, ]+)",
-		"^Start walking .+ to the ([^, ]+)", "^Start walking .+ to ([^, ]+)",
-		"^Follow .+ to the ([^, ]+)","^Follow .+ to ([^, ]+)",
-		"^Follow .+ to go and see the ([^, ]+)","^Follow .+ to go and see ([^, ]+)",
-		"^Follow ([^, ]+)", -- important that this comes after more specific queries
-		"^Go to the ([^, ]+)","^Go to ([^, ]+)",
-		"^Start walking towards the ([^, ]+)","^Start walking towards ([^, ]+)"}
-	for _, r in regexes do
-		local dest = string.match(actionText, r)
-		if dest then
-			actionDict.Type = NPCService.ActionType.Walk
-			local destInstance = NPCService.InstanceByName(dest)
 
-			if destInstance ~= nil then
-				actionDict.Target = destInstance
-			end
-
-			return actionDict
-		end
-	end
-	
-	prefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite"}
-	for _, p in prefixes do
+	-- Unhandled speech actions that "look like" speech become thoughts
+	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
-			local message = string.match(actionText, p .. ".+\"(.+)\"")
-			if message ~= nil then
-				actionDict.Type = NPCService.ActionType.Say
-				actionDict.Content = message
-				return actionDict
-			end
-		end
-	end
-	
-	-- Unhandled actions that "look like" speech become thoughts
-	for _, p in prefixes do
-		if string.match(actionText, "^" .. p) then
+            local actionDict = {}
 			actionDict.Type = NPCService.ActionType.Plan
 			actionDict.Content = actionText
-			return actionDict
+			return {actionDict}
 		end
 	end
 	
+    local actionDict = {}
 	actionDict.Type = NPCService.ActionType.Unhandled
-	return actionDict
+	return {actionDict}
 end
 
 function NPCService.WalkNPCToPos(npc, targetPos)
@@ -804,7 +973,7 @@ function NPCService.TakeAction(npc:instance, parsedAction)
 		return -- don't let the agent think this has already been finished
 	end
 	
-	print("[NPCService] Unhandled parsed action")
+	warn("[NPCService] Unhandled parsed action")
 end
 
 return NPCService

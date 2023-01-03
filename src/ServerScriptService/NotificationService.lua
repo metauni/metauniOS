@@ -201,6 +201,10 @@ function NotificationService.BoardsToNotify(delay)
 	return boardsDelta
 end
 
+function NotificationService.BoardModificationTimes()
+    return NotificationService.BoardsModified
+end
+
 function NotificationService.Init()
     NotificationService.BoardsModified = {} -- Maps persistIds (as strings) to times
 
@@ -213,49 +217,48 @@ function NotificationService.Init()
     end)
 
     task.delay(10, function()
+		local boards = CollectionService:GetTagged("metaboard")
+		for _, board in boards do
+            if board:FindFirstChild("PersistId") == nil then continue end
+            if not board:IsDescendantOf(game.Workspace) then continue end
+            
+            if not board:GetAttribute("BoardServerInitialised") then
+                board:GetAttributeChangedSignal("BoardServerInitialised"):Wait()
+            end
+                    
+            board:WaitForChild("metaboardRemotes")
+            local boardKey = tostring(board.PersistId.Value)
+                    
+            local events = {"FinishDrawingTask", "Undo", "Redo", "Clear"}
+            for _, e in events do
+                local remoteEvent = board.metaboardRemotes:FindFirstChild(e)
+                if remoteEvent == nil then
+                    print("[NotificationService] Failed to get event for board")
+                    continue
+                end
+                
+                remoteEvent.OnServerEvent:Connect(function(plr)
+                    NotificationService.BoardsModified[boardKey] = tick()
+                end)	
+            end
+		end
 			
-			local boards = CollectionService:GetTagged("metaboard")
-			for _, board in boards do
-        if board:FindFirstChild("PersistId") == nil then continue end
-        if not board:IsDescendantOf(game.Workspace) then continue end
-        
-        if not board:GetAttribute("BoardServerInitialised") then
-					board:GetAttributeChangedSignal("BoardServerInitialised"):Wait()
-        end
-				
-        board:WaitForChild("metaboardRemotes")
-        local boardKey = tostring(board.PersistId.Value)
-				
-        local events = {"FinishDrawingTask", "Undo", "Redo", "Clear"}
-        for _, e in events do
-					local remoteEvent = board.metaboardRemotes:FindFirstChild(e)
-					if remoteEvent == nil then
-						print("[NotificationService] Failed to get event for board")
-						continue
-					end
-					
-					remoteEvent.OnServerEvent:Connect(function(plr)
-						NotificationService.BoardsModified[boardKey] = tick()
-					end)	
-        end
-			end
+		NotificationService.UpdateBoardSubscriberDisplays()
 			
-			NotificationService.UpdateBoardSubscriberDisplays()
-			
-			local WAIT_TIME = 60
-			task.spawn(function()
-        while task.wait(WAIT_TIME) do
-					-- Send notifications to the server about board changes
-					local boardsDelta = NotificationService.BoardsToNotify(60)
-					
-					if #boardsDelta > 0 then
-						NotificationService.SendNotification(boardsDelta)
-					end
-					
-					NotificationService.UpdateBoardSubscriberDisplays()
-        end
-			end)
+		local WAIT_TIME = 60
+		task.spawn(function()
+            while task.wait(WAIT_TIME) do
+                -- Send notifications to the server about board changes
+                local boardsDelta = NotificationService.BoardsToNotify(60)
+                
+                if #boardsDelta > 0 then
+                    NotificationService.SendNotification(boardsDelta)
+                end
+                
+                NotificationService.UpdateBoardSubscriberDisplays()
+            end
 		end)
+	end)
 end
 
 return NotificationService

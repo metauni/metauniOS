@@ -11,24 +11,16 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local SecretService = require(ServerScriptService.SecretService)
 
--- local Common = ReplicatedStorage:WaitForChild("metaboardCommon")
-local metaboard = require(ReplicatedStorage.Packages.metaboard)
-local Figure = metaboard.Figure
+local Figure = require(ReplicatedStorage.Packages._Index['blinkybool_testpackage@0.1.1-rc5'].testpackage.Figure)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
--- local BoardService = require(Common.BoardService)
 
 local VISION_API_URL = "http://34.116.106.66:8080"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
 
 local function serialiseBoard(board)
-	local clearCount = board.ClearCount
-	local nextFigureZIndex = board.NextFigureZIndex
-	local aspectRatio = board:AspectRatio()
-
-	-- Commit all of the drawing task changes (like masks) to the figures
+    -- Commit all of the drawing task changes (like masks) to the figures
 	local figures = board:CommitAllDrawingTasks()
-
 	local removals = {}
 
 	-- Remove the figures that have been completely erased
@@ -39,12 +31,13 @@ local function serialiseBoard(board)
 	end
 
 	figures = Dictionary.merge(figures, removals)
-
-	-- Serialise and encode every figureId-figure pair as a length 2 json array
-	local chunks = {}
 	local lines = {}
 
 	for figureId, figure in pairs(figures) do
+        if figure.Type == "Curve" and figure.Color == nil then
+            figure.Color = Color3.new(1,1,1)
+        end
+        
 		local serialisedFigure = Figure.Serialise(figure)
 		table.insert(lines, { figureId, serialisedFigure })
 	end
