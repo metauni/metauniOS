@@ -10,7 +10,7 @@ local NPCService = {
 local function SetupNPCChatBubbles()
     local bubbleChatSettings = {}
     bubbleChatSettings.UserSpecificSettings = {}
-    chatSettings = {}
+    local chatSettings = {}
 
     chatSettings['Youtwice'] = {
         CornerRadius = UDim.new(0, 3),

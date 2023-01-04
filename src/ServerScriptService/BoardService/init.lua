@@ -20,14 +20,12 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 -- Helper Functions
 local indicateInvalidBoard = require(script.indicateInvalidBoard)
 
-local BoardService = {}
-BoardService.__index = BoardService
+local BoardService = {
 
-function BoardService:Init()
-	
-	self.Boards = {}
-	self.ChangedSinceStore = {}
-end
+	Boards = {},
+	ChangedSinceStore = {}
+}
+BoardService.__index = BoardService
 
 function BoardService:Start()
 	
