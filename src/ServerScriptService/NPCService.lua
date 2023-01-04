@@ -191,12 +191,14 @@ function NPCService.Start()
                 
                 local boardPart = if board:IsA("Model") then board.PrimaryPart else board
                 
+                -- TODO these can obscure clicking on boards
                 local obPart = Instance.new("Part")
                 obPart.Name = "NPCObservationPart"
                 obPart.CFrame = boardPart.CFrame + boardPart.CFrame.LookVector * 10
+                obPart.Position += Vector3.new(0,-boardPart.Size.Y/2 + 1,0)
                 obPart.Color = Color3.new(0.3,0.2,0.7)
                 obPart.Transparency = 1
-                obPart.Size = Vector3.new(4, 5.25, 2)
+                obPart.Size = Vector3.new(4, 1, 2)
                 obPart.CanCollide = false
                 obPart.CastShadow = false
                 obPart.Anchored = true
@@ -587,18 +589,24 @@ end
 
 function NPCService.InstanceByName(name)
 	for _, npc in CollectionService:GetTagged(NPCService.NPCTag) do
+        if not npc:IsDescendantOf(game.Workspace) then return end
+
 		if string.lower(npc.Name) == string.lower(name) then
 			return npc
 		end	
 	end
 
 	for _, plr in Players:GetPlayers() do
+        if plr.Character == nil or plr.Character.PrimaryPart == nil then continue end
+
 		if string.lower(plr.DisplayName) == string.lower(name) then
 			return plr.Character
 		end
 	end
 	
 	for _, x in CollectionService:GetTagged(NPCService.ObjectTag) do
+        if not x:IsDescendantOf(game.Workspace) then return end
+
 		if string.lower(x.Name) == string.lower(name) then
 			return x
 		end
@@ -668,12 +676,15 @@ end
 -- Point to the boards and say "This is where we're headed!"
 
 function NPCService.ParseActions(actionText:string)
-	-- actionDict.Type
-	-- actionDict.Target
-	-- actionDict.Content
-
-    -- Walk to starsonthars and say "Hi, I'm Shoal. Do you like talking about math and science?"
-    local walkSayRegexes = {"^Walk to ([^, ]+) .+\"(.+)\"", "^Go to ([^, ]+) .+\"(.+)\"", "^Follow ([^, ]+) .+\"(.+)\""}
+	
+    -- Walk and Say
+    -- Example: Walk to starsonthars and say "Hi, I'm Shoal. Do you like talking about math and science?"
+    local walkSayPrefixes = {"Walk to", "Go to", "Follow"}
+    local walkSayRegexes = {}
+    for _, p in walkSayPrefixes do
+        table.insert(walkSayRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
+    end
+    
     for _, r in walkSayRegexes do
 		local dest, message = string.match(actionText, r)
 		if dest ~= nil and message ~= nil then
@@ -697,10 +708,17 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-    local waveSayRegexes = {"^Wave to ([^, ]+) .+\"(.+)\"", "^Go to ([^, ]+) .+\"(.+)\"", "^Follow ([^, ]+) .+\"(.+)\""}
+    -- Wave and Say
+    -- Example: Wave and say to Youtwice "See you soon!"
+    local waveSayPrefixes = {"Wave to", "Go to", "Follow", "Wave and say to"}
+    local waveSayRegexes = {}
+    for _, p in waveSayPrefixes do
+        table.insert(waveSayRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
+    end
+
     for _, r in waveSayRegexes do
-		local dest, message = string.match(actionText, r)
-		if dest ~= nil and message ~= nil then
+		local target, message = string.match(actionText, r)
+		if target ~= nil and message ~= nil then
             local actionList = {}
 
             local targetInstance = NPCService.InstanceByName(target)
@@ -729,6 +747,25 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
+    local laughSayRegexes = {"^Laugh .+ \"(.+)\""}
+    for _, r in laughSayRegexes do
+		local message = string.match(actionText, r)
+		if message ~= nil then
+            local actionList = {}
+
+            local laughActionDict = {}
+			laughActionDict.Type = NPCService.ActionType.Laugh
+			table.insert(actionList, laughActionDict)
+
+            local sayActionDict = {}
+            sayActionDict.Type = NPCService.ActionType.Say
+            sayActionDict.Content = message
+            table.insert(actionList, sayActionDict)
+
+			return actionList
+        end
+    end
+
 	local laughPrefixes = {"Laugh"}
 	for _, p in laughPrefixes do
 		if string.match(actionText, "^" .. p) then
@@ -738,6 +775,9 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 	
+    -- This handles objects that have compound names (with spaces)
+    -- that are awkward to handle using regexes, but will not catch
+    -- for example players or NPCs
 	for _, obj in CollectionService:GetTagged(NPCService.ObjectTag) do
 		local name = obj.Name
 		local regexes = {"^Walk to the " .. name,"^Walk to " .. name,
@@ -747,6 +787,7 @@ function NPCService.ParseActions(actionText:string)
             "^Begin walking .+ to the " .. name, "^Begin walking .+ to " .. name,
 			"^Follow .+ to the " .. name,"^Follow .+ to " .. name,
 			"^Go to the " .. name,"^Go to " .. name,
+            "^Check out .+ the " .. name,"^Check out .+ " .. name,
 			"^Start walking towards the " .. name,"^Start walking towards " .. name,
             "^Show .+ inside " .. name, "^Show .+ inside the " .. name}
 		for _, r in regexes do
@@ -760,7 +801,6 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 	
-	-- Walk to Apple Tree unhandled
     local walkRegexes = {"^Walk to the ([^, ]+)","^Walk to ([^, ]+)",
     "^Walk .+ to the ([^, ]+)", "^Walk .+ to ([^, ]+)",
     "^Lead .+ to the ([^, ]+)", "^Lead .+ to ([^, ]+)",
@@ -772,7 +812,7 @@ function NPCService.ParseActions(actionText:string)
     "^Start walking towards the ([^, ]+)","^Start walking towards ([^, ]+)"}
 	for _, r in walkRegexes do
 		local dest = string.match(actionText, r)
-		if dest then
+		if dest ~= nil then
             local destInstance = NPCService.InstanceByName(dest)
             if destInstance ~= nil then
                 local actionDict = {}
@@ -783,10 +823,33 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 	
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer"}
+    -- Say to
+    -- Example: Say to Youtwice "I was curious about this Redwood tree"
+    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to"}
+    local sayToRegexes = {}
+    for _, p in sayToPrefixes do
+        table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
+    end
+    
+    for _, r in sayToRegexes do
+		local target, message = string.match(actionText, r)
+		if target ~= nil and message ~= nil then
+            local sayActionDict = {}
+            local targetInstance = NPCService.InstanceByName(target)
+            if targetInstance ~= nil then
+                sayActionDict.Target = targetInstance
+			end
+            
+			sayActionDict.Type = NPCService.ActionType.Say
+            sayActionDict.Content = message
+            return {sayActionDict}
+		end
+	end
+
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
-			local message = string.match(actionText, p .. ".+\"(.+)\"")
+			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
 			if message ~= nil then
                 local actionDict = {}
 				actionDict.Type = NPCService.ActionType.Say
@@ -802,7 +865,7 @@ function NPCService.ParseActions(actionText:string)
             local actionDict = {}
 			actionDict.Type = NPCService.ActionType.Wave
 			
-			local target = string.match(actionText, p .. " ([^, ]+)")
+			local target = string.match(actionText, "^" .. p .. " ([^, ]+)")
             if target ~= nil then
                 local targetInstance = NPCService.InstanceByName(target)
                 if targetInstance ~= nil then
@@ -910,6 +973,12 @@ function NPCService.TakeAction(npc:instance, parsedAction)
 	end
 	
 	if parsedAction.Type == NPCService.ActionType.Laugh then
+        local target = parsedAction.Target
+		if target ~= nil then
+			local targetPos = getInstancePosition(target)
+			NPCService.RotateNPCToFacePosition(npc, targetPos)
+		end
+
 		local animationTrack = NPCService.animationsForNPC[npc].LaughAnim
 		animationTrack:Play()
 
@@ -947,6 +1016,12 @@ function NPCService.TakeAction(npc:instance, parsedAction)
 	end
 	
 	if parsedAction.Type == NPCService.ActionType.Say then
+        local target = parsedAction.Target
+		if target ~= nil then
+			local targetPos = getInstancePosition(target)
+			NPCService.RotateNPCToFacePosition(npc, targetPos)
+		end
+
 		local message = parsedAction.Content
 		
 		local playerList = Players:GetPlayers()
