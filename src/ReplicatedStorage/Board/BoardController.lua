@@ -30,7 +30,7 @@ function BoardController:Start()
 
 	if VRService.VREnabled then
 		task.spawn(function()
-			local chalk = script.Parent.Chalk:Clone()
+			local chalk = ReplicatedStorage.Chalk:Clone()
 			chalk.Parent = Players.LocalPlayer:WaitForChild("Backpack")
 		end)
 	end
