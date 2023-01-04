@@ -185,20 +185,26 @@ function AIService.OCRBoard(board)
 
 	if success then
 		if response == nil then
-			print("[AIService] Got a bad response from OCR PostAsync")
+			warn("[AIService] Got a bad response from OCR PostAsync")
 			return nil
 		end
 
-		local responseData = HttpService:JSONDecode(response)
-		if responseData == nil then
-			print("[AIService] OCR JSONDecode on response failed")
-			return nil
-		end
+        local inner_success, responseData = pcall(function()
+            return HttpService:JSONDecode(response)
+        end)
+		if inner_success then
+            if responseData == nil then
+                print("[AIService] OCR JSONDecode on response failed")
+                return nil
+            end
 
-		local responseText = responseData["text"]
-		return responseText
+            local responseText = responseData["text"]
+            return responseText
+        else
+            warn("[AIService] Failed to parse OCR JSON: " .. responseData)
+        end
 	else
-		print("[AIService] OCR HTTPService PostAsync failed ".. response)
+		warn("[AIService] OCR HTTPService PostAsync failed ".. response)
 		return nil
 	end
 end

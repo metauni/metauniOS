@@ -124,6 +124,8 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
                     local boardText = AIService.OCRBoard(board)
                     if boardText ~= nil then
                         questionSubText = string.gsub(questionSubText, "board", "\"" .. boardText .. "\"")
+                    else
+                        warn("[AIChatService] Got nil OCRBoard data")
                     end
                 end
             end
@@ -228,7 +230,7 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
                             if boardText ~= nil then
                                 questionSubText = string.gsub(questionSubText, "leftboard", "\"" .. boardText .. "\"")
                             else
-                                print("[AIChatService] Failed to OCR left board")
+                                warn("[AIChatService] Failed to OCR left board")
                             end
                         end
                     end
@@ -239,14 +241,14 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
 
                         if board == nil then
 
-                            print("[AIChatService] Failed to fetch board data from BoardService")
+                            warn("[AIChatService] Failed to fetch board data from BoardService")
                         else
 
                             local boardText = AIService.OCRBoard(board)	
                             if boardText ~= nil then
                                 questionSubText = string.gsub(questionSubText, "rightboard", "\"" .. boardText .. "\"")
                             else
-                                print("[AIChatService] Failed to OCR right board")
+                                warn("[AIChatService] Failed to OCR right board")
                             end
                         end
                     end
