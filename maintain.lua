@@ -1,5 +1,7 @@
 local placeIds = require "placeIds"
 
+print("START")
+
 local args = {...}
 
 local placeIdsToUpdate = {}
@@ -17,7 +19,7 @@ if #args == 1 and args[1] == "all" then
 
 	placeIdsToUpdate = placeIds
 
-elseif #args > 1 then
+elseif #args >= 1 then
 
 	for _, placeName in ipairs(args) do
 		
@@ -51,9 +53,51 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 			end
 		end
 	end
+	
+	local function writeFromModelFile(container, filename)
+		
+		local model = remodel.readModelFile(filename)[1]
 
-	-- REMOVALS GO HERE
-	removeAll(game.ServerScriptService, "astrotube")
+		model.Parent = container
+		print(("Added %s.%s"):format(container.Name, model.Name))
+	end
+
+	-- UPDATES GO HERE
+
+	local removals = {
+
+		[game.ReplicatedStorage] = {
+			"GiveVRChalk",
+			"MetaChalk",
+			"MetaAdmin",
+		},
+	
+		[game.ServerScriptService] = {
+			"metaportal",
+			"orb",
+			"ManageVRChalk",
+			"metaboard",
+		},
+	
+		[game.StarterPlayer.StarterPlayerScripts] = {
+			"ManageVRChalk",
+		},
+
+		[game.Chat] = {
+			"ChatModules",
+		},
+	}
+
+	for container, names in pairs(removals) do
+		
+		for _, name in ipairs(names) do
+			
+			removeAll(container, name)
+		end
+	end
+
+	writeFromModelFile(game.ReplicatedStorage, "Chalk.rbxmx")
+	writeFromModelFile(game.Chat, "ChatModules.rbxmx")
 
 	-- UTC timestamp that matches the format used in Version History
 

@@ -11,7 +11,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local SecretService = require(ServerScriptService.SecretService)
 
-local Figure = require(ReplicatedStorage.Packages._Index['blinkybool_testpackage@0.1.1-rc5'].testpackage.Figure)
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
+local Figure = metaboard.Figure
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 

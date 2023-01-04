@@ -1,2 +1,2 @@
 std = "roblox+remodel"
-exclude = ["publish.lua", "removeLegacy.lua"]
+exclude = ["publish.lua", "maintain.lua"]

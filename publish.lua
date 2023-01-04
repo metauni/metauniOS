@@ -17,7 +17,7 @@ if #args == 1 and args[1] == "all" then
 
 	placeIdsToUpdate = placeIds
 
-elseif #args > 1 then
+elseif #args >= 1 then
 
 	for _, placeName in ipairs(args) do
 		
