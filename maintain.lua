@@ -70,6 +70,7 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 			"GiveVRChalk",
 			"MetaChalk",
 			"MetaAdmin",
+			"Chalk",
 		},
 	
 		[game.ServerScriptService] = {
@@ -101,9 +102,22 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 
 	-- UTC timestamp that matches the format used in Version History
 
-	local timestamp = os.date("!%m/%d/%Y %I:%M:%S %p")
+	while true do
 
-	print("Publishing updated place to "..placeId, "(timestamp: "..timestamp..")")
-	remodel.writeExistingPlaceAsset(game, placeId)
-	print(("Version History: https://www.roblox.com/places/%s/update#"):format(placeId))
+		local timestamp = os.date("!%m/%d/%Y %I:%M:%S %p")
+
+		print("Publishing updated place to "..placeId, "(timestamp: "..timestamp..")")
+		local success, result = pcall(remodel.writeExistingPlaceAsset, game, placeId)
+		
+		if success then
+			
+			print(("Version History: https://www.roblox.com/places/%s/update#"):format(placeId))
+			break
+		else
+			
+			print("Publish failed:", result)
+			print("Retrying (in 5 seconds)...")
+			os.execute("sleep " .. tostring(5))
+		end
+	end
 end

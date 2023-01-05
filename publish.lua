@@ -135,23 +135,36 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 
 	-- UTC timestamp that matches the format used in Version History
 
-	local timestamp = os.date("!%m/%d/%Y %I:%M:%S %p")
-
-	local updateLogScript = game:GetService("ServerStorage"):FindFirstChild("metauniOSUpdateLog")
-	if not updateLogScript or updateLogScript.ClassName ~= "ModuleScript" then
-
-		updateLogScript = Instance.new("ModuleScript")
-		updateLogScript.Name = "metauniOSUpdateLog"
-		updateLogScript.Parent = game:GetService("ServerStorage")
-
-		remodel.setRawProperty(updateLogScript, "Source", "String", "-- metauniOS Update Log\n")
+	while true do
+		
+		local timestamp = os.date("!%m/%d/%Y %I:%M:%S %p")
+	
+		local updateLogScript = game:GetService("ServerStorage"):FindFirstChild("metauniOSUpdateLog")
+		if not updateLogScript or updateLogScript.ClassName ~= "ModuleScript" then
+	
+			updateLogScript = Instance.new("ModuleScript")
+			updateLogScript.Name = "metauniOSUpdateLog"
+			updateLogScript.Parent = game:GetService("ServerStorage")
+	
+			remodel.setRawProperty(updateLogScript, "Source", "String", "-- metauniOS Update Log\n")
+		end
+	
+		local existingLog = remodel.getRawProperty(updateLogScript, "Source")
+	
+		remodel.setRawProperty(updateLogScript, "Source", "String", existingLog.."-- "..hashVersion.." "..timestamp.."\n")
+	
+		print("Publishing updated place to "..placeId, "(timestamp: "..timestamp..")")
+		local success, result = pcall(remodel.writeExistingPlaceAsset, game, placeId)
+		
+		if success then
+			
+			print(("Version History: https://www.roblox.com/places/%s/update#"):format(placeId))
+			break
+		else
+			
+			print("Publish failed:", result)
+			print("Retrying (in 10 seconds)...")
+			os.execute("sleep " .. tostring(10))
+		end
 	end
-
-	local existingLog = remodel.getRawProperty(updateLogScript, "Source")
-
-	remodel.setRawProperty(updateLogScript, "Source", "String", existingLog.."-- "..hashVersion.." "..timestamp.."\n")
-
-	print("Publishing updated place to "..placeId, "(timestamp: "..timestamp..")")
-	remodel.writeExistingPlaceAsset(game, placeId)
-	print(("Version History: https://www.roblox.com/places/%s/update#"):format(placeId))
 end
