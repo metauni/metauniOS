@@ -98,7 +98,7 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 	end
 
 	writeFromModelFile(game.ReplicatedStorage, "Chalk.rbxmx")
-	writeFromModelFile(game.Chat, "ChatModules.rbxmx")
+	writeFromModelFile(game.Chat, "ChatModules.rbxm")
 
 	-- UTC timestamp that matches the format used in Version History
 
@@ -116,8 +116,8 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 		else
 			
 			print("Publish failed:", result)
-			print("Retrying (in 5 seconds)...")
-			os.execute("sleep " .. tostring(5))
+			print("Retrying (in 10 seconds)...")
+			os.execute("sleep " .. tostring(10))
 		end
 	end
 end
