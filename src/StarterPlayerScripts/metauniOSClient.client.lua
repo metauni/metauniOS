@@ -16,10 +16,7 @@ GameAnalytics:initClient()
 
 -- Wait for metauniOS to distribute files.
 
-if not ReplicatedStorage:GetAttribute("metauniOSInstalled") then
-	
-	ReplicatedStorage:GetAttributeChangedSignal("metauniOSInstalled"):Wait()
-end
+ReplicatedStorage:WaitForChild("metauniOSInstalled")
 
 -- Initialise & Start Controllers
 
@@ -62,18 +59,20 @@ print("[metauniOS] Initialising controllers")
 
 controllerPromises = Sift.Dictionary.map(controllerPromises, function(promise, instance)
 	
-	return promise:tap(function(controller)
-		if typeof(controller) == "table" and typeof(controller.Init) == "function" then
-			controller:Init()
-		end
-	end):catch(function(...)
-		
-		warn("[metauniOS] "..instance.Name..".Init failed")
-		warn(...)
-		if not RunService:IsStudio() then
-			ReplicatedStorage.RavenErrorLog:FireServer(instance.Name..".Init failed", ...)
-		end
-	end)
+	return promise
+		:tap(function(controller)
+			if typeof(controller) == "table" and typeof(controller.Init) == "function" then
+				controller:Init()
+			end
+		end)
+		:catch(function(...)
+			
+			warn("[metauniOS] "..instance.Name..".Init failed")
+			warn(...)
+			if not RunService:IsStudio() then
+				ReplicatedStorage.RavenErrorLog:FireServer(instance.Name..".Init failed", ...)
+			end
+		end)
 end)
 
 -- Yield for Inits to finish
@@ -82,18 +81,20 @@ awaitAll(controllerPromises)
 print("[metauniOS] Starting controllers")
 controllerPromises = Sift.Dictionary.map(controllerPromises, function(promise, instance)
 	
-	return promise:tap(function(controller)
-		if typeof(controller) == "table" and typeof(controller.Start) == "function" then
-			controller:Start()
-		end
-	end):catch(function(...)
-		
-		warn("[metauniOS] "..instance.Name..".Start failed")
-		warn(...)
-		if not RunService:IsStudio() then
-			ReplicatedStorage.RavenErrorLog:FireServer(instance.Name..".Start failed", ...)
-		end
-	end)
+	return promise
+		:tap(function(controller)
+			if typeof(controller) == "table" and typeof(controller.Start) == "function" then
+				controller:Start()
+			end
+		end)
+		:catch(function(...)
+			
+			warn("[metauniOS] "..instance.Name..".Start failed")
+			warn(...)
+			if not RunService:IsStudio() then
+				ReplicatedStorage.RavenErrorLog:FireServer(instance.Name..".Start failed", ...)
+			end
+		end)
 end)
 
 awaitAll(controllerPromises)

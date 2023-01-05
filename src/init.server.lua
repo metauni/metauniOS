@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -11,21 +12,27 @@ local Version = (versionValue and versionValue.Value or "dev")
 print("[metauniOS] Version: "..Version)
 
 local function migrate(source, target)
-
 	for _, instance in source:GetChildren() do
-		
 		instance.Parent = target
 	end
 end
 
+-- Distribute scripts across containers
+
 migrate(script.ReplicatedFirst, ReplicatedFirst)
-migrate(script.StarterPlayerScripts, StarterPlayer.StarterPlayerScripts)
-migrate(script.ReplicatedStorage, ReplicatedStorage)
 script.Packages.Parent = ReplicatedStorage
+migrate(script.ReplicatedStorage, ReplicatedStorage)
 migrate(script.ServerScriptService, ServerScriptService)
 migrate(script.StarterGui, StarterGui)
+migrate(script.StarterPlayerScripts, StarterPlayer.StarterPlayerScripts)
+
+-- Signal that install is complete (in 2 ways)
 
 ReplicatedStorage:SetAttribute("metauniOSInstalled", true)
+local installedValue = Instance.new("BoolValue")
+installedValue.Name = "metauniOSInstalled"
+installedValue.Value = true
+installedValue.Parent = ReplicatedStorage
 
 --
 -- Error Logging
@@ -44,7 +51,6 @@ local ravenClient = Raven:Client(SecretService.SENTRY_DSN, {
 })
 
 if not RunService:IsStudio() then
-
 
 	ScriptContext.Error:Connect(function(message, trace, _script)
 	
@@ -91,7 +97,6 @@ print("[metauniOS] Importing services")
 local servicePromises = {}
 
 for _, container in {ServerScriptService, ReplicatedStorage} do
-
 	for _, instance in container:GetDescendants() do
 		
 		if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
@@ -123,18 +128,20 @@ print("[metauniOS] Initialising services")
 
 servicePromises = Sift.Dictionary.map(servicePromises, function(promise, instance)
 	
-	return promise:tap(function(service)
-		if typeof(service) == "table" and typeof(service.Init) == "function" then
-			service:Init()
-		end
-	end):catch(function(...)
-		
-		warn("[metauniOS] "..instance.Name..".Init failed")
-		warn(...)
-		if not RunService:IsStudio() then
-			ravenClient:SendException(Raven.ExceptionType.Server, instance.Name..".Init failed", ...)
-		end
-	end)
+	return promise
+		:tap(function(service)
+			if typeof(service) == "table" and typeof(service.Init) == "function" then
+				service:Init()
+			end
+		end)
+		:catch(function(...)
+			
+			warn("[metauniOS] "..instance.Name..".Init failed")
+			warn(...)
+			if not RunService:IsStudio() then
+				ravenClient:SendException(Raven.ExceptionType.Server, instance.Name..".Init failed", ...)
+			end
+		end)
 end)
 
 awaitAll(servicePromises)
@@ -143,18 +150,20 @@ print("[metauniOS] Starting services")
 
 servicePromises = Sift.Dictionary.map(servicePromises, function(promise, instance)
 	
-	return promise:tap(function(service)
-		if typeof(service) == "table" and typeof(service.Start) == "function" then
-			service:Start()
-		end
-	end):catch(function(...)
-		
-		warn("[metauniOS] Start failed for "..instance.Name)
-		warn(...)
-		if not RunService:IsStudio() then
-			ravenClient:SendException(Raven.ExceptionType.Server, instance.Name..".Start failed", ...)
-		end
-	end)
+	return promise
+		:tap(function(service)
+			if typeof(service) == "table" and typeof(service.Start) == "function" then
+				service:Start()
+			end
+		end)
+		:catch(function(...)
+			
+			warn("[metauniOS] Start failed for "..instance.Name)
+			warn(...)
+			if not RunService:IsStudio() then
+				ravenClient:SendException(Raven.ExceptionType.Server, instance.Name..".Start failed", ...)
+			end
+		end)
 end)
 
 awaitAll(servicePromises)
