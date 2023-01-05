@@ -78,6 +78,11 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 			"orb",
 			"ManageVRChalk",
 			"metaboard",
+			"NexusVRCharacterModelLoader",
+		},
+
+		[game.Workspace] = {
+			"NexusVRCharacterModelLoader",
 		},
 	
 		[game.StarterPlayer.StarterPlayerScripts] = {
