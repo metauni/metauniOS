@@ -589,7 +589,7 @@ end
 
 function NPCService.InstanceByName(name)
 	for _, npc in CollectionService:GetTagged(NPCService.NPCTag) do
-        if not npc:IsDescendantOf(game.Workspace) then return end
+        if not npc:IsDescendantOf(game.Workspace) then continue end
 
 		if string.lower(npc.Name) == string.lower(name) then
 			return npc
@@ -605,7 +605,7 @@ function NPCService.InstanceByName(name)
 	end
 	
 	for _, x in CollectionService:GetTagged(NPCService.ObjectTag) do
-        if not x:IsDescendantOf(game.Workspace) then return end
+        if not x:IsDescendantOf(game.Workspace) then continue end
 
 		if string.lower(x.Name) == string.lower(name) then
 			return x
@@ -783,6 +783,7 @@ function NPCService.ParseActions(actionText:string)
 		local regexes = {"^Walk to the " .. name,"^Walk to " .. name,
 			"^Walk .+ to the " .. name, "^Walk .+ to " .. name,
 			"^Lead .+ to the " .. name, "^Lead .+ to " .. name,
+            "^Lead .+ to explore the " .. name, "^Lead .+ to explore " .. name,
 			"^Start walking .+ to the " .. name, "^Start walking .+ to " .. name,
             "^Begin walking .+ to the " .. name, "^Begin walking .+ to " .. name,
 			"^Follow .+ to the " .. name,"^Follow .+ to " .. name,
@@ -825,7 +826,7 @@ function NPCService.ParseActions(actionText:string)
 	
     -- Say to
     -- Example: Say to Youtwice "I was curious about this Redwood tree"
-    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to"}
+    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to"}
     local sayToRegexes = {}
     for _, p in sayToPrefixes do
         table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
@@ -846,7 +847,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod"}
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
 			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
