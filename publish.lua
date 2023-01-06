@@ -122,7 +122,7 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 				
 				table.insert(existingVersions, remodel.getRawProperty(existingVersionValue, "Value"))
 			end
-			
+
 			child.Parent = nil
 		end
 	end
