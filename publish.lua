@@ -47,19 +47,31 @@ local function capture(cmd)
 end
 
 local status = capture("git status -s -uall")
+local remoteStatus = capture("git status -uno")
 local hash = capture("git rev-parse --short HEAD")
 local branch = capture("git rev-parse --abbrev-ref HEAD")
 
 local uncommittedChanges = string.match(status, "%S+")
+local outOfSyncWithRemote = string.match(remoteStatus, "%S+")
 
 hash = string.gsub(hash, '[\n\r]+', '')
 branch = string.gsub(branch, '[\n\r]+', '')
 
 local hashVersion = ("%s (%s)"):format(hash..(uncommittedChanges and "*" or ""), branch)
 
-if uncommittedChanges then
+if uncommittedChanges or outOfSyncWithRemote then
 	
-	print(("The git repo for metauniOS (%s) contains uncommitted modifications."):format(hashVersion))
+	if uncommittedChanges and outOfSyncWithRemote then
+		print(("The git repo for metauniOS (%s) contains uncommitted modifications and is out of sync with remote branch."):format(hashVersion))
+		print(status)
+		print(remoteStatus)
+	elseif uncommittedChanges then
+		print(("The git repo for metauniOS (%s) contains uncommitted modifications."):format(hashVersion))
+		print(status)
+	elseif outOfSyncWithRemote then
+		print(("The git repo for metauniOS (%s) is out of sync with remote branch."):format(hashVersion))
+		print(remoteStatus)
+	end
 	
 	local answer
 	local answerMap = { [""] = "y", y = "y", yes = "y", no = "n", n = "n" }
@@ -105,14 +117,12 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 		
 		if child.Name == "metauniOS" then
 			
-			local oldVersion do
+			local existingVersionValue = child:FindFirstChild("version")
+			if existingVersionValue then
 				
-				local existingVersionValue = child:FindFirstChild("version")
-				if existingVersionValue then
-					
-					table.insert(existingVersions, remodel.getRawProperty(existingVersionValue, "Value"))
-				end
+				table.insert(existingVersions, remodel.getRawProperty(existingVersionValue, "Value"))
 			end
+			
 			child.Parent = nil
 		end
 	end
