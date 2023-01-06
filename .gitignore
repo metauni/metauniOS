@@ -4,3 +4,5 @@ Packages
 /*.rbxlx
 /*.rbxl
 wally.lock
+
+dev-local.project.json

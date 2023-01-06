@@ -1,0 +1,23 @@
+{
+	"name": "metauniOS (dev-local)",
+	"tree": {
+		"$className": "DataModel",
+
+		"ServerScriptService": {
+			"$className": "ServerScriptService",
+			"$ignoreUnknownInstances": true,
+
+			"metauniOS": {
+				"$path": "src",
+
+				"Packages": {
+					"$path": "Packages",
+
+					"metaboard": {
+						"$path": "/absolute/path/to/metaboard"
+					}
+				}
+			}
+		}
+	}
+}

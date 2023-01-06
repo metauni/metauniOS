@@ -9,13 +9,39 @@ rojo serve
 ```
 
 ## Publishing
+metauniOS is versioned via the current commit hash and branch - these are printed
+to the console on game startup, unless the code has been rojo synced via Roblox
+Studio, in which case it will just say "dev".
+It's best to commit and push all changes before publishing to all the pockets.
+
 ```bash
 # Publish to every place in placeIds.lua
-remodel run publish.lua
+remodel run publish.lua all
 
 # Publish to specific places
 remodel run publish.lua TheRisingSea MoonlightForest
 ```
+
+## Dev (metaboard)
+
+To test local changes to metaboard within metauniOS, duplicate the `dev-template.project.json` file and rename
+it to `dev-local.project.json` (then it will be automatically gitignored).
+Edit that project file so it has the correct path to your local metaboard repository.
+It must be an absolute path.
+
+Then to switch from using the published metaboard version to using your local metaboard
+repo, temporarily comment out the metaboard dependency in `wally.toml`. Then rojo sync the
+`dev-local.project.json` file.
+```bash
+rojo serve dev-local.project.json
+```
+
+Once you are happy with your changes
+1. Update the version in `metaboard/wally.toml`
+2. Run `wally publish` in the metaboard repo (You must have permission to publish under the `metauni/` scope)
+3. Update the metaboard dependency version in `metauniOS/wally.toml`
+4. Commit and push changes.
+5. Publish metauniOS.
 
 ## Purpose
 
