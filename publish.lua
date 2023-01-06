@@ -46,13 +46,13 @@ local function capture(cmd)
   return s
 end
 
-local status = capture("git status -s -uall")
-local remoteStatus = capture("git status -uno")
+local status = capture("git status -sb")
+local changes = capture("git status -s -uall")
 local hash = capture("git rev-parse --short HEAD")
 local branch = capture("git rev-parse --abbrev-ref HEAD")
 
-local uncommittedChanges = string.match(status, "%S+")
-local outOfSyncWithRemote = string.match(remoteStatus, "%S+")
+local uncommittedChanges = string.match(changes, "%S+")
+local outOfSyncWithRemote = string.match(status, "%[ahead %d+%]") or string.match(status, "%[behind %d+%]")
 
 hash = string.gsub(hash, '[\n\r]+', '')
 branch = string.gsub(branch, '[\n\r]+', '')
@@ -63,14 +63,13 @@ if uncommittedChanges or outOfSyncWithRemote then
 	
 	if uncommittedChanges and outOfSyncWithRemote then
 		print(("The git repo for metauniOS (%s) contains uncommitted modifications and is out of sync with remote branch."):format(hashVersion))
-		print(status)
-		print(remoteStatus)
+		execute("git status -sb")
 	elseif uncommittedChanges then
 		print(("The git repo for metauniOS (%s) contains uncommitted modifications."):format(hashVersion))
-		print(status)
+		execute("git status -sb")
 	elseif outOfSyncWithRemote then
 		print(("The git repo for metauniOS (%s) is out of sync with remote branch."):format(hashVersion))
-		print(remoteStatus)
+		execute("git status -sb")
 	end
 	
 	local answer
