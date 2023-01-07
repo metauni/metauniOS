@@ -450,6 +450,9 @@ function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
             local intervalText = humanReadableTimeInterval(timediff)
             local memoryText = "I remember that " .. intervalText .. ", " .. relevantSummary.Content
             NPCService.AddThought(npc, memoryText)
+            if npc.Name == "Shoal" then
+                print("Memory: " .. memoryText)
+            end
         end
     end
 
@@ -960,7 +963,7 @@ function NPCService.ParseActions(actionText:string)
 	
     -- Say to
     -- Example: Say to Youtwice "I was curious about this Redwood tree"
-    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to"}
+    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to", "Agree"}
     local sayToRegexes = {}
     for _, p in sayToPrefixes do
         table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
@@ -981,7 +984,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree"}
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
 			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
