@@ -93,10 +93,13 @@ NPCService.ActionType = {
 }
 
 function NPCService.Init()
-    NPCService.IntervalBetweenSummaries = 10
-    NPCService.MaxObservations = 6
-    NPCService.MaxRecentActions = 4
-    NPCService.MaxThoughts = 8
+    NPCService.IntervalBetweenSummaries = 8 -- default 10
+    NPCService.MaxObservations = 6 -- default 6
+    NPCService.MaxRecentActions = 4 -- default 4
+    NPCService.MaxThoughts = 10 -- default 8
+    NPCService.MaxSummaries = 30 -- default 20
+    NPCService.MemorySearchProbability = 0.3
+    NPCService.MaxConsecutivePlan = 2
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
     NPCService.HearingRadius = 15
@@ -107,12 +110,14 @@ function NPCService.Init()
 	NPCService.recentActionsForNPC = {}
 	NPCService.animationsForNPC = {}
 	NPCService.summariesForNPC = {}
+    NPCService.planningCounter = {}
 	
 	local npcs = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npc in npcs do
 		NPCService.thoughtsForNPC[npc] = {}
 		NPCService.recentActionsForNPC[npc] = {}
 		NPCService.summariesForNPC[npc] = {}
+        NPCService.planningCounter[npc] = 0
 		
 		NPCService.animationsForNPC[npc] = {}
 		local animator = npc.Humanoid:WaitForChild("Animator")
@@ -329,7 +334,77 @@ function NPCService.AddThought(npc, thought)
 end
 
 function NPCService.AddSummary(npc, text)
-	table.insert(NPCService.summariesForNPC[npc], text)
+    -- Summaries are tables containing
+    --      Timestamp
+    --      Content
+    --      Embedding (perhaps nil)
+
+    local summaryDict = {}
+    summaryDict.Timestamp = tick()
+    summaryDict.Content = text
+
+    local embedding = AIService.Embedding(text)
+    if embedding ~= nil then
+        summaryDict.Embedding = embedding
+    end
+
+	tableInsertWithMax(NPCService.summariesForNPC[npc], summaryDict, NPCService.MaxSummaries)
+end
+
+-- Filter is a function that takes a summary and returns true or false
+function NPCService.MostSimilarSummary(npc, text, filter)
+    local function alwaysTrue(x)
+        return true
+    end
+    filter = filter or alwaysTrue
+
+    local embedding = AIService.Embedding(text)
+    if embedding == nil then
+        warn("[NPCService] Got nil embedding")
+        return
+    end
+
+    local function dotproduct(v,w)
+        local d = 0
+
+        for i, _ in ipairs(v) do
+            d += v[i] * w[i]
+        end
+
+        return d
+    end
+
+    local function magnitude(e)
+        return math.sqrt(dotproduct(e,e))
+    end
+
+    local function cosine_similarity(v,w)
+        local dot = dotproduct(v,w)
+        local m1 = magnitude(v)
+        local m2 = magnitude(w)
+        if m1 == 0 or m2 == 0 then
+            warn("[NPCService] Got zero vectors for cosine similarity")
+            return nil
+        end
+
+        return dot / ( m1 * m2 )
+    end
+
+    local highestSimilarity = - math.huge
+    local mostSimilarSummary = nil
+
+    for _, summary in NPCService.summariesForNPC[npc] do
+        if not filter(summary) then continue end
+        if summary.Embedding == nil then continue end
+
+        local similarity_score = cosine_similarity(summary.Embedding, embedding)
+        if similarity_score > highestSimilarity then
+            highestSimilarity = similarity_score
+            mostSimilarSummary = summary
+        end
+    end
+
+    return mostSimilarSummary
 end
 
 function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
@@ -352,8 +427,33 @@ function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
 	end
 	
 	NPCService.AddThought(npc, responseText)
-	NPCService.AddSummary(npc, responseText)
-	--print(responseText)
+	
+    local function humanReadableTimeInterval(d)
+        if d < 60 then return "less than a minute ago" end
+        if d < 60 * 5 then return "less than five minutes ago" end
+        if d < 60 * 10 then return "around ten minutes ago" end
+        return "around " .. tostring((d % 600) * 10) .. " minutes ago"
+    end
+
+    local function filterForSummaries(x)
+        if ( tick() - x.Timestamp ) % 60 < 5 then -- default 5
+            return false
+        else
+            return true
+        end
+    end
+
+    if math.random() < NPCService.MemorySearchProbability then
+        local relevantSummary = NPCService.MostSimilarSummary(npc, responseText, filterForSummaries)
+        if relevantSummary ~= nil then
+            local timediff = tick() - relevantSummary.Timestamp
+            local intervalText = humanReadableTimeInterval(timediff)
+            local memoryText = "I remember that " .. intervalText .. ", " .. relevantSummary.Content
+            NPCService.AddThought(npc, memoryText)
+        end
+    end
+
+    NPCService.AddSummary(npc, responseText)
 end
 
 function NPCService.TimestepNPC(npc:instance)
@@ -374,6 +474,21 @@ function NPCService.TimestepNPC(npc:instance)
 	
 	prompt = prompt .. middle .. "Action:"
 	
+    -- If the agent has been talking to themself too much (i.e. planning)
+    -- then force them to speak by giving Say as the prompt
+    local forcedToAct = false
+    local forcedActionText = ""
+    if NPCService.planningCounter[npc] >= NPCService.MaxConsecutivePlan then
+        forcedToAct = true
+        if math.random() < 0.7 then
+            forcedActionText = " Say \""
+        else
+            forcedActionText = " Walk to"
+        end
+    end
+
+    if forcedToAct then prompt = prompt .. forcedActionText end
+    
 	--if npc.Name == "Shoal" then print(prompt) end
 	
 	local temperature = 0.8
@@ -386,7 +501,13 @@ function NPCService.TimestepNPC(npc:instance)
 		return
 	end
 	
-	responseText = "Action: " .. responseText
+    if forcedToAct then
+        responseText = "Action:" .. forcedActionText .. responseText
+        NPCService.planningCounter[npc] = 0
+    else
+	    responseText = "Action:" .. responseText
+    end
+
     if npc.Name == "Shoal" then
         print("=== response ===")
         print(responseText)
@@ -448,6 +569,14 @@ function NPCService.TimestepNPC(npc:instance)
                 else
                     hasMoved = true
                 end
+            end
+
+            -- The agents sometimes have too much internal monologue
+            -- and we use this trick to force them to speak
+            if parsedAction.Type ~= NPCService.ActionType.Plan then
+                NPCService.planningCounter[npc] = 0
+            else
+                NPCService.planningCounter[npc] += 1
             end
             
             NPCService.AddRecentAction(npc, action)
@@ -710,7 +839,7 @@ function NPCService.ParseActions(actionText:string)
 
     -- Wave and Say
     -- Example: Wave and say to Youtwice "See you soon!"
-    local waveSayPrefixes = {"Wave to", "Go to", "Follow", "Wave and say to"}
+    local waveSayPrefixes = {"Wave to", "Wave and say to", "Give a friendly farewell to"}
     local waveSayRegexes = {}
     for _, p in waveSayPrefixes do
         table.insert(waveSayRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
@@ -790,7 +919,12 @@ function NPCService.ParseActions(actionText:string)
 			"^Go to the " .. name,"^Go to " .. name,
             "^Check out .+ the " .. name,"^Check out .+ " .. name,
 			"^Start walking towards the " .. name,"^Start walking towards " .. name,
-            "^Show .+ inside " .. name, "^Show .+ inside the " .. name}
+            "^Start exploring the " .. name,"^Start exploring " .. name,
+            "^Begin exploring the " .. name,"^Begin exploring " .. name,
+            "^Show .+ inside " .. name, "^Show .+ inside the " .. name,
+            "^Arrange a meeting with " .. name,
+            "^Lead .+ towards " .. name,
+            "^Lead .+ to explore " .. name}
 		for _, r in regexes do
 			local dest = string.match(actionText, r)
 			if dest then

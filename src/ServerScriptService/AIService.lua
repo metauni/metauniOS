@@ -18,6 +18,7 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 local VISION_API_URL = "http://34.116.106.66:8080"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
+local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
 local function serialiseBoard(board)
     -- Commit all of the drawing task changes (like masks) to the figures
@@ -89,6 +90,42 @@ function AIService.CleanGPTResponse(text, extraPrefixes)
 	end
 	
 	return text
+end
+
+function AIService.Embedding(text, plr)
+    local request = { ["model"] = "text-embedding-ada-002",
+		["input"] = text}
+	
+	if plr ~= nil then
+		request["user"] = tostring(plr.UserId)
+	end
+
+	local success, response = pcall(function()
+		return HttpService:PostAsync(
+			EMBEDDINGS_API_URL,
+			HttpService:JSONEncode(request),
+			Enum.HttpContentType.ApplicationJson,
+			false,
+			{["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
+	end)
+
+	if success then
+		if response == nil then
+			print("[AIService] Got a bad response from PostAsync")
+			return nil
+		end
+
+		local responseData = HttpService:JSONDecode(response)
+		if responseData == nil then
+			print("[AIService] JSONDecode on response failed")
+			return nil
+		end
+		
+		local responseVector = responseData["data"][1]["embedding"]
+		return responseVector
+	else
+		return nil
+	end
 end
 
 function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty)
