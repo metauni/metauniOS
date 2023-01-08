@@ -89,16 +89,17 @@ NPCService.ActionType = {
 	Wave = 3,
 	Walk = 4,
 	Say = 5,
-	Plan = 6
+	Plan = 6,
+    Turn = 7
 }
 
 function NPCService.Init()
     NPCService.IntervalBetweenSummaries = 8 -- default 10
     NPCService.MaxObservations = 6 -- default 6
-    NPCService.MaxRecentActions = 4 -- default 4
-    NPCService.MaxThoughts = 10 -- default 8
+    NPCService.MaxRecentActions = 5 -- default 4
+    NPCService.MaxThoughts = 9 -- default 8
     NPCService.MaxSummaries = 30 -- default 20
-    NPCService.MemorySearchProbability = 0.3
+    NPCService.MemorySearchProbability = 0.4
     NPCService.MaxConsecutivePlan = 2
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
@@ -114,6 +115,8 @@ function NPCService.Init()
 	
 	local npcs = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npc in npcs do
+        if not npc:IsDescendantOf(game.Workspace) then continue end
+        
 		NPCService.thoughtsForNPC[npc] = {}
 		NPCService.recentActionsForNPC[npc] = {}
 		NPCService.summariesForNPC[npc] = {}
@@ -147,6 +150,7 @@ function NPCService.Start()
         while task.wait(5) do
             local npcs = CollectionService:GetTagged(NPCService.NPCTag)
             for _, npc in npcs do
+                if not npc:IsDescendantOf(game.Workspace) then continue end
                 if npc.PrimaryPart == nil then continue end
                 
                 --print("-- " .. npc.Name .. " -----")
@@ -158,6 +162,7 @@ function NPCService.Start()
             if stepCount == NPCService.IntervalBetweenSummaries then
                 
                 for _, npc in npcs do
+                    if not npc:IsDescendantOf(game.Workspace) then continue end
                     if npc.PrimaryPart == nil then continue end
                     
                     --print("-- summary for " .. npc.Name .. " ----")
@@ -492,11 +497,11 @@ function NPCService.TimestepNPC(npc:instance)
 
     if forcedToAct then prompt = prompt .. forcedActionText end
     
-	--if npc.Name == "Shoal" then print(prompt) end
+	if npc.Name == "Shoal" then print(prompt) end
 	
-	local temperature = 0.8
-	local freqPenalty = 1.0
-	local presPenalty = 1.4
+	local temperature = 0.9 -- was 0.8
+	local freqPenalty = 1.4 -- was 1.0
+	local presPenalty = 1.6 -- was 1.4
 	
 	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
@@ -534,9 +539,13 @@ function NPCService.TimestepNPC(npc:instance)
 		if lineType ~= nil then
 			local parts = string.split(l, " ")
 			if #parts > 1 then
+                -- Remove the Action: or Thought: part
 				table.remove(parts, 1)
-				local s = cleanstring(table.concat(parts, " "))
-				table.insert(lineType, s)
+                local s = cleanstring(table.concat(parts, " "))
+                table.insert(lineType, s)
+
+                -- Splitting into sentenes here is not a good idea,
+                -- because of sentences like Say "This is good."
 			end
 		end
 	end
@@ -556,7 +565,10 @@ function NPCService.TimestepNPC(npc:instance)
 		
 		local parsedActionsList = NPCService.ParseActions(action)
         for _, parsedAction in parsedActionsList do
-            if parsedAction.Type == NPCService.ActionType.Unhandled then continue end
+            if parsedAction.Type == NPCService.ActionType.Unhandled then
+                NPCService.planningCounter[npc] += 1
+                continue
+            end
             
             if parsedAction.Type == NPCService.ActionType.Say then
                 if hasSpoken then
@@ -588,7 +600,7 @@ function NPCService.TimestepNPC(npc:instance)
 	end
 end
 
-function NPCService.HandleChat(speaker, message)
+function NPCService.HandleChat(speaker, message, target)
 	-- speaker is a player or npc
 	local name
 	local pos
@@ -609,9 +621,16 @@ function NPCService.HandleChat(speaker, message)
 		if npcPos == nil then continue end
 		local distance = (npcPos - pos).Magnitude
 		
+        -- This NPC heard the chat message
 		if distance < NPCService.HearingRadius then
-			-- This NPC heard the chat message
-			local ob = name .. " said \"" .. message .. "\""
+			local ob = ""
+            if target == nil then
+                ob = name .. " said \"" .. message .. "\""
+            else
+                local targetName = if target == npc then "me" else target.Name
+                ob = name .. " said to " .. targetName .. " \"" .. message .. "\""
+            end
+
 			NPCService.AddThought(npc, ob)
 		end
 	end
@@ -806,6 +825,7 @@ end
 -- Ask the board writer, "Could you please explain a bit more about Euclid's Elements? I would really appreciate it!"
 -- Examine the boards closely and say "There's text written on them. It looks like it contains information about seminars, university services, infrastructure, personal journeys, classes and replays."
 -- Point to the boards and say "This is where we're headed!"
+-- Turns towards Youtwice
 
 function NPCService.ParseActions(actionText:string)
 	
@@ -963,7 +983,7 @@ function NPCService.ParseActions(actionText:string)
 	
     -- Say to
     -- Example: Say to Youtwice "I was curious about this Redwood tree"
-    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to", "Agree"}
+    local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to", "Agree", "Turn towards"}
     local sayToRegexes = {}
     for _, p in sayToPrefixes do
         table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
@@ -984,7 +1004,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think"}
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
 			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
@@ -1082,6 +1102,9 @@ function NPCService.WalkNPCToPos(npc, targetPos)
 						animationTrack:Stop()
 						reachedConnection:Disconnect()
 						blockedConnection:Disconnect()
+
+                        wait(0.1)
+                        NPCService.RotateNPCToFacePosition(npc, targetPos)
 					end
 				end)
 			end
@@ -1177,7 +1200,7 @@ function NPCService.TakeAction(npc:instance, parsedAction)
 		end
 		
 		-- Note that agents see the unfiltered messages
-		NPCService.HandleChat(npc, message)
+		NPCService.HandleChat(npc, message, target)
 		return
 	end
 	

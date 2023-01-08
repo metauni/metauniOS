@@ -111,13 +111,13 @@ function AIService.Embedding(text, plr)
 
 	if success then
 		if response == nil then
-			print("[AIService] Got a bad response from PostAsync")
+			warn("[AIService] Got a bad response from PostAsync")
 			return nil
 		end
 
 		local responseData = HttpService:JSONDecode(response)
 		if responseData == nil then
-			print("[AIService] JSONDecode on response failed")
+			warn("[AIService] JSONDecode on response failed")
 			return nil
 		end
 		
@@ -156,17 +156,22 @@ function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalt
 
 	if success then
 		if response == nil then
-			print("[AIService] Got a bad response from PostAsync")
+			warn("[AIService] Got a bad response from PostAsync")
 			return nil
 		end
 
 		local responseData = HttpService:JSONDecode(response)
 		if responseData == nil then
-			print("[AIService] JSONDecode on response failed")
+			warn("[AIService] JSONDecode on response failed")
 			return nil
 		end
 		
 		local responseText = responseData["choices"][1]["text"]
+        if responseText == nil then
+            warn("[AIService] Got malformed response:")
+            print(responseData)
+        end
+
 		return responseText
 	else
 		return nil
@@ -189,20 +194,20 @@ function AIService.ObjectLocalizationForBoard(board)
 
 	if success then
 		if response == nil then
-			print("[AIService] Got a bad response from ObjectLocalization PostAsync")
+			warn("[AIService] Got a bad response from ObjectLocalization PostAsync")
 			return nil
 		end
 
 		local responseData = HttpService:JSONDecode(response)
 		if responseData == nil then
-			print("[AIService] ObjectLocalization JSONDecode on response failed")
+			warn("[AIService] ObjectLocalization JSONDecode on response failed")
 			return nil
 		end
 
 		local responseDict = responseData["objects"]
 		return responseDict
 	else
-		print("[AIService] ObjectLocalization HTTPService PostAsync failed ".. response)
+		warn("[AIService] ObjectLocalization HTTPService PostAsync failed ".. response)
 		return nil
 	end
 end
@@ -232,7 +237,7 @@ function AIService.OCRBoard(board)
         end)
 		if inner_success then
             if responseData == nil then
-                print("[AIService] OCR JSONDecode on response failed")
+                warn("[AIService] OCR JSONDecode on response failed")
                 return nil
             end
 
