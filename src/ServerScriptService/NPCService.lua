@@ -21,6 +21,14 @@ local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Utils
+local function shuffle(t)
+    local n = #t
+    for i = 1, n do
+        local j = math.random(i, n)
+        t[i], t[j] = t[j], t[i]
+    end
+end
+
 local function tableContains(t, x)
 	for _, y in t do
 		if x == y then return true end
@@ -100,6 +108,7 @@ function NPCService.Init()
     NPCService.MaxThoughts = 9 -- default 8
     NPCService.MaxSummaries = 30 -- default 20
     NPCService.MemorySearchProbability = 0.4
+    NPCService.TimestepDelay = 8 -- default 5
     NPCService.MaxConsecutivePlan = 2
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
@@ -147,15 +156,17 @@ function NPCService.Start()
     task.spawn(function()
         local stepCount = 0
         
-        while task.wait(5) do
+        while task.wait(NPCService.TimestepDelay) do
             local npcs = CollectionService:GetTagged(NPCService.NPCTag)
+            shuffle(npcs)
+
             for _, npc in npcs do
                 if not npc:IsDescendantOf(game.Workspace) then continue end
                 if npc.PrimaryPart == nil then continue end
                 
                 --print("-- " .. npc.Name .. " -----")
                 NPCService.TimestepNPC(npc)	
-                task.wait(1)
+                task.wait(2)
             end
             
             stepCount += 1
@@ -417,7 +428,7 @@ function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
 	local middle = NPCService.PromptContentForNPC(npc)
 	prompt = prompt .. middle
 	prompt = prompt .. "\n"
-	prompt = prompt .. "A summary of this history of " .. npc.Name .. " in 50 words or less is given below, written in first person from " .. npc.Name .. "'s point of view\n"
+	prompt = prompt .. "A summary of this history of " .. npc.Name .. " in 30 words or less is given below, written in first person from " .. npc.Name .. "'s point of view\n"
 	prompt = prompt .. "\n"
 	prompt = prompt .. "Summary:"
 	
@@ -425,7 +436,7 @@ function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
 	local freqPenalty = 0
 	local presPenalty = 0
 
-	local responseText = AIService.GPTPrompt(prompt, 200, nil, temperature, freqPenalty, presPenalty)
+	local responseText = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
 		warn("[NPCService] Got nil response from GPT3")
 		return

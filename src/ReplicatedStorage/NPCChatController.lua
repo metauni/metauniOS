@@ -8,6 +8,9 @@ local NPCService = {
 }
 
 local function SetupNPCChatBubbles()
+    local maxBubbles = 5
+    local bubbleDuration = 40
+
     local bubbleChatSettings = {}
     bubbleChatSettings.UserSpecificSettings = {}
     local chatSettings = {}
@@ -19,9 +22,9 @@ local function SetupNPCChatBubbles()
         TextColor3 = Color3.new(0, 0, 0),
         Font = Enum.Font.GrenzeGotisch,
         Padding = 8,
-        BubbleDuration = 15,
+        BubbleDuration = bubbleDuration,
         BubblesSpacing = 4,
-        MaxBubbles = 4,
+        MaxBubbles = maxBubbles,
         VerticalStudsOffset = 1
     }
 
@@ -32,9 +35,9 @@ local function SetupNPCChatBubbles()
         TextColor3 = Color3.new(1, 1, 1),
         Font = Enum.Font.Sarpanch,
         Padding = 8,
-        BubbleDuration = 15,
+        BubbleDuration = bubbleDuration,
         BubblesSpacing = 4,
-        MaxBubbles = 4,
+        MaxBubbles = maxBubbles,
         VerticalStudsOffset = 1,
         BackgroundGradient = {
             Enabled = true,
@@ -52,9 +55,9 @@ local function SetupNPCChatBubbles()
         TextSize = 18,
         TextColor3 = Color3.new(1, 1, 1),
         Padding = 12,
-        BubbleDuration = 15,
+        BubbleDuration = bubbleDuration,
         BubblesSpacing = 4,
-        MaxBubbles = 4,
+        MaxBubbles = maxBubbles,
         VerticalStudsOffset = 1,
         BackgroundGradient = {
             Enabled = true,
