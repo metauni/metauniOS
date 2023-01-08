@@ -98,7 +98,7 @@ return {
 			end
 		
 			if parentPortal == nil then
-				print("[MetaPortal] Could not add touch events for portal")
+				print("[MetaPortal] Could not add touch events for portal: " .. portalPart:GetFullName())
 				return
 			end
 		
