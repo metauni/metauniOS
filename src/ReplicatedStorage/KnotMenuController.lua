@@ -34,7 +34,13 @@ local function StartDecalEntryDisplay(board)
     textBox.Text = ""
     textBox.PlaceholderText = "Enter an asset ID"
 	textBox.TextWrapped = true
-	textBox.ClearTextOnFocus = true
+	textBox.ClearTextOnFocus = false
+
+    local boardPart = if board:IsA("BasePart") then board else board.PrimaryPart
+    local decal = boardPart:FindFirstChild("BoardDecal")
+	if decal ~= nil then 
+		textBox.Text = decal.Texture
+	end
 
 	local padding = Instance.new("UIPadding")
 	padding.PaddingBottom = UDim.new(0,10)
