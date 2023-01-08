@@ -10,15 +10,18 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Imports
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Config = metaboard.Config
-local FreeHand = metaboard.DrawingTask.FreeHand
-
--- Helper Functions
-local deriveStroke = require(script.Parent.deriveStroke)
+local FreeHand = metaboard.FreeHand
 
 return {
 	newDrawingTask = function(self)
 		local taskId = Config.GenerateUUID()
-		local stroke = deriveStroke(self)
+		local stroke = {
+			Width = 0.001,
+			ShadedColor = {
+				Color = Color3.new(1,1,1),
+				BaseName = "White",
+			}
+		}
 		local color = stroke.ShadedColor.Color
 
 		return FreeHand.new(taskId, color, stroke.Width)

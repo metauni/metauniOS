@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Board = metaboard.Board
 local BoardRemotes = metaboard.BoardRemotes
+local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
 
 --[[
 	The client-side version of a board.
@@ -30,19 +31,31 @@ function BoardClient.new(instance: Model | Part)
 		Instance = instance,
 		BoardRemotes = boardRemotes,
 		SurfaceCFrame = surfaceCFrameValue.Value,
-		SurfaceSize = surfaceSizeValue.Value
+		SurfaceSize = surfaceSizeValue.Value,
 	}), BoardClient)
 
+	self.SurfaceChanged = GoodSignal.new()
+
 	self._destructor:Add(surfaceCFrameValue.Changed:Connect(function(cframe)
-
 		self.SurfaceCFrame = cframe
+		self.SurfaceChanged:Fire()
+		self:DataChanged()
 	end))
-
+	
 	self._destructor:Add(surfaceSizeValue.Changed:Connect(function(size)
-		
 		self.SurfaceSize = size
+		self.SurfaceChanged:Fire()
+		self:DataChanged()
 	end))
 
+	self._destructor:Add(instance.AncestryChanged:Connect(function()
+		self.SurfaceChanged:Fire()
+	end))
+
+	self._destructor:Add(function()
+		self.SurfaceChanged:DisconnectAll()
+	end)
+	
 	return self
 end
 

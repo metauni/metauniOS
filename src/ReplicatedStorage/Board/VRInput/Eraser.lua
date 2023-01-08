@@ -10,7 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Imports
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Config = metaboard.Config
-local Erase = metaboard.DrawingTask.Erase
+local Erase = metaboard.Erase
 
 return {
 	newDrawingTask = function(self)

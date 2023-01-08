@@ -6,7 +6,15 @@ local finalizers = setmetatable({
 		return item()
 	end,
 	["Instance"] = game.Destroy,
-	["table"] = function(item) item:Destroy() end,
+	["table"] = function(item)
+		if item.Destroy then
+			item:Destroy()
+		elseif item.Disconnect then
+			item:Disconnect()
+		else
+			error("[Destructor] table has no :Destroy() or :Disconnect() method")
+		end
+	end,
 	["thread"] = function(thread) task.cancel(thread) end,
 	["RBXScriptConnection"] = function(connection) connection:Disconnect() end,
 }, {
