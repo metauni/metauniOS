@@ -23,7 +23,7 @@ return {
 
 			local destructor = Destructor.new()
 
-			local hostUserId = character:GetAttribute("DroneAttachedToHostUserId")
+			local hostUserId = character:GetAttribute("DroneHostUserId")
 
 			local hostName do
 				
@@ -141,36 +141,37 @@ return {
 			destructor:Add(droneIconDestructor)
 			destructor:Add(hostIconDestructor)
 
-			if character:GetAttribute("DroneAttachedToHostUserId") then
+			if character:GetAttribute("DroneHostUserId") then
 				
 				droneIconDestructor = makeDroneIcon(character)
 			end
 
 			destructor:Add(character:GetAttributeChangedSignal("DroneAttachedToHostUserId"):Connect(function()
-				
-				droneIconDestructor:Destroy()
-				droneIconDestructor = makeDroneIcon(character)
 
+				droneIconDestructor:Destroy()
+				if character:GetAttribute("DroneHostUserId") then
+					droneIconDestructor = makeDroneIcon(character)
+				end
 			end))
 
 			if character:FindFirstChild("AttachedDrone") then
-				
+
 				hostIconDestructor:Destroy()
 				hostIconDestructor = makeHostIcon(character)
 			end 
 			
-			destructor:Add(character.ChildAdded:Connect(function()
-				
-				if character:FindFirstChild("AttachedDrone") then
+			destructor:Add(character.ChildAdded:Connect(function(child)
+
+				if child.Name == "AttachedDrone" then
 				
 					hostIconDestructor:Destroy()
 					hostIconDestructor = makeHostIcon(character)
 				end 
 			end))
 			
-			destructor:Add(character.ChildRemoved:Connect(function()
+			destructor:Add(character.ChildRemoved:Connect(function(child)
 				
-				if character:FindFirstChild("AttachedDrone") then
+				if child.Name == "AttachedDrone" then
 				
 					hostIconDestructor:Destroy()
 				end 
@@ -182,12 +183,12 @@ return {
 		local iconStateDestructor = Destructor.new()
 		
 		if Players.LocalPlayer.Character then
-			
+
 			iconStateDestructor:Add(initCharacter(Players.LocalPlayer.Character))
 		end
 		
 		Players.LocalPlayer.CharacterAdded:Connect(function(character)
-			
+
 			iconStateDestructor:Destroy()
 			iconStateDestructor:Add(initCharacter(character))
 		end)
@@ -195,7 +196,7 @@ return {
 		Remotes.UnlinkDrone.OnClientEvent:Connect(function(droneUserId)
 			
 			if droneUserId == Players.LocalPlayer.UserId then
-				
+
 				iconStateDestructor:Destroy()
 				iconStateDestructor:Add(initCharacter(Players.LocalPlayer.Character))
 			end

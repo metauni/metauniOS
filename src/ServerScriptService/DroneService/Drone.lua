@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
 local Destructor = require(ReplicatedStorage.Destructor)
+local Remotes = ReplicatedStorage.Drone.Remotes
 
 local Drone = {}
 Drone.__index = Drone
@@ -79,7 +80,7 @@ function Drone:_attachToHost(droneCharacter: Model, hostCharacter: Model)
 
 	destructor:Add(weldConstraint)
 
-	droneCharacter:SetAttribute("DroneAttachedToHostUserId", self.HostUserId)
+	droneCharacter:SetAttribute("DroneAttachedToHostUserId", true)
 	
 	destructor:Add(function()
 		
@@ -115,28 +116,34 @@ function Drone.new(player: Player, hostUserId: number)
 		hostDestructor:Add(attachDestructor)
 		self._destructor:Add(hostDestructor)
 
-		local function tryAttach()
-			
+		self._destructor:Add(function()
+			self.Player.Character:SetAttribute("DroneHostUserId", nil)
+		end)
+
+		local function maybeBothThere()
 			if self.Player.Character and host.Character then
-			
+				self.Player.Character:SetAttribute("DroneHostUserId", self.HostUserId)
 				attachDestructor:Add(self:_attachToHost(self.Player.Character, host.Character))
 			end
 		end
 
-		local function destroyAttach()
-			
+		local function notBothThere()
 			attachDestructor:Destroy()
+			self.Player.Character:SetAttribute("DroneHostUserId", nil)
 		end
 
-		tryAttach()
+		maybeBothThere()
 		
-		hostDestructor:Add(host.CharacterAdded:Connect(tryAttach))
+		hostDestructor:Add(host.CharacterAdded:Connect(function()
+			Players.LocalPlayer.Character:SetAttribute("DroneHostUserId", self.HostUserId)
+			maybeBothThere()
+		end))
 		
-		hostDestructor:Add(self.Player.CharacterAdded:Connect(tryAttach))
+		hostDestructor:Add(self.Player.CharacterAdded:Connect(maybeBothThere))
 
-		hostDestructor:Add(host.CharacterRemoving:Connect(destroyAttach))
+		hostDestructor:Add(host.CharacterRemoving:Connect(notBothThere))
 		
-		hostDestructor:Add(self.Player.CharacterRemoving:Connect(destroyAttach))
+		hostDestructor:Add(self.Player.CharacterRemoving:Connect(notBothThere))
 
 		hostDestructor:Add(Players.PlayerRemoving:Connect(function(removingPlayer)
 			
@@ -145,6 +152,18 @@ function Drone.new(player: Player, hostUserId: number)
 				hostDestructor:Destroy()
 			end
 		end))
+
+		hostDestructor:Add(Remotes.DetachDrone.OnServerEvent:Connect(function(_player, droneUserId)
+			if droneUserId == self.Player.UserId then
+				attachDestructor:Destroy()
+			end
+		end))
+
+		Remotes.ReattachDrone.OnServerEvent:Connect(function(_player, droneUserId)
+			if droneUserId == self.Player.UserId then
+				maybeBothThere()
+			end
+		end)
 	end
 
 	local host = Players:GetPlayerByUserId(hostUserId)

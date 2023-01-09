@@ -185,34 +185,6 @@ return {
 
 		Players.PlayerAdded:Connect(bindPlayer)
 
-		Remotes.DetachDrone.OnServerEvent:Connect(function(_player, droneUserId)
-
-			if not droneUserId then
-
-				warn("[DroneService] Tried to detach nil droneUserId")
-			end
-			
-			if Drones[droneUserId] then
-
-				Drones[droneUserId]:Destroy()
-			end
-		end)
-
-		Remotes.ReattachDrone.OnServerEvent:Connect(function(_player, droneUserId)
-
-			if not droneUserId then
-
-				warn("[DroneService] Tried to Reattach nil droneUserId")
-			end
-			
-			if Drones[droneUserId] then
-
-				local drone = Drones[droneUserId]
-				drone:Destroy()
-				Drones[droneUserId] = Drone.new(drone.Player, drone.HostUserId)
-			end
-		end)
-
 		Remotes.UnlinkDrone.OnServerEvent:Connect(function(_player, droneUserId)
 
 			if not droneUserId then
