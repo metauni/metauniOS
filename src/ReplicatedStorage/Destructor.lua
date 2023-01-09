@@ -7,10 +7,10 @@ local finalizers = setmetatable({
 	end,
 	["Instance"] = game.Destroy,
 	["table"] = function(item)
-		if item.Destroy then
-			item:Destroy()
-		elseif item.Disconnect then
+		if item.Disconnect then
 			item:Disconnect()
+		elseif item.Destroy then
+			item:Destroy()
 		else
 			error("[Destructor] table has no :Destroy() or :Disconnect() method")
 		end
