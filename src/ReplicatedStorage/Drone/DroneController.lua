@@ -23,7 +23,7 @@ return {
 
 			local destructor = Destructor.new()
 
-			local hostUserId = character:GetAttribute("DroneAttachedToHost")
+			local hostUserId = character:GetAttribute("DroneAttachedToHostUserId")
 
 			local hostName do
 				
@@ -141,12 +141,12 @@ return {
 			destructor:Add(droneIconDestructor)
 			destructor:Add(hostIconDestructor)
 
-			if character:GetAttribute("DroneAttachedToHost") then
+			if character:GetAttribute("DroneAttachedToHostUserId") then
 				
 				droneIconDestructor = makeDroneIcon(character)
 			end
 
-			destructor:Add(character:GetAttributeChangedSignal("DroneAttachedToHost"):Connect(function()
+			destructor:Add(character:GetAttributeChangedSignal("DroneAttachedToHostUserId"):Connect(function()
 				
 				droneIconDestructor:Destroy()
 				droneIconDestructor = makeDroneIcon(character)
