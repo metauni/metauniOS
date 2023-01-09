@@ -223,9 +223,9 @@ function BoardController:Start()
 		
 		local data = board.Remotes.GetBoardData:InvokeServer()
 		
-		board:ConnectRemotes()
-	
 		board:LoadData(data)
+		
+		board:ConnectRemotes()
 	
 		self.Boards[instance] = board
 		self.SurfaceCanvases[instance] = SurfaceCanvas.new(board)
