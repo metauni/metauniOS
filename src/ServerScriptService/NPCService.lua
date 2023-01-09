@@ -98,12 +98,12 @@ NPCService.ActionType = {
 	Walk = 4,
 	Say = 5,
 	Plan = 6,
-    Turn = 7
+    Turn = 7,
+    Point = 8
 }
 
 function NPCService.Init()
     NPCService.IntervalBetweenSummaries = 8 -- default 10
-    NPCService.MaxObservations = 6 -- default 6
     NPCService.MaxRecentActions = 5 -- default 4
     NPCService.MaxThoughts = 9 -- default 8
     NPCService.MaxSummaries = 30 -- default 20
@@ -137,6 +137,8 @@ function NPCService.Init()
 		NPCService.animationsForNPC[npc].WaveAnim = animator:LoadAnimation(npc.Animate.wave.WaveAnim)
 		NPCService.animationsForNPC[npc].LaughAnim = animator:LoadAnimation(npc.Animate.laugh.LaughAnim)
 		NPCService.animationsForNPC[npc].DanceAnim = animator:LoadAnimation(npc.Animate.dance.Animation1)
+        NPCService.animationsForNPC[npc].PointAnim = animator:LoadAnimation(npc.Animate.point.PointAnim)
+        NPCService.animationsForNPC[npc].IdleAnim = animator:LoadAnimation(npc.Animate.idle.Animation1)
 	end
 	
 	Players.PlayerAdded:Connect(function(plr)
@@ -508,8 +510,6 @@ function NPCService.TimestepNPC(npc:instance)
 
     if forcedToAct then prompt = prompt .. forcedActionText end
     
-	if npc.Name == "Shoal" then print(prompt) end
-	
 	local temperature = 0.9 -- was 0.8
 	local freqPenalty = 1.4 -- was 1.0
 	local presPenalty = 1.6 -- was 1.4
@@ -527,10 +527,13 @@ function NPCService.TimestepNPC(npc:instance)
 	    responseText = "Action:" .. responseText
     end
 
-    if npc.Name == "Shoal" then
-        print("=== response ===")
-        print(responseText)
-        print("==============")
+    -- TODO hacky, only for TRS
+	if npc.Name == "Shoal" then
+        local shoalPromptLabel = npc.Parent.ShoalMind.ShoalPrompt.SurfaceGui.TextLabel
+        shoalPromptLabel.Text = prompt
+    
+        local shoalResponseLabel = npc.Parent.ShoalMind.ShoalResponse.SurfaceGui.TextLabel
+        shoalResponseLabel.Text = responseText
     end
 	
 	local actions = {}
@@ -605,7 +608,12 @@ function NPCService.TimestepNPC(npc:instance)
                 NPCService.planningCounter[npc] += 1
             end
             
-            NPCService.AddRecentAction(npc, action)
+            -- Plans go into the agent's stream as thoughts, we
+            -- don't need to also record them as recent actions
+            if parsedAction.Type ~= NPCService.ActionType.Plan then
+                NPCService.AddRecentAction(npc, action)
+            end
+
             NPCService.TakeAction(npc, parsedAction)
         end
 	end
@@ -647,36 +655,44 @@ function NPCService.HandleChat(speaker, message, target)
 	end
 end
 
--- Look in the environment for observations
 function NPCService.ObserveForNPC(npc:instance)
+    -- The constraint is that each observation uses tokens, and the prompt
+    -- cannot use too many tokens, both because it is expensive and because
+    -- it will distract the agent. We must therefore filter the observations
+    -- and "pay attention" to things that are nearby and/or important.
+    
+    -- However, we can't *only* pay attention to nearby things, because
+    -- then the agent will never switch activities
+
+    -- Because there are many boards, and they usually don't have distinctive
+    -- names, we treat them specially. The agent simply observes something like
+    -- "There is a board nearby. Additionally there is a previous board and next board", 
+    -- "There are several boards nearby", "There are more boards in the area"
+    -- We handle actions such as "Move to the next board", "Walk to another board"
+    -- "Walk to the boards far away"
+
 	if npc.PrimaryPart == nil then return end
 	local pos = npc.PrimaryPart.Position
 	
 	local potentialObservations = {}
 	
-	-- Look at other NPCS
 	for _, x in CollectionService:GetTagged(NPCService.NPCTag) do
 		if x == npc then continue end
         if not x:IsDescendantOf(game.Workspace) then return end
 		if getInstancePosition(x) == nil then continue end
-		
+	
 		table.insert(potentialObservations, {Object = x, 
 											Name = x.Name,
 											Description = "They are a person"})
 	end
 	
-	-- Look at players
 	for _, plr in Players:GetPlayers() do
 		if plr.Character == nil or plr.Character.PrimaryPart == nil then continue end
 		table.insert(potentialObservations, {Object = plr.Character,
 											Name = plr.DisplayName,
 											Description = "They are a person"})
 	end
-	
-    -- Look at boards
-    -- TODO
 
-	-- Look at objects
 	for _, x in CollectionService:GetTagged(NPCService.ObjectTag) do
 		if getInstancePosition(x) == nil then continue end
 		local t = {Object = x, Name = x.Name, Description = "It is an object, not a person"}
@@ -700,6 +716,17 @@ function NPCService.ObserveForNPC(npc:instance)
 	local WalkingDistanceRadius = 200
 	local observedBoardPhrases = {}
 
+    local nextToMeObservationsCount = 0
+    local maxNextToMeObservations = 3
+
+    local nearbyObservationsCount = 0
+    local maxNearbyObservations = 2
+
+    local walkingDistanceObservationsCount = 0
+    local maxWalkingDistanceObservations = 1
+
+    shuffle(potentialObservations)
+
 	for _, obj in potentialObservations do
 		local objPos = getInstancePosition(obj.Object)
 		local distance = (objPos - pos).Magnitude
@@ -713,12 +740,18 @@ function NPCService.ObserveForNPC(npc:instance)
 		if distance < NextToMeRadius then
 			phrase = "is next to me"
             boardPhrase = "There is a board next to me"
+            nextToMeObservationsCount += 1
+            if nextToMeObservationsCount > maxNextToMeObservations then continue end
 		elseif distance < NearbyRadius then
-			phrase = "is nearby"
+			phrase = "is nearby but too far away to hear me"
             boardPhrase = "There are boards nearby"
+            nearbyObservationsCount += 1
+            if nearbyObservationsCount > maxNearbyObservations then continue end
 		elseif distance < WalkingDistanceRadius then
 			phrase = "is within walking distance"
             boardPhrase = "There are boards within walking distance"
+            walkingDistanceObservationsCount += 1
+            if walkingDistanceObservationsCount > maxWalkingDistanceObservations then continue end
 		end
 		
 		local phrase = obj.Name .. " " .. phrase .. ". " .. obj.Description .. "."
@@ -838,6 +871,8 @@ end
 -- Point to the boards and say "This is where we're headed!"
 -- Turns towards Youtwice
 
+-- TODO: currently we do not correctly parse things unless the capitalisation is correct
+
 function NPCService.ParseActions(actionText:string)
 	
     -- Walk and Say
@@ -900,6 +935,48 @@ function NPCService.ParseActions(actionText:string)
 			return actionList
         end
     end
+
+    -- Point and say
+    -- Example: Point to the boards and say "This is where we're headed!"
+    -- Currently only handles pointing to objects
+	for _, obj in CollectionService:GetTagged(NPCService.ObjectTag) do
+		local name = obj.Name
+        local regexes = {"^Point to the " .. name .. " .+\"(.+)\"","^Point to " .. name .. " .+\"(.+)\"",
+                "^Point at the " .. name .. " .+\"(.+)\"","^Point at " .. name .. " .+\"(.+)\"",
+                "^Point at the direction of the " .. name .. " .+\"(.+)\"","^Point at the direction of " .. name .. " .+\"(.+)\""}
+		for _, r in regexes do
+			local message = string.match(actionText, r)
+			if message then
+                local actionList = {}
+
+                pointActionDict = {}
+				pointActionDict.Type = NPCService.ActionType.Point
+				pointActionDict.Target = obj
+                table.insert(actionList, pointActionDict)
+
+                local sayActionDict = {}
+                sayActionDict.Type = NPCService.ActionType.Say
+                sayActionDict.Content = message
+                table.insert(actionList, sayActionDict)
+
+				return actionList
+			end
+		end
+
+        local regexes = {"^Point to the " .. name,"^Point to " .. name,
+                "^Point at the " .. name,"^Point at " .. name,
+                "^Point at the direction of the " .. name,"^Point at the direction of " .. name}
+        for _, r in regexes do
+			local message = string.match(actionText, r)
+			if message then
+                pointActionDict = {}
+				pointActionDict.Type = NPCService.ActionType.Point
+				pointActionDict.Target = obj
+
+				return {pointActionDict}
+			end
+		end
+	end
 
 	local dancePrefixes = {"Dance"}
 	for _, p in dancePrefixes do
@@ -1015,7 +1092,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Point", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion"}
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
 			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
@@ -1134,6 +1211,7 @@ function NPCService.WalkNPCToPos(npc, targetPos)
 	return true
 end
 function NPCService.TakeAction(npc:instance, parsedAction)
+
 	if parsedAction.Type == NPCService.ActionType.Dance then
 		local animationTrack = NPCService.animationsForNPC[npc].DanceAnim
 		animationTrack:Play()
@@ -1160,6 +1238,24 @@ function NPCService.TakeAction(npc:instance, parsedAction)
 		return
 	end
 	
+    if parsedAction.Type == NPCService.ActionType.Point then
+		local target = parsedAction.Target
+		if target ~= nil then
+			local targetPos = getInstancePosition(target)
+			NPCService.RotateNPCToFacePosition(npc, targetPos)
+            task.wait(0.2)
+		end
+		
+		local animationTrack = NPCService.animationsForNPC[npc].PointAnim
+		animationTrack:Play()
+
+        task.delay(3, function()
+			animationTrack:Stop()
+		end)
+
+		return
+	end
+
 	if parsedAction.Type == NPCService.ActionType.Wave then
 		local target = parsedAction.Target
 		if target ~= nil then
