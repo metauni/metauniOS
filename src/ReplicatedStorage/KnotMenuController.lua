@@ -84,6 +84,7 @@ local function StartDecalEntryDisplay(board)
 	Instance.new("UICorner").Parent = button
 
 	screenGui.Parent = localPlayer.PlayerGui
+    textBox:CaptureFocus()
 end
 
 local function StartDisplay(board, displayType)
@@ -290,7 +291,7 @@ local function CreateTopbarItems()
 			StartBoardSelectMode(StartDisplay, "URL")
 		end),
         Icon.new()
-		:setLabel("Add Decal to Board...")
+		:setLabel("Decal for Board...")
 		:bindEvent("selected", function(self)
 			self:deselect()
 			icon:deselect()
