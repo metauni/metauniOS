@@ -697,37 +697,37 @@ function Orb.WalkGhost(orb, pos, ghost)
 	
 	-- If we're already on our way, don't repeat it
 	local alreadyMoving = (Orb.GhostTargets[ghost.Name] ~= nil) and (Orb.GhostTargets[ghost.Name] - newPos).Magnitude < SMALL_DISTANCE
+    if alreadyMoving then return end
+    if not ghost:FindFirstChild("Humanoid") then return end
+    
+    ghost.Humanoid:MoveTo(newPos)
 
-	if not alreadyMoving then
-		ghost.Humanoid:MoveTo(newPos)
+    Orb.GhostTargets[ghost.Name] = newPos
 
-		Orb.GhostTargets[ghost.Name] = newPos
+    local animator = ghost.Humanoid:FindFirstChild("Animator")
+    local animation = animator:LoadAnimation(WalkAnim)
+    animation:Play()
 
-		local animator = ghost.Humanoid:FindFirstChild("Animator")
-		local animation = animator:LoadAnimation(WalkAnim)
-		animation:Play()
+    local connection
+    connection = ghost.Humanoid.MoveToFinished:Connect(function(reached)
+        animation:Stop()
 
-		local connection
-		connection = ghost.Humanoid.MoveToFinished:Connect(function(reached)
-			animation:Stop()
+        -- If it was too far for the ghost to reach, just teleport them
+        if not reached then
+            local speakerPos = Orb.GetSpeakerPosition(orb)
+            if speakerPos ~= nil then
+                ghost:PivotTo(CFrame.lookAt(newPos, speakerPos))
+            else
+                ghost.PrimaryPart.Position = newPos
+            end
+        else
+            Orb.RotateGhostToFaceSpeaker(orb, ghost)
+        end
 
-			-- If it was too far for the ghost to reach, just teleport them
-			if not reached then
-				local speakerPos = Orb.GetSpeakerPosition(orb)
-				if speakerPos ~= nil then
-					ghost:PivotTo(CFrame.lookAt(newPos, speakerPos))
-				else
-					ghost.PrimaryPart.Position = newPos
-				end
-			else
-				Orb.RotateGhostToFaceSpeaker(orb, ghost)
-			end
-
-			Orb.GhostTargets[ghost.Name] = nil
-			connection:Disconnect()
-			connection = nil
-		end)
-	end
+        Orb.GhostTargets[ghost.Name] = nil
+        connection:Disconnect()
+        connection = nil
+    end)
 end
 
 function Orb.WalkGhosts(orb, pos)
