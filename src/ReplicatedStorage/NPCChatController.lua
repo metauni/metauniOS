@@ -69,13 +69,28 @@ local function SetupNPCChatBubbles()
             }
     }      
         
-    local npcs = CollectionService:GetTagged(NPCService.NPCTag)
-	for _, npc in npcs do
+    local function setupBubbleChat(npc)
         npc:WaitForChild("Head")
-
         bubbleChatSettings.UserSpecificSettings[npc.Head:GetFullName()] = chatSettings[npc.Name]
     end
-    
+
+    local npcs = CollectionService:GetTagged(NPCService.NPCTag)
+	for _, npc in npcs do
+        if npc:IsDescendantOf(game.Workspace) then
+            setupBubbleChat(npc)
+        end
+
+        -- The NPC moves from replicated storage into workspace, apply the bubble
+        -- chat settings to its head after it moves
+        
+        npc.AncestryChanged:Connect(function(child,parent)
+            if npc:IsDescendantOf(game.Workspace) then
+                setupBubbleChat(npc)
+                ChatService:SetBubbleChatSettings(bubbleChatSettings)
+            end
+        end)
+    end
+
     ChatService:SetBubbleChatSettings(bubbleChatSettings)
 end
 

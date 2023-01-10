@@ -124,22 +124,12 @@ function NPCService.Init()
 	
 	local npcs = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npc in npcs do
-        if not npc:IsDescendantOf(game.Workspace) then continue end
-        
-		NPCService.thoughtsForNPC[npc] = {}
-		NPCService.recentActionsForNPC[npc] = {}
-		NPCService.summariesForNPC[npc] = {}
-        NPCService.planningCounter[npc] = 0
-		
-		NPCService.animationsForNPC[npc] = {}
-		local animator = npc.Humanoid:WaitForChild("Animator")
-		NPCService.animationsForNPC[npc].WalkAnim = animator:LoadAnimation(npc.Animate.walk.WalkAnim)
-		NPCService.animationsForNPC[npc].WaveAnim = animator:LoadAnimation(npc.Animate.wave.WaveAnim)
-		NPCService.animationsForNPC[npc].LaughAnim = animator:LoadAnimation(npc.Animate.laugh.LaughAnim)
-		NPCService.animationsForNPC[npc].DanceAnim = animator:LoadAnimation(npc.Animate.dance.Animation1)
-        NPCService.animationsForNPC[npc].PointAnim = animator:LoadAnimation(npc.Animate.point.PointAnim)
-        NPCService.animationsForNPC[npc].IdleAnim = animator:LoadAnimation(npc.Animate.idle.Animation1)
+        NPCService.InitNPC(npc)
 	end
+
+    CollectionService:GetInstanceAddedSignal(NPCService.NPCTag):Connect(function(npc)
+        NPCService.InitNPC(npc)
+    end)
 	
 	Players.PlayerAdded:Connect(function(plr)
 		plr.Chatted:Connect(function(msg)
@@ -152,6 +142,22 @@ function NPCService.Init()
 			NPCService.HandleChat(plr, msg)
 		end)
 	end
+end
+
+function NPCService.InitNPC(npc)
+    NPCService.thoughtsForNPC[npc] = {}
+    NPCService.recentActionsForNPC[npc] = {}
+    NPCService.summariesForNPC[npc] = {}
+    NPCService.planningCounter[npc] = 0
+    
+    NPCService.animationsForNPC[npc] = {}
+    local animator = npc.Humanoid.Animator
+    NPCService.animationsForNPC[npc].WalkAnim = animator:LoadAnimation(npc.Animate.walk.WalkAnim)
+    NPCService.animationsForNPC[npc].WaveAnim = animator:LoadAnimation(npc.Animate.wave.WaveAnim)
+    NPCService.animationsForNPC[npc].LaughAnim = animator:LoadAnimation(npc.Animate.laugh.LaughAnim)
+    NPCService.animationsForNPC[npc].DanceAnim = animator:LoadAnimation(npc.Animate.dance.Animation1)
+    NPCService.animationsForNPC[npc].PointAnim = animator:LoadAnimation(npc.Animate.point.PointAnim)
+    NPCService.animationsForNPC[npc].IdleAnim = animator:LoadAnimation(npc.Animate.idle.Animation1)
 end
 
 function NPCService.Start()
@@ -1297,7 +1303,9 @@ function NPCService.TakeAction(npc:instance, parsedAction)
 			warn("[NPCService] Error filtering text:", message, ":", filteredText)
 		else
 			local filteredMessage = filteredText:GetNonChatStringForBroadcastAsync()
-			ChatService:Chat(npc.Head, filteredMessage)
+            if npc:IsDescendantOf(game.Workspace) then
+			    ChatService:Chat(npc.Head, filteredMessage)
+            end
 		end
 		
 		-- Note that agents see the unfiltered messages
