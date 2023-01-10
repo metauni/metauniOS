@@ -108,7 +108,7 @@ function NPCService.Init()
     NPCService.MaxThoughts = 9 -- default 8
     NPCService.MaxSummaries = 30 -- default 20
     NPCService.MemorySearchProbability = 0.4
-    NPCService.TimestepDelay = 8 -- default 5
+    NPCService.TimestepDelay = 7 -- default 5
     NPCService.MaxConsecutivePlan = 2
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
@@ -527,15 +527,9 @@ function NPCService.TimestepNPC(npc:instance)
 	    responseText = "Action:" .. responseText
     end
 
-    -- TODO hacky, only for TRS
-	if npc.Name == "Shoal" then
-        local shoalPromptLabel = npc.Parent.ShoalMind.ShoalPrompt.SurfaceGui.TextLabel
-        shoalPromptLabel.Text = prompt
-    
-        local shoalResponseLabel = npc.Parent.ShoalMind.ShoalResponse.SurfaceGui.TextLabel
-        shoalResponseLabel.Text = responseText
-    end
-	
+    npc:SetAttribute("gpt_prompt", prompt)
+    npc:SetAttribute("gpt_response", responseText)
+
 	local actions = {}
 	local thoughts = {}
 	local itemType = ""
