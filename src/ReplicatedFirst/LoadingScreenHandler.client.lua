@@ -62,7 +62,7 @@ local trsImages = {
 	"rbxassetid://10571157328"
 }
 
-image.Image = trsImages[math.random(1,#trsImages)]
+-- image.Image = trsImages[math.random(1,#trsImages)]
 
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0,8)
