@@ -9,7 +9,7 @@ return {
 	Start = function()
 		
 		if Common:GetAttribute("OrbServerInitialised") == nil then
-				Common:GetAttributeChangedSignal("OrbServerInitialised"):Wait()
+			Common:GetAttributeChangedSignal("OrbServerInitialised"):Wait()
 		end
 		
 		local localPlayer = Players.LocalPlayer

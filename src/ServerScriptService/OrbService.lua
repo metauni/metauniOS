@@ -55,10 +55,13 @@ function Orb.Init()
 	Orb.ListeningStatus = {} -- Which players are listening to an orb? For halos (tostring(playerID) -> bool)
 	Orb.OrbCamStatus = {} -- Which players are watching through orbcam? (tostring(playerID) -> bool)
 	Orb.SpeakerLastMoved = {} -- (tostring(playerID) -> last move time)
+end
+
+function Orb.Start()
 
 	local orbs = CollectionService:GetTagged(Config.ObjectTag)
 	for _, orb in ipairs(orbs) do
-		Orb.InitOrb(orb)
+		task.spawn(Orb.InitOrb, orb)
 	end
 
 	CollectionService:GetInstanceAddedSignal(Config.ObjectTag):Connect(function(orb)
@@ -184,7 +187,7 @@ function Orb.Init()
 		s.CastShadow = false
 	end
 
-	task.spawn(function()
+	task.defer(function()
 		while true do
 			task.wait(Config.GhostSpawnInterval)
 			Orb.CheckGhosts()
@@ -201,13 +204,8 @@ function Orb.Init()
 		orb.VRSpeakerChalkEquipped.Value = false
 	end)
 
-	local versionValue = script.Parent:FindFirstChild("version")
-	local ver = versionValue and versionValue.Value or ""
-
 	-- Indicate that the system has been setup enough for clients to do their setup
 	ReplicatedStorage.Orb:SetAttribute("OrbServerInitialised", true)
-
-	print("[Orb] Server ".. ver .." initialized")
 end
 
 local function makeRing(size, innerWidth, outerWidth, color)

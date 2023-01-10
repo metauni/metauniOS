@@ -112,7 +112,7 @@ return {
 					-- Don't trigger a teleport when a VR player tries to draw
 					-- on the portal with their hand
 					if VRService.VREnabled then
-						if otherPart.Name == "MetaChalk" or
+						if otherPart.Name == "Chalk" or
 								otherPart.Name == "RightHand" or
 								otherPart.Name == "LeftHand" then
 							return

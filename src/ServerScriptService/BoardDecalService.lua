@@ -81,16 +81,19 @@ function BoardDecalService.Start()
 	local boards = CollectionService:GetTagged("metaboard")
 	
 	for _, board in boards do
-        if not board:IsDescendantOf(game.Workspace) then continue end
-		if board:FindFirstChild("PersistId") == nil then continue end
-		
-		waitForBudget(Enum.DataStoreRequestType.GetAsync)
-		
-		local decalKey = decalKeyForBoard(board)
-		local assetId = DataStore:GetAsync(decalKey)
-		if assetId then
-			BoardDecalService.SetDecal(board, assetId)
-		end
+		task.spawn(function()
+			
+			if not board:IsDescendantOf(game.Workspace) then return end
+			if board:FindFirstChild("PersistId") == nil then return end
+			
+			waitForBudget(Enum.DataStoreRequestType.GetAsync)
+			
+			local decalKey = decalKeyForBoard(board)
+			local assetId = DataStore:GetAsync(decalKey)
+			if assetId then
+				BoardDecalService.SetDecal(board, assetId)
+			end
+		end)
 	end
 end
 
