@@ -66,10 +66,13 @@ function MetaPortal.Init()
 	MetaPortal.PocketInit = false
 	MetaPortal.PocketData = nil
 	MetaPortal.PocketInitTouchConnections = {}
+end
+
+function MetaPortal.Start()
 	
 	local portals = CollectionService:GetTagged(Config.PortalTag)
 	for _, portal in ipairs(portals) do
-		MetaPortal.InitPortal(portal)
+		task.spawn(MetaPortal.InitPortal, portal)
 	end
 	
 	CollectionService:GetInstanceAddedSignal(Config.PortalTag):Connect(function(portal)
@@ -85,7 +88,7 @@ function MetaPortal.Init()
 	Players.PlayerAdded:Connect(function(plr)
 		MetaPortal.PlayerArrive(plr)
 	end)
-
+	
 	for _, plr in ipairs(Players:GetPlayers()) do
 		MetaPortal.PlayerArrive(plr)
 	end
@@ -105,11 +108,6 @@ function MetaPortal.Init()
 	UnlinkPortalRemoteEvent.OnServerEvent:Connect(MetaPortal.UnlinkPortal)
 	PocketsForPlayerRemoteFunction.OnServerInvoke = MetaPortal.PocketsForPlayer
 	GetLaunchDataRemoteFunction.OnServerInvoke = MetaPortal.GetLaunchData
-
-	local versionValue = script.Parent:FindFirstChild("version")
-	local ver = versionValue and versionValue.Value or ""
-
-	print("[MetaPortal] "..ver.." initialised")
 end
 
 function MetaPortal.GetLaunchData(plr)
@@ -466,7 +464,7 @@ function MetaPortal.InitPocketPortals()
 	local pockets = CollectionService:GetTagged(Config.PocketTag)
 
 	for _, pocket in ipairs(pockets) do
-		MetaPortal.InitPocketPortal(pocket)
+		task.spawn(MetaPortal.InitPocketPortal, pocket)
 	end
 end
 

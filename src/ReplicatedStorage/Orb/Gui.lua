@@ -78,7 +78,7 @@ function Gui.Init()
     Gui.Boardcam = false
     Gui.BoardcamHighlightConnection = nil
 
-    Gui.InitEar()
+    task.spawn(Gui.InitEar)
 
     -- 
     -- Listening
@@ -108,32 +108,13 @@ function Gui.Init()
     Gui.SetupEmojiGui()
     NewEmojiRemoteEvent.OnClientEvent:Connect(Gui.HandleNewEmoji)
 
-    -- If the Admin system is installed, the permission specified there
-	-- overwrites the default "true" state of HasWritePermission
-	local adminEvents = ReplicatedStorage:FindFirstChild("MetaAdmin")
-	if adminEvents then
-		local isScribeRF = adminEvents:WaitForChild("IsScribe")
-
-		if isScribeRF then
-			Gui.HasSpeakerPermission = isScribeRF:InvokeServer()
-		end
-
-		-- Listen for updates to the permissions
-		local permissionUpdateRE = adminEvents:WaitForChild("PermissionsUpdate")
-		permissionUpdateRE.OnClientEvent:Connect(function()
-			-- Request the new permission
-			if isScribeRF then
-				Gui.HasSpeakerPermission = isScribeRF:InvokeServer()
-			end
-
-            -- Update the visibility of speaker prompts
+    if not RunService:IsStudio() then
+        
+        Gui.HasSpeakerPermission = Players.LocalPlayer:GetAttribute("metaadmin_isscribe")
+        Players.LocalPlayer:GetAttributeChangedSignal("metaadmin_isscribe"):Connect(function()
+            Gui.HasSpeakerPermission = Players.LocalPlayer:GetAttribute("metaadmin_isscribe")
             Gui.RefreshAllPrompts()
-		end)
-	end
-
-    -- Give speaker permissions in Studio
-    if RunService:IsStudio() then
-        Gui.HasSpeakerPermission = true
+        end)
     end
 
     for _, orb in CollectionService:GetTagged(Config.ObjectTag) do
@@ -256,7 +237,7 @@ function Gui.Init()
 
     if VRService.VREnabled then
         -- In VR we need to tell other clients when we equip the chalk
-        local chalkTool = localPlayer.Backpack:WaitForChild("MetaChalk", 20)
+        local chalkTool = localPlayer.Backpack:WaitForChild("Chalk", 20)
         if chalkTool ~= nil then
             chalkTool.Equipped:Connect(function()
                 if Gui.Orb == nil then return end
@@ -269,7 +250,7 @@ function Gui.Init()
                 VRSpeakerChalkUnequipRemoteEvent:FireServer(Gui.Orb)
             end)
         else
-            print("[MetaOrb] Failed to find MetaChalk tool")
+            print("[MetaOrb] Failed to find Chalk tool")
         end
 
         -- Jump to exit orbcam
