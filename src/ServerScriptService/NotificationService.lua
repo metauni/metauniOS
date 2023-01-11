@@ -188,9 +188,9 @@ function NotificationService.BoardsToNotify(delay)
         if NotificationService.BoardsModified[boardId] + delay < tick() then
             NotificationService.BoardsModified[boardId] = nil
             local boardKey = boardId
-
+            
             if isPocket() then
-                local pocketId = ServerScriptService.Pocket:GetAttribute("PocketId")
+                local pocketId = ReplicatedStorage.Pocket:GetAttribute("PocketId")
                 boardKey = pocketId .. "-" .. boardKey
             end
 
