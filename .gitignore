@@ -3,6 +3,5 @@ Packages
 /*.rbxm
 /*.rbxlx
 /*.rbxl
-wally.lock
 
 dev-local.project.json
