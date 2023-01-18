@@ -147,6 +147,8 @@ function Orb.Start()
 	end)
 
 	OrbcamOnRemoteEvent.OnServerEvent:Connect(function(plr)
+        local orb = Orb.Attachments[tostring(plr.UserId)]
+        plr.RequestStreamAroundAsync(getInstancePosition(orb))
 		Orb.OrbCamStatus[tostring(plr.UserId)] = true
 		OrbcamOnRemoteEvent:FireAllClients(plr)
 	end)
@@ -784,6 +786,7 @@ function Orb.TweenOrbToPosition(orb, pos)
 		0 -- DelayTime
 	)
 
+    -- Note poi, poiPos may be nil
 	local poi, poiPos = Orb.PointOfInterest(pos)
 	
 	local orbTween
@@ -968,7 +971,7 @@ function Orb.PointOfInterest(targetPos)
     end
 
 	if closestPoi == nil then
-		print("[MetaOrb] Failed to find closest point of interest")
+		warn("[MetaOrb] Failed to find closest point of interest")
 	end
 
     return closestPoi, closestPos

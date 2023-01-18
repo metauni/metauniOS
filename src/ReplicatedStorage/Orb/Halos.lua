@@ -32,6 +32,7 @@ function Halos.Init()
 
     local function attachHalo(plr, orb)
         if not plr.Character then return end
+        if not orb then return end -- NOTE: may mean in game streaming you don't get halos
 
         -- Copy the rings from the orb
         local earRing = orb:FindFirstChild("EarRing")
