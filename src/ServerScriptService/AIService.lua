@@ -16,6 +16,18 @@ local Figure = metaboard.Figure
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
+-- Config
+local PINECONE_UPSERT_URLS = {
+    ["npc"] = "https://npc-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert",
+    ["boards"] = "https://boards-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
+}
+
+local PINECONE_QUERY_URLS = {
+    ["npc"] = "https://npc-d08c033.svc.us-west1-gcp.pinecone.io/query",
+    ["boards"] = "https://boards-d08c033.svc.us-west1-gcp.pinecone.io/query",
+    ["refs"] = "https://refs-d08c033.svc.us-west1-gcp.pinecone.io/query"
+}
+
 local VISION_API_URL = "http://34.116.106.66:8080"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
@@ -47,6 +59,61 @@ local function serialiseBoard(board)
 	return lines
 end
 
+-- authString is optional
+local function safePostAsync(apiUrl, encodedRequest, authDict)
+    local success, response
+
+    if authDict ~= nil then
+        success, response = pcall(function()
+            return HttpService:PostAsync(
+                apiUrl,
+                encodedRequest,
+                Enum.HttpContentType.ApplicationJson,
+                false,
+                authDict)
+        end)
+    else
+        success, response = pcall(function()
+            return HttpService:PostAsync(
+                apiUrl,
+                encodedRequest,
+                Enum.HttpContentType.ApplicationJson,
+                false)
+        end)
+    end
+
+    if not success then
+        warn("[AIService] PostAsync failed: " .. response)
+        return
+    end	
+
+    if response == nil then
+        warn("[AIService] Got a bad response from PostAsync")
+        return
+    end
+
+    if response == "" or response == " " then
+        warn("[AIService] Got blank response from PostAsync")
+        return
+    end
+
+    local decodeSuccess, responseData = pcall(function()
+        return HttpService:JSONDecode(response)
+    end)
+
+    if not decodeSuccess then
+        warn("[AIService] JSONDecode in safePostAsync: " .. responseData)
+        warn("[AIService] Invalid JSON was: " .. response)
+        return
+    end
+
+    if responseData == nil then
+        warn("[AIService] JSONDecode returned nil")
+        return
+    end
+	
+    return responseData
+end
 
 local AIService = {}
 AIService.__index = AIService
@@ -93,6 +160,11 @@ function AIService.CleanGPTResponse(text, extraPrefixes)
 end
 
 function AIService.Embedding(text, plr)
+    if text == nil or text == "" then
+        warn("[AIService] Asked for embedding of empty string")
+        return
+    end
+
     local request = { ["model"] = "text-embedding-ada-002",
 		["input"] = text}
 	
@@ -100,32 +172,78 @@ function AIService.Embedding(text, plr)
 		request["user"] = tostring(plr.UserId)
 	end
 
-	local success, response = pcall(function()
-		return HttpService:PostAsync(
-			EMBEDDINGS_API_URL,
-			HttpService:JSONEncode(request),
-			Enum.HttpContentType.ApplicationJson,
-			false,
-			{["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
-	end)
+    local encodedRequest = HttpService:JSONEncode(request)
 
-	if success then
-		if response == nil then
-			warn("[AIService] Got a bad response from PostAsync")
-			return nil
-		end
+    local responseData = safePostAsync(EMBEDDINGS_API_URL, encodedRequest, 
+        {["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
 
-		local responseData = HttpService:JSONDecode(response)
-		if responseData == nil then
-			warn("[AIService] JSONDecode on response failed")
-			return nil
-		end
-		
-		local responseVector = responseData["data"][1]["embedding"]
-		return responseVector
-	else
-		return nil
+    if responseData == nil then return end
+
+	local responseVector = responseData["data"][1]["embedding"]
+    if responseVector == nil then
+        warn("[AIService] Embedding got malformed response:")
+        print(responseVector)
+        return
 	end
+
+    return responseVector
+end
+
+function AIService.StoreEmbedding(embeddingType, vector, metadata)
+    local API_URL = PINECONE_UPSERT_URLS[embeddingType]
+    if API_URL == nil then
+        warn("[AIService] Invalid embedding type")
+        return
+    end
+
+    if vector == nil then
+        warn("[AIService] Invalid vector for embedding")
+        return
+    end
+
+    if metadata == nil then
+        warn("[AIService] Invalid metadata for embedding")
+        return
+    end
+
+    local request = { ["vectors"] = {
+        {
+          ["id"] = HttpService:GenerateGUID(false),
+          ["metadata"] = metadata,
+          ["values"] = vector
+        }} }
+
+    local encodedRequest = HttpService:JSONEncode(request)
+    local responseData = safePostAsync(API_URL, encodedRequest, 
+        {["Api-Key"] = SecretService.PINECONE_API_KEY})
+
+    if responseData == nil then
+        warn("[AIService] Failed to send embedding to pinecone")
+    end
+end
+
+function AIService.QueryEmbeddings(embeddingType, vector, filter, topk)
+    local API_URL = PINECONE_QUERY_URLS[embeddingType]
+    if API_URL == nil then
+        warn("[AIService] Invalid embedding type")
+        return
+    end
+    local request = { ["vector"] = vector,
+                      ["filter"] = filter,
+                      ["topK"] = topk,
+                      ["includeMetadata"] = true }
+        
+    local encodedRequest = HttpService:JSONEncode(request)
+    local responseData = safePostAsync(API_URL, encodedRequest, 
+        {["Api-Key"] = SecretService.PINECONE_API_KEY})
+
+    if responseData == nil then
+        warn("[AIService] Failed to query embeddings")
+        return {}
+    end
+
+    local matches = responseData["matches"]
+    return matches
 end
 
 function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty)
@@ -145,111 +263,57 @@ function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalt
 		request["user"] = tostring(plr.UserId)
 	end
 
-	local success, response = pcall(function()
-		return HttpService:PostAsync(
-			GPT_API_URL,
-			HttpService:JSONEncode(request),
-			Enum.HttpContentType.ApplicationJson,
-			false,
-			{["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
-	end)
+    local encodedRequest = HttpService:JSONEncode(request)
+    local responseData = safePostAsync(GPT_API_URL, encodedRequest, 
+        {["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
 
-	if success then
-		if response == nil then
-			warn("[AIService] Got a bad response from PostAsync")
-			return nil
-		end
+    if responseData == nil then return end
 
-		local responseData = HttpService:JSONDecode(response)
-		if responseData == nil then
-			warn("[AIService] JSONDecode on response failed")
-			return nil
-		end
-		
-		local responseText = responseData["choices"][1]["text"]
-        if responseText == nil then
-            warn("[AIService] Got malformed response:")
-            print(responseData)
-        end
+	local responseText = responseData["choices"][1]["text"]
+    if responseText == nil then
+        warn("[AIService] GPTPrompt got malformed response:")
+        print(responseData)
+        return
+    end
 
-		return responseText
-	else
-		return nil
-	end
+	return responseText
 end
 
 function AIService.ObjectLocalizationForBoard(board)
 
     local serialisedBoardData = serialiseBoard(board)
-	local json = HttpService:JSONEncode({RequestType = "ObjectLocalization", 
+	local encodedRequest = HttpService:JSONEncode({RequestType = "ObjectLocalization", 
 			Content = serialisedBoardData})
 	
-	local success, response = pcall(function()
-		return HttpService:PostAsync(
-			VISION_API_URL,
-			json,
-			Enum.HttpContentType.ApplicationJson,
-			false)
-	end)
+    local responseData = safePostAsync(VISION_API_URL, encodedRequest)
+    if responseData == nil then return end
 
-	if success then
-		if response == nil then
-			warn("[AIService] Got a bad response from ObjectLocalization PostAsync")
-			return nil
-		end
-
-		local responseData = HttpService:JSONDecode(response)
-		if responseData == nil then
-			warn("[AIService] ObjectLocalization JSONDecode on response failed")
-			return nil
-		end
-
-		local responseDict = responseData["objects"]
-		return responseDict
-	else
-		warn("[AIService] ObjectLocalization HTTPService PostAsync failed ".. response)
-		return nil
-	end
+    local responseDict = responseData["objects"]
+    if responseDict == nil then
+        warn("[AIService] ObjectLocalizationForBoard got malformed response:")
+        print(responseData)
+    end
+	
+    return responseDict
 end
 
 function AIService.OCRBoard(board)
 
 	local serialisedBoardData = serialiseBoard(board)
-	local json = HttpService:JSONEncode({RequestType = "OCR", 
+	local encodedRequest = HttpService:JSONEncode({RequestType = "OCR", 
 			Content = serialisedBoardData})
 	
-	local success, response = pcall(function()
-		return HttpService:PostAsync(
-			VISION_API_URL,
-			json,
-			Enum.HttpContentType.ApplicationJson,
-			false)
-	end)
+    local responseData = safePostAsync(VISION_API_URL, encodedRequest)
+    if responseData == nil then return end
 
-	if success then
-		if response == nil then
-			warn("[AIService] Got a bad response from OCR PostAsync")
-			return nil
-		end
+    local responseText = responseData["text"]
+    if responseText == nil then
+        warn("[AIService] OCRBoard got malformed response:")
+        print(responseData)
+        return
+    end
 
-        local inner_success, responseData = pcall(function()
-            return HttpService:JSONDecode(response)
-        end)
-		if inner_success then
-            if responseData == nil then
-                warn("[AIService] OCR JSONDecode on response failed")
-                return nil
-            end
-
-            local responseText = responseData["text"]
-            return responseText
-        else
-            warn("[AIService] Failed to parse OCR JSON: " .. responseData)
-        end
-	else
-		warn("[AIService] OCR HTTPService PostAsync failed ".. response)
-		return nil
-	end
+    return responseText
 end
 
 return AIService

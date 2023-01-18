@@ -87,6 +87,30 @@ local function cleanstring(text)
 	return text
 end
 
+local function humanReadableTimeInterval(d)
+    d = math.floor(d)
+    if d < 60 then return "less than a minute" end
+
+    local numMinutes = math.floor(d / 60)
+
+    if numMinutes < 5 then return "less than five minutes" end
+    if numMinutes < 10 then return "around ten minutes" end
+    if numMinutes < 60 then return "around " .. tostring(math.floor(numMinutes / 10) * 10) .. " minutes" end
+
+    local numHours = math.floor(numMinutes / 60)
+    if numHours == 1 then return "around an hour" end
+    if numHours < 24 then return "around " .. tostring(numHours) .. " hours" end
+    
+    local numDays = math.floor(numHours / 24)
+    if numDays == 1 then return "around a day" end
+    if numDays < 30 then return "around " .. tostring(numDays) .. " days" end
+
+    local numMonths = math.floor(numDays / 30)
+    if numMonths == 1 then return "around a month" end
+    
+    return "around " .. tostring(numMonths) .. " months"
+end
+
 local NPCService = {}
 NPCService.__index = NPCService
 
@@ -103,23 +127,25 @@ NPCService.ActionType = {
 }
 
 function NPCService.Init()
-    NPCService.IntervalBetweenSummaries = 8 -- default 10
-    NPCService.MaxRecentActions = 5 -- default 4
-    NPCService.MaxThoughts = 9 -- default 8
-    NPCService.MaxSummaries = 30 -- default 20
-    NPCService.MemorySearchProbability = 0.4
-    NPCService.TimestepDelay = 7 -- default 5
+    NPCService.IntervalBetweenSummaries = 8 -- default 8
+    NPCService.MaxRecentActions = 5 -- default 5
+    NPCService.MaxThoughts = 9 -- default 9
+    NPCService.MaxSummaries = 20 -- default 30
+    NPCService.SearchShortTermMemoryProbability = 0.1 -- default 0.1
+    NPCService.SearchLongTermMemoryProbability = 0.08
+    NPCService.SearchReferencesProbability = 0.25
+    NPCService.TimestepDelay = 10 -- default 7
     NPCService.MaxConsecutivePlan = 2
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
     NPCService.HearingRadius = 15
-    NPCService.GetsDetailedObservationsRadius = 20
+    NPCService.GetsDetailedObservationsRadius = 40
     NPCService.PromptPrefix = SecretService.NPCSERVICE_PROMPT
 
 	NPCService.thoughtsForNPC = {}
 	NPCService.recentActionsForNPC = {}
 	NPCService.animationsForNPC = {}
-	NPCService.summariesForNPC = {}
+	NPCService.summariesForNPC = {} -- short term memory
     NPCService.planningCounter = {}
 	
 	local npcs = CollectionService:GetTagged(NPCService.NPCTag)
@@ -161,8 +187,12 @@ function NPCService.InitNPC(npc)
 end
 
 function NPCService.Start()
+    -- Come NPCs follow an Orb
+    local npcOrbOffsets = {}
+
     task.spawn(function()
         local stepCount = 0
+        local startup = true
         
         while task.wait(NPCService.TimestepDelay) do
             local npcs = CollectionService:GetTagged(NPCService.NPCTag)
@@ -171,9 +201,58 @@ function NPCService.Start()
             for _, npc in npcs do
                 if not npc:IsDescendantOf(game.Workspace) then continue end
                 if npc.PrimaryPart == nil then continue end
+            
+                -- With some probability, search long and short term memory
+                if math.random() < NPCService.SearchShortTermMemoryProbability then
+                    local memory = NPCService.ShortTermMemory(npc)
+                    if memory ~= nil then
+		                if not tableContains(NPCService.Thoughts(npc),memory) then
+                            NPCService.AddThought(npc, memory)
+                        end
+                    end
+                end
+
+                -- Note that we always grab a long term memory on startup
+                if startup or (math.random() < NPCService.SearchLongTermMemoryProbability) then
+                    local memory = NPCService.LongTermMemory(npc)
+                    if memory ~= nil then
+                        if not tableContains(NPCService.Thoughts(npc),memory) then
+                            NPCService.AddThought(npc, memory)
+                        end
+                    end
+                end
+
+                -- Search some references
+                if math.random() < NPCService.SearchReferencesProbability then
+                    local ref = NPCService.SearchReferences(npc)
+                    if ref ~= nil then
+                        if not tableContains(NPCService.Thoughts(npc),ref) then
+                            NPCService.AddThought(npc, ref)
+                        end
+                    end
+                end
                 
-                --print("-- " .. npc.Name .. " -----")
                 NPCService.TimestepNPC(npc)	
+                
+                -- Walk an NPC targetting an orb to maintain a fixed offset from the orb
+                local targetOrbValue = npc:FindFirstChild("TargetOrb")
+                if targetOrbValue ~= nil and targetOrbValue.Value ~= nil then
+                    local targetOrb = npc.TargetOrb.Value
+                    local orbPos = getInstancePosition(targetOrb)
+
+                    -- The first time we run this, we set the offset for later reference
+                    if npcOrbOffsets[npc] == nil then    
+                        npcOrbOffsets[npc] = npc.PrimaryPart.Position - orbPos
+                    end
+
+                    local targetPos = getInstancePosition(targetOrb) + npcOrbOffsets[npc]
+                    local distance = (targetPos - npc.PrimaryPart.Position).Magnitude
+                    
+                    if not npc:GetAttribute("walking") and distance > 5 then    
+                        NPCService.WalkNPCToPos(npc, targetPos)
+                    end
+                end
+
                 task.wait(2)
             end
             
@@ -184,11 +263,16 @@ function NPCService.Start()
                     if not npc:IsDescendantOf(game.Workspace) then continue end
                     if npc.PrimaryPart == nil then continue end
                     
-                    --print("-- summary for " .. npc.Name .. " ----")
-                    NPCService.GenerateSummaryThoughtForNPC(npc)
+                    local summary = NPCService.GenerateSummary(npc)
+                    if summary ~= nil then
+                        NPCService.AddThought(npc, summary)
+                        NPCService.AddSummary(npc, summary)
+                    end
                 end
                 stepCount = 0
             end
+
+            startup = false
         end
     end)
 
@@ -373,6 +457,149 @@ function NPCService.AddSummary(npc, text)
     end
 
 	tableInsertWithMax(NPCService.summariesForNPC[npc], summaryDict, NPCService.MaxSummaries)
+
+    -- Send this to the vector storage database for later query
+    if embedding then
+        local metadata = {
+            ["name"] = npc.Name,
+            ["id"] = npc.PersistId.Value,
+            ["timestamp"] = summaryDict.Timestamp,
+            ["content"] = summaryDict.Content
+        }
+        AIService.StoreEmbedding("npc", embedding, metadata)
+    end
+end
+
+function NPCService.ShortTermMemory(npc)
+    -- Do not make use of summaries that are too recent, as they will
+    -- always fit the current situation and thus get high scores
+    local function filterForSummaries(x)
+        if tick() - x.Timestamp < 5 * 60 then
+            return false
+        else
+            return true
+        end
+    end
+
+    -- Short term memory roughly covers this many seconds
+    local shortTermMemoryInterval = NPCService.TimestepDelay * NPCService.IntervalBetweenSummaries * NPCService.MaxSummaries
+    
+    local summary = NPCService.GenerateSummary(npc)
+    if summary == nil then return end
+
+    local relevantSummary = NPCService.MostSimilarSummary(npc, summary, filterForSummaries)
+    if relevantSummary == nil then return end
+
+    local timediff = tick() - relevantSummary.Timestamp
+    local intervalText = humanReadableTimeInterval(timediff) .. " ago"
+    local memoryText = "I remember that " .. intervalText .. ", " .. relevantSummary.Content
+    return memoryText
+end
+
+function NPCService.LongTermMemory(npc)
+    local summary = NPCService.GenerateSummary(npc)
+    if summary == nil then return end
+
+    local embedding = AIService.Embedding(summary)
+    if embedding == nil then
+        warn("[NPCService] Got nil embedding for summary")
+        return
+    end
+
+    -- Short term memory roughly covers this many seconds
+    local shortTermMemoryInterval = NPCService.TimestepDelay * NPCService.IntervalBetweenSummaries * NPCService.MaxSummaries
+    
+    -- TODO: should we have a cutoff for relevance?
+    local filter = {
+        ["id"] = npc.PersistId.Value,
+        ["timestamp"] = { ["$lt"] = tick() - shortTermMemoryInterval }
+    }
+    local topk = 1
+    local matches = AIService.QueryEmbeddings("npc", embedding, filter, topk)
+    if matches == nil then return end
+    if #matches == 0 then
+        warn("[AIService] No matches for query of long term memory")
+        return
+    end
+    
+    local match = matches[1]
+    local metadata = match["metadata"]
+    if metadata == nil then
+        warn("[NPCService] Got malformed match for query embedding")
+        return
+    end
+
+    local timediff = tick() - metadata["timestamp"]
+    local intervalText = humanReadableTimeInterval(timediff) .. " ago"
+    local memoryText = "I remember that " .. intervalText .. ", " .. metadata["content"]
+    return memoryText
+end
+
+function NPCService.SearchReferences(npc)
+    local prompt = NPCService.PromptContentForNPC(npc)
+
+    local embedding = AIService.Embedding(prompt)
+    if embedding == nil then return end
+
+    -- Find which references this NPC pays attention to
+    local refText = nil
+    local referencesFolder = npc:FindFirstChild("References")
+	if referencesFolder then
+		local references = referencesFolder:GetChildren()
+		if #references > 0 then
+			refText = references[math.random(1,#references)].Value
+		end
+	end
+
+    if refText == nil then return end
+
+    print("[NPCService] Searching references: " .. refText)
+
+    local filter = {
+        ["name"] = refText
+    }
+    local topk = 3
+    local matches = AIService.QueryEmbeddings("refs", embedding, filter, topk)
+    if matches == nil then return end
+    if #matches == 0 then
+        warn("[AIService] No matches for query of references")
+        return
+    end
+    
+    local GOOD_MATCH_CUTOFF = 0.75
+
+    local goodMatches = {}
+    for _, match in matches do
+        if match["score"] > GOOD_MATCH_CUTOFF then
+            table.insert(goodMatches, match)
+        end
+    end
+
+    if #goodMatches == 0 then return end
+
+    local match = goodMatches[math.random(1,#goodMatches)]
+    local metadata = match["metadata"]
+    if metadata == nil then
+        warn("[NPCService] Got malformed match for reference")
+        return
+    end
+
+    local properNames = {
+        ["euclid"] = "Euclid",
+        ["brighter"] = "Adam Dorr's book Brighter"
+    }
+
+    local content = cleanstring(metadata["content"])
+    local content = string.gsub(content, "\n", " ")
+    local content = string.gsub(content, ":", " ") -- don't confuse the AI
+
+    local refContent = "I remember that page " .. metadata["page"] .. " of " .. properNames[refText] .. " has written on it " .. content
+    print("----------")
+    print("[NPCService] Found content reference")
+    print(refContent)
+    print("score = " .. match["score"])
+    print("----------")
+    return refContent
 end
 
 -- Filter is a function that takes a summary and returns true or false
@@ -431,12 +658,13 @@ function NPCService.MostSimilarSummary(npc, text, filter)
     return mostSimilarSummary
 end
 
-function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
+function NPCService.GenerateSummary(npc:instance)
 	local prompt = "The following is a record of the history of Observations, Thoughts and Actions of agent named " .. npc.Name .. ".\n\n"
 	local middle = NPCService.PromptContentForNPC(npc)
 	prompt = prompt .. middle
 	prompt = prompt .. "\n"
-	prompt = prompt .. "A summary of this history of " .. npc.Name .. " in 30 words or less is given below, written in first person from " .. npc.Name .. "'s point of view\n"
+	prompt = prompt .. "A summary of this history of " .. npc.Name .. " in 40 words or less is given below, written in first person from " .. npc.Name .. "'s point of view\n"
+    prompt = prompt .. "The summary contains the details like names that will be useful for the agent to recall in future conversations.\n"
 	prompt = prompt .. "\n"
 	prompt = prompt .. "Summary:"
 	
@@ -450,37 +678,7 @@ function NPCService.GenerateSummaryThoughtForNPC(npc:instance)
 		return
 	end
 	
-	NPCService.AddThought(npc, responseText)
-	
-    local function humanReadableTimeInterval(d)
-        if d < 60 then return "less than a minute ago" end
-        if d < 60 * 5 then return "less than five minutes ago" end
-        if d < 60 * 10 then return "around ten minutes ago" end
-        return "around " .. tostring((d % 600) * 10) .. " minutes ago"
-    end
-
-    local function filterForSummaries(x)
-        if ( tick() - x.Timestamp ) % 60 < 5 then -- default 5
-            return false
-        else
-            return true
-        end
-    end
-
-    if math.random() < NPCService.MemorySearchProbability then
-        local relevantSummary = NPCService.MostSimilarSummary(npc, responseText, filterForSummaries)
-        if relevantSummary ~= nil then
-            local timediff = tick() - relevantSummary.Timestamp
-            local intervalText = humanReadableTimeInterval(timediff)
-            local memoryText = "I remember that " .. intervalText .. ", " .. relevantSummary.Content
-            NPCService.AddThought(npc, memoryText)
-            if npc.Name == "Shoal" then
-                print("Memory: " .. memoryText)
-            end
-        end
-    end
-
-    NPCService.AddSummary(npc, responseText)
+    return cleanstring(responseText)
 end
 
 function NPCService.TimestepNPC(npc:instance)
@@ -498,7 +696,11 @@ function NPCService.TimestepNPC(npc:instance)
 	end
 	
 	local middle = NPCService.PromptContentForNPC(npc)
-	
+	-- DEBUG
+    --if npc.Name == "Doctr" then
+    --    print(middle)
+    --end
+
 	prompt = prompt .. middle .. "Action:"
 	
     -- If the agent has been talking to themself too much (i.e. planning)
@@ -516,9 +718,9 @@ function NPCService.TimestepNPC(npc:instance)
 
     if forcedToAct then prompt = prompt .. forcedActionText end
     
-	local temperature = 0.9 -- was 0.8
-	local freqPenalty = 1.4 -- was 1.0
-	local presPenalty = 1.6 -- was 1.4
+	local temperature = 0.9 -- was 0.9
+	local freqPenalty = 1.4 -- was 1.4
+	local presPenalty = 1.6 -- was 1.6
 	
 	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
@@ -678,7 +880,7 @@ function NPCService.ObserveForNPC(npc:instance)
 	
 	for _, x in CollectionService:GetTagged(NPCService.NPCTag) do
 		if x == npc then continue end
-        if not x:IsDescendantOf(game.Workspace) then return end
+        if not x:IsDescendantOf(game.Workspace) then continue end
 		if getInstancePosition(x) == nil then continue end
 	
 		table.insert(potentialObservations, {Object = x, 
@@ -688,6 +890,7 @@ function NPCService.ObserveForNPC(npc:instance)
 	
 	for _, plr in Players:GetPlayers() do
 		if plr.Character == nil or plr.Character.PrimaryPart == nil then continue end
+        
 		table.insert(potentialObservations, {Object = plr.Character,
 											Name = plr.DisplayName,
 											Description = "They are a person"})
@@ -696,6 +899,7 @@ function NPCService.ObserveForNPC(npc:instance)
 	for _, x in CollectionService:GetTagged(NPCService.ObjectTag) do
 		if getInstancePosition(x) == nil then continue end
 		local t = {Object = x, Name = x.Name, Description = "It is an object, not a person"}
+        
 		if x:FindFirstChild("Observations") then
 			local objObservations = {}
 			for _, strVal in x.Observations:GetChildren() do
@@ -720,7 +924,7 @@ function NPCService.ObserveForNPC(npc:instance)
     local maxNextToMeObservations = 3
 
     local nearbyObservationsCount = 0
-    local maxNearbyObservations = 2
+    local maxNearbyObservations = 3
 
     local walkingDistanceObservationsCount = 0
     local maxWalkingDistanceObservations = 1
@@ -1092,7 +1296,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion"}
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion", "Pause"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
 			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
@@ -1210,6 +1414,7 @@ function NPCService.WalkNPCToPos(npc, targetPos)
 	followPath(destPos)
 	return true
 end
+
 function NPCService.TakeAction(npc:instance, parsedAction)
 
 	if parsedAction.Type == NPCService.ActionType.Dance then
