@@ -77,6 +77,8 @@ function Gui.Init()
     Gui.PoiHighlightConnection = nil
     Gui.Boardcam = false
     Gui.BoardcamHighlightConnection = nil
+    Gui.ReplicationFocusPart = nil
+	Gui.ReplicationFocusPartTween = nil
 
     task.spawn(Gui.InitEar)
 
@@ -250,7 +252,7 @@ function Gui.Init()
                 VRSpeakerChalkUnequipRemoteEvent:FireServer(Gui.Orb)
             end)
         else
-            print("[MetaOrb] Failed to find Chalk tool")
+            warn("[Orb] Failed to find Chalk tool")
         end
 
         -- Jump to exit orbcam
@@ -285,7 +287,7 @@ end
 function Gui.AddEmojiToScreen(emojiName:string)
     local emojiText = EmojiList[emojiName]
     if emojiText == nil then
-        print("[Gui] Bad emoji name")
+        warn("[Orb] Bad emoji name")
         return
     end
 
@@ -337,7 +339,7 @@ function Gui.HandleAskQuestionGui()
     
     local function sendAction()
         if Gui.Orb == nil then
-            print("[Orb] Triggered Ask Question event without being attached to an orb")
+            warn("[Orb] Triggered Ask Question event without being attached to an orb")
             return
         end
         
@@ -526,7 +528,7 @@ function Gui.SpecialMove(orb, specialMove, tweenTime)
     if Gui.Orb ~= orb then return end
 
     if specialMove == nil then
-        print("[Orb] OrbcamTweeningStart passed a nil position")
+        warn("[Orb] OrbcamTweeningStart passed a nil position")
         return
     end
 
@@ -562,7 +564,7 @@ end
 
 function Gui.MakePlayerTransparent(plr, transparency)
     if plr == nil then
-        print("[MetaOrb] Passed nil player to MakePlayerTransparent")
+        warn("[Orb] Passed nil player to MakePlayerTransparent")
         return
     end
 
@@ -700,11 +702,6 @@ function Gui.NearestWaypoint(pos)
 end
 
 function Gui.RefreshPrompts(orb)
-    if orb == nil then
-        print("[MetaOrb] Passed nil orb to RefreshPrompts")
-        return
-    end
-
     local prompts = {}
 
     local speakerPrompt = if orb:IsA("BasePart") then orb:FindFirstChild("SpeakerPrompt") else orb.PrimaryPart:FindFirstChild("SpeakerPrompt")
@@ -885,7 +882,7 @@ function Gui.AttachSpeaker(orb)
         if waypoint ~= nil then
             OrbSpeakerMovedRemoteEvent:FireServer(Gui.Orb, waypoint.Position)
         else
-            print("[MetaOrb] Could not find nearby waypoint")
+            warn("[Orb] Could not find nearby waypoint")
         end
     end
 
@@ -959,11 +956,6 @@ function Gui.RefreshTopbarItems()
 end
 
 function Gui.CreateTopbarItems()
-    if ReplicatedStorage:FindFirstChild("Icon") == nil then
-        print("[Orb] Could not find Icon module")
-        return
-    end
-    
     -- ear icon is https://fonts.google.com/icons?icon.query=hearing
     -- eye icon is https://fonts.google.com/icons?icon.query=eye
     -- luggage is https://fonts.google.com/icons?icon.query=luggage
@@ -1105,11 +1097,6 @@ function Gui.CreateTopbarItems()
 end
 
 function Gui.Attach(orb)
-    if orb == nil then
-        print("[MetaOrb] Attempted to attach to nil orb")
-        return
-    end
-
     if Gui.Orb ~= nil then Gui.Detach() end
     Gui.Orb = orb
 
@@ -1144,17 +1131,18 @@ local function resetCameraSubject()
 	end
 
     if storedCameraOffset then
-	    if character.Head then
+	    if character:FindFirstChild("Head") then
 		    camera.CFrame = CFrame.lookAt(character.Head.Position + storedCameraOffset, character.Head.Position)
 	    end
 
         storedCameraOffset = nil
     else
-        print("ERROR: storedCameraOffset not set.")
+        warn("[Orb] storedCameraOffset not set.")
     end
 end
 
 function Gui.OrbTweeningStart(orb, pos, poi)
+    if orb == nil then return end
     -- Start camera moving if it is enabled, and the tweening
     -- orb is the one we are attached to
     if orb == Gui.Orb and Gui.Orbcam then
@@ -1162,7 +1150,8 @@ function Gui.OrbTweeningStart(orb, pos, poi)
     end
 
     -- Store this so people attaching mid-flight can just jump to the target CFrame and FOV
-    targetForOrbTween[orb] = { Position = pos, Poi = poi:Clone() }
+    local poiClone = if poi then poi:Clone() else nil
+    targetForOrbTween[orb] = { Position = pos, Poi = poiClone }
 
     orb:SetAttribute("tweening", true)
     Gui.RefreshPrompts(orb)
@@ -1177,12 +1166,12 @@ end
 function Gui.OrbcamTweeningStart(newPos, poi)
     if not Gui.Orbcam then return end
     if newPos == nil then
-        print("[Orb] OrbcamTweeningStart passed a nil position")
+        warn("[Orb] OrbcamTweeningStart passed a nil position")
         return
     end
     
     if poi == nil then
-        print("[Orb] OrbcamTweeningStart passed a nil poi")
+        warn("[Orb] OrbcamTweeningStart passed a nil poi")
         return
     end
 
@@ -1211,6 +1200,10 @@ function Gui.OrbcamTweeningStart(newPos, poi)
         Gui.VROrbcamConnection = RunService.RenderStepped:Connect(function(dt)
 			workspace.CurrentCamera.CFrame = CFrame.lookAt(orbCameraPos, poiPos)
 		end)
+
+        if game.Workspace.StreamingEnabled then
+            Gui.ReplicationFocusPart.Position = orbCameraPos
+        end
         
         return
     end
@@ -1242,6 +1235,11 @@ function Gui.OrbcamTweeningStart(newPos, poi)
         Gui.CameraTween = TweenService:Create(camera, tweenInfo, 
             {CFrame = CFrame.lookAt(orbCameraPos, poiPos),
             FieldOfView = verticalFOV})
+    end
+
+    if game.Workspace.StreamingEnabled then
+        Gui.ReplicationFocusPartTween = TweenService:Create(Gui.ReplicationFocusPart, tweenInfo, {Position = orbCameraPos})
+        Gui.ReplicationFocusPartTween:Play()
     end
 
     Gui.CameraTween:Play()
@@ -1452,7 +1450,7 @@ end
 function Gui.BoardcamOn()
     local character = localPlayer.Character
     if character == nil or character.PrimaryPart == nil then
-        print("[Orb] Cannot activate boardcam with nil character")
+        warn("[Orb] Cannot activate boardcam with nil character")
         return
     end
 
@@ -1490,7 +1488,7 @@ function Gui.BoardcamOn()
         Gui.LastWaypointForBoardcam = waypoint
         local poi = Gui.PointOfInterest(waypointPos)
         if poi == nil then
-            print("[Orb] Could not find point of interest to look at")
+            warn("[Orb] Could not find point of interest to look at")
             return
         end
         local poiPos = getInstancePosition(poi)
@@ -1514,7 +1512,7 @@ function Gui.BoardcamOn()
         local verticalFOV = Gui.FOVForTargets(cameraPos, getInstancePosition(poi), targets)
         camera.FieldOfView = verticalFOV
     else
-        print("[Orb] Not near a waypoint")
+        warn("[Orb] Not near a waypoint")
     end
     
     Gui.Boardcam = true
@@ -1535,12 +1533,26 @@ function Gui.BoardcamOff()
 end
 
 function Gui.OrbcamOn()
+    if Gui.Orb == nil then return end
+    
     local guiOff = Gui.OrbcamGuiOff
+    local orb = Gui.Orb
     OrbcamOnRemoteEvent:FireServer()
 
-    if Gui.Orb == nil then return end
-    local orb = Gui.Orb
-    
+    -- For game streaming, we need the world to replicate around the orb we're attached to
+    if game.Workspace.StreamingEnabled then
+        local part = Instance.new("Part")
+        part.Position = localPlayer.Character.PrimaryPart.Position
+        part.Anchored = true
+        part.CanCollide = false
+        part.CastShadow = false
+        part.Transparency = 1
+        part.Name = "ReplicationFocusPart"
+        part.Parent = game.Workspace
+        Gui.ReplicationFocusPart = part
+        localPlayer.ReplicationFocus = part
+    end
+
 	local camera = workspace.CurrentCamera
 	storedCameraFOV = camera.FieldOfView
     
@@ -1587,7 +1599,7 @@ function Gui.OrbcamOn()
     end
 
     if poi == nil or orbPos == nil then
-        print("[Orb] Could not find point of interest to look at")
+        warn("[Orb] Could not find point of interest to look at")
         return
     end
 
@@ -1595,8 +1607,16 @@ function Gui.OrbcamOn()
         camera.CameraType = Enum.CameraType.Scriptable
     end
 
-    local poiPos = getInstancePosition(poi)
+    if game.Workspace.StreamingEnabled and poi:IsA("Model") and poi.PrimaryPart == nil then
+        poi:WaitForChild("PrimaryPart", 10)
+        if not poi.PrimaryPart then
+            warn("[Orb] Due to game streaming, poi primary part is still nil")
+            return
+        end
+    end
 
+    local poiPos = getInstancePosition(poi)
+        
     -- By default the camera looks from (orbPos.X, poiPos.Y, orbPos.Z)
     -- but this can be overridden by specifying a Camera ObjectValue
     local orbCameraPos = Vector3.new(orbPos.X, poiPos.Y, orbPos.Z)
@@ -1645,9 +1665,15 @@ function Gui.OrbcamOff()
     OrbcamOffRemoteEvent:FireServer()
 
 	if Gui.CameraTween then Gui.CameraTween:Cancel() end
+    if Gui.ReplicationFocusPartTween then Gui.ReplicationFocusPartTween:Cancel() end
+    if guiOff then StarterGui:SetCore("TopbarEnabled", true) end
 
-    if guiOff then
-	    StarterGui:SetCore("TopbarEnabled", true)
+    if game.Workspace.StreamingEnabled then
+        if Gui.ReplicationFocusPart then
+            Gui.ReplicationFocusPart:Destroy()
+            Gui.ReplicationFocusPart = nil
+        end
+        localPlayer.ReplicationFocus = nil
     end
 	
 	local camera = workspace.CurrentCamera
