@@ -148,7 +148,9 @@ function Orb.Start()
 
 	OrbcamOnRemoteEvent.OnServerEvent:Connect(function(plr)
         local orb = Orb.Attachments[tostring(plr.UserId)]
-        plr:RequestStreamAroundAsync(getInstancePosition(orb))
+        if game.Workspace.StreamingEnabled then
+            plr:RequestStreamAroundAsync(getInstancePosition(orb))
+        end
 		Orb.OrbCamStatus[tostring(plr.UserId)] = true
 		OrbcamOnRemoteEvent:FireAllClients(plr)
 	end)

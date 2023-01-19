@@ -1158,6 +1158,8 @@ function Gui.OrbTweeningStart(orb, pos, poi)
 end
 
 function Gui.OrbTweeningStop(orb)
+    if orb == nil then return end
+    
     targetForOrbTween[orb] = nil
     orb:SetAttribute("tweening", false)
     Gui.RefreshPrompts(orb)
