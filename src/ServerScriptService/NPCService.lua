@@ -9,9 +9,11 @@ local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local ChatService = game:GetService("Chat")
+local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 local PathfindingService = game:GetService("PathfindingService")
 local TextService = game:GetService("TextService")
+local MessagingService = game:GetService("MessagingService")
 
 local AIService = require(script.Parent.AIService)
 local SecretService = require(ServerScriptService.SecretService)
@@ -138,6 +140,7 @@ function NPCService.Init()
     NPCService.MaxConsecutivePlan = 2
     NPCService.NPCTag = "npcservice_npc"
     NPCService.ObjectTag = "npcservice_object"
+    NPCService.TranscriptionTopic = "transcription"
     NPCService.HearingRadius = 15
     NPCService.GetsDetailedObservationsRadius = 40
     NPCService.PromptPrefix = SecretService.NPCSERVICE_PROMPT
@@ -187,6 +190,17 @@ function NPCService.InitNPC(npc)
 end
 
 function NPCService.Start()
+    -- Subscribe to messages of voice transcriptions
+    local subscribeSuccess, subscribeConnection = pcall(function()
+        return MessagingService:SubscribeAsync(NPCService.TranscriptionTopic, function(message)
+            NPCService.HandleTranscription(message.Data)
+        end)
+    end)
+    
+    if not subscribeSuccess then
+        warn("[NPCService] Failed to subscribe to transcription topic")
+    end
+
     -- Come NPCs follow an Orb
     local npcOrbOffsets = {}
 
@@ -586,7 +600,8 @@ function NPCService.SearchReferences(npc)
 
     local properNames = {
         ["euclid"] = "Euclid",
-        ["brighter"] = "Adam Dorr's book Brighter"
+        ["brighter"] = "Adam Dorr's book Brighter",
+        ["harbison"] = "Harbison's book \"Travels in the History of Architecture\""
     }
 
     local content = cleanstring(metadata["content"])
@@ -697,9 +712,9 @@ function NPCService.TimestepNPC(npc:instance)
 	
 	local middle = NPCService.PromptContentForNPC(npc)
 	-- DEBUG
-    --if npc.Name == "Doctr" then
-    --    print(middle)
-    --end
+    if npc.Name == "Shoal" then
+        print(middle)
+    end
 
 	prompt = prompt .. middle .. "Action:"
 	
@@ -818,6 +833,36 @@ function NPCService.TimestepNPC(npc:instance)
 
             NPCService.TakeAction(npc, parsedAction)
         end
+	end
+end
+
+function NPCService.HandleTranscription(message)
+    local speakerName = "starsonthars" -- TODO message["speaker"]
+    
+    local speaker = nil
+    for _, plr in Players:GetPlayers() do
+        if plr.Name == speakerName then
+            speaker = plr
+            break
+        end
+    end
+
+    -- The transcription message was not meant for this server
+    if speaker == nil then return end
+    if speaker.Character == nil or speaker.Character.PrimaryPart == nil then return end
+
+    local speakerPos = getInstancePosition(speaker.Character)
+
+    for _, npc in CollectionService:GetTagged(NPCService.NPCTag) do
+		local npcPos = getInstancePosition(npc)
+		if npcPos == nil then continue end
+		local distance = (npcPos - speakerPos).Magnitude
+		
+        -- This NPC heard the chat message
+		if distance < NPCService.HearingRadius then
+			local ob = "Someone nearby said \"" .. cleanstring(message) .. "\""
+			NPCService.AddThought(npc, ob)
+		end
 	end
 end
 
