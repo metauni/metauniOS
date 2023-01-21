@@ -976,6 +976,9 @@ function MetaPortal.AttachValuesToPocketPortal(portal, data)
 		end
 		labelText = labelText .. " " .. tostring(data.PocketCounter)
 		text.Text = labelText
+        text.TextSize = 60
+        text.TextScaled = false
+        text.Font = Enum.Font.Roboto
 	end
 
 	-- Create the creator label
@@ -989,6 +992,9 @@ function MetaPortal.AttachValuesToPocketPortal(portal, data)
 			creatorLabel.CFrame = label.CFrame:ToWorldSpace(offset)
 			creatorLabel.SurfaceGui.TextLabel.Text = creatorName
 			creatorLabel.SurfaceGui.TextLabel.TextTransparency = 0.6
+            creatorLabel.SurfaceGui.TextLabel.Font = Enum.Font.Roboto
+            creatorLabel.SurfaceGui.TextLabel.TextSize = 40
+            creatorLabel.SurfaceGui.TextLabel.TextScaled = false
 			creatorLabel.Name = "CreatorLabel"
 			creatorLabel.Parent = portal
 		end
