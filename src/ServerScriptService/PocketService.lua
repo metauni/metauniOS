@@ -130,22 +130,17 @@ local pocketsForPlayerCache = {}
 local pocketsForPlayerLastFetched = {}
 
 function MetaPortal.PocketsForPlayer(plr)
-	if plr == nil then
-		print("[MetaPortal] PocketsForPlayer passed nil player")
-		return
-	end
-
 	local DataStore = DataStoreService:GetDataStore(Config.PocketDataStoreTag)
 
 	-- This can be triggered via remote function from the client, via GUI
 	-- interactions, so to present DOS attack we rate limit these requests
 	-- to one every minute
-	if pocketsForPlayerLastFetched[plr] ~= nil then
-		if pocketsForPlayerLastFetched[plr] > tick() - 60 then
-			print("[MetaPortal] Returning cached values for player "..plr.UserId)
+	--if pocketsForPlayerLastFetched[plr] ~= nil then
+	--	if pocketsForPlayerLastFetched[plr] > tick() - 60 then
+	--		print("[MetaPortal] Returning cached values for player "..plr.UserId)
 			-- return pocketsForPlayerCache[plr] TODO
-		end
-	end
+	--	end
+	--end
 
 	local playerKey = MetaPortal.KeyForUser(plr)
 	local success, pocketList = pcall(function()
@@ -153,12 +148,12 @@ function MetaPortal.PocketsForPlayer(plr)
 		return DataStore:GetAsync(playerKey)
 	end)
 	if not success then
-		print("[MetaPortal] GetAsync fail for " .. playerKey .. " with ".. pocketList)
+		warn("[MetaPortal] GetAsync fail for " .. playerKey .. " with ".. pocketList)
 		return
 	end
 
 	if pocketList == nil then
-		print("No pocket list for player")
+		warn("[MetaPortal] No pocket list for player")
 	end
 
 	pocketsForPlayerLastFetched[plr] = tick()
@@ -170,11 +165,6 @@ end
 
 function MetaPortal.ReturnToLastPocket(player)
 	local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
-	if not DataStore then
-        print("[MetaPortal] DataStore not loaded")
-        return
-    end
-
 	local returnToPocketKey = "return_" .. player.UserId
 
 	local success, returnToPocketData
@@ -183,12 +173,12 @@ function MetaPortal.ReturnToLastPocket(player)
         return DataStore:GetAsync(returnToPocketKey)
     end)
     if not success then
-        print("[MetaPortal] GetAsync fail for " .. returnToPocketKey .. " " .. returnToPocketData)
+        warn("[MetaPortal] GetAsync fail for " .. returnToPocketKey .. " " .. returnToPocketData)
         return
     end
 
 	if returnToPocketData == nil then
-		print("[MetaPortal] No return to pocket data")
+		warn("[MetaPortal] No return to pocket data")
 		return
 	end
 
@@ -197,13 +187,13 @@ function MetaPortal.ReturnToLastPocket(player)
 	local pocketCounter = returnToPocketData.PocketCounter
 
 	if accessCode == nil or placeId == nil or pocketCounter == nil then
-		print("[MetaPortal] Invalid return to pocket data")
+		warn("[MetaPortal] Invalid return to pocket data")
 		return
 	end
 
 	-- Check that they are not "returning" to the current pocket
 	if placeId == game.PlaceId and pocketCounter == MetaPortal.PocketData.PocketCounter then
-		print("[MetaPortal] Attempted to return to current pocket, exiting")
+		warn("[MetaPortal] Attempted to return to current pocket, exiting")
 		return
 	end
 
@@ -211,7 +201,7 @@ function MetaPortal.ReturnToLastPocket(player)
 end
 
 function MetaPortal.TeleportFailed(player, teleportResult, errorMessage, placeId)
-	print("[MetaPortal] Teleport failed for "..player.Name.." to place "..placeId.." : "..errorMessage)
+	error("[MetaPortal] Teleport failed for "..player.Name.." to place "..placeId.." : "..errorMessage)
 	player:LoadCharacter()
 
     local success, err = pcall(function()
@@ -219,11 +209,6 @@ function MetaPortal.TeleportFailed(player, teleportResult, errorMessage, placeId
             eventId = "Pockets:TeleportFailed"
         })
 	end)	
-	
-	if not success then
-		print("[MetaPortal] GameAnalytics addDesignEvent failed ".. err)
-		return {}
-	end
 end
 
 -- passThrough means we are handing a player off to a pocket, and don't
@@ -300,10 +285,8 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
     local success, augmentedTeleportData = pcall(function()
         return GameAnalytics:addGameAnalyticsTeleportData({plr.UserId}, teleportData)
 	end)
-	if not success then
-		print("[MetaPortal] GameAnalytics addGameAnalyticsTeleportData failed ".. augmentedTeleportData)
-    else
-        teleportData = augmentedTeleportData
+	if success then
+	    teleportData = augmentedTeleportData
     end
 
     if targetBoardPersistId ~= nil then
@@ -317,7 +300,7 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
 	end
 
 	if joinData.TeleportData ~= nil and joinData.TeleportData.IgnoreLaunchData ~= nil then
-		print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
+		--print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
 		teleportData.IgnoreLaunchData = joinData.TeleportData.IgnoreLaunchData
 	end
 
@@ -330,7 +313,7 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
 		return TeleportService:TeleportAsync(placeId, {plr}, teleportOptions)
 	end)
 	if not success then
-		print("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		error("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
 
     local success, err = pcall(function()
@@ -338,23 +321,14 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
             eventId = "Pockets:GotoPocket"
         })
 	end)	
-	
-	if not success then
-		print("[MetaPortal] GameAnalytics addDesignEvent failed ".. err)
-		return {}
-	end
 end
 
 function MetaPortal.StoreReturnToPocketData(plr, placeId, pocketCounter, accessCode)
 	-- Store this as the most recent pocket for this player
 	local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
-	if not DataStore then
-        print("[MetaPortal] DataStore not loaded")
-        return
-    end
-
+	
 	if plr == nil or placeId == nil or pocketCounter == nil or accessCode == nil then
-		print("[MetaPortal] Bad data passed to StoreReturnToPocketData")
+		error("[MetaPortal] Bad data passed to StoreReturnToPocketData")
 		return
 	end
 
@@ -369,7 +343,7 @@ function MetaPortal.StoreReturnToPocketData(plr, placeId, pocketCounter, accessC
 		return DataStore:SetAsync(returnToPocketKey, returnToPocketData)
 	end)
 	if not success then
-		print("[MetaPortal] SetAsync fail for " .. returnToPocketKey .. " with ".. errormessage)
+		error("[MetaPortal] SetAsync fail for " .. returnToPocketKey .. " with ".. errormessage)
 		return
 	end
 end
@@ -378,20 +352,20 @@ function MetaPortal.PocketDataFromPocketName(pocketText)
 	local DataStore = DataStoreService:GetDataStore(Config.PocketDataStoreTag)
 	
 	if pocketText == nil or string.len(pocketText) == 0 then
-		print("[MetaPortal] Bad pocket name")
-		return nil
+		warn("[MetaPortal] Bad pocket name")
+		return
 	end
 	
 	local strParts = pocketText:split(" ")
 	if #strParts <= 1 then
-		print("[MetaPortal] Badly formed pocket name")
-		return nil
+		warn("[MetaPortal] Badly formed pocket name")
+		return
 	end
 	
 	local pocketCounter = tonumber(strParts[#strParts])
 	if pocketCounter == nil then
-		print("[MetaPortal] Extraction of pocket counter failed")
-		return nil
+		error("[MetaPortal] Extraction of pocket counter failed")
+		return
 	end
 	
 	table.remove(strParts, #strParts)
@@ -406,8 +380,8 @@ function MetaPortal.PocketDataFromPocketName(pocketText)
 	
 	local placeId = Config.PlaceIdOfPockets[pocketName]
 	if placeId == nil then
-		print("[MetaPortal] Could not find place ID for pocket name `"..pocketName.."`")
-		return nil
+		warn("[MetaPortal] Could not find place ID for pocket name `"..pocketName.."`")
+		return
 	end
 	
 	local pocketKey = MetaPortal.KeyForPocket(placeId, pocketCounter)
@@ -418,19 +392,19 @@ function MetaPortal.PocketDataFromPocketName(pocketText)
 		return DataStore:GetAsync(pocketKey)
 	end)
 	if not success then
-		print("[MetaPortal] GetAsync fail for pocket " .. pocketKey .. " " .. pocketJSON)
+		warn("[MetaPortal] GetAsync fail for pocket " .. pocketKey .. " " .. pocketJSON)
 		return
 	end
 	
 	if not pocketJSON then
-		print("[MetaPortal] This pocket does not exist yet")
-		return nil
+		warn("[MetaPortal] This pocket does not exist yet")
+		return
 	end
 		
 	local pocketData = HTTPService:JSONDecode(pocketJSON)
 	if pocketData == nil then
-		print("[MetaPortal] Failed to decode pocketData")
-		return nil
+		warn("[MetaPortal] Failed to decode pocketData")
+		return
 	end
 
 	return placeId, pocketData
@@ -446,13 +420,13 @@ function MetaPortal.GotoPocketHandler(plr, pocketText, passThrough, targetBoardP
 	if placeId == nil or pocketData == nil then return end
 	
 	if pocketData.AccessCode == nil or pocketData.PocketCounter == nil then
-		print("[MetaPortal] Failed to read access code for pocket")
+		warn("[MetaPortal] Failed to read access code for pocket")
 		return
 	end
 	
 	if isPocket() then
 		if placeId == game.PlaceId and pocketData.PocketCounter == MetaPortal.PocketData.PocketCounter then
-			print("[MetaPortal] Attempted to goto current pocket, exiting")
+			warn("[MetaPortal] Attempted to goto current pocket, exiting")
 			return
 		end
 	end
@@ -482,7 +456,7 @@ function MetaPortal.InitPocket(data)
 	local pocketCounter = data.PocketCounter
 	
 	if pocketCounter == nil then
-		print("[MetaPortal] Insufficient information to initialise pocket")
+		error("[MetaPortal] Insufficient information to initialise pocket")
 		return
 	end
 	
@@ -506,12 +480,12 @@ function MetaPortal.InitPocket(data)
 		return DataStore:GetAsync(pocketKey)
 	end)
 	if not success then
-		print("[MetaPortal] GetAsync fail for pocket " .. pocketKey .. " " .. pocketJSON)
+		warn("[MetaPortal] GetAsync fail for pocket " .. pocketKey .. " " .. pocketJSON)
 		return
 	end
 	
     if not pocketJSON then
-        print("[MetaPortal] Entered non-initialised pocket")
+        warn("[MetaPortal] Entered non-initialised pocket")
         return
     end
 
@@ -519,7 +493,7 @@ function MetaPortal.InitPocket(data)
 	
 	local creatorId = pocketData.CreatorId
 	if not creatorId then
-		print("[MetaPortal] Failed to find CreatorId in pocket")
+		warn("[MetaPortal] Failed to find CreatorId in pocket")
 	else
 		local creatorValue = workspace:FindFirstChild("PocketCreatorId")
 		if not creatorValue then
@@ -554,8 +528,8 @@ function MetaPortal.PocketName(pocketCounter)
 end
 
 function MetaPortal.InitPortal(portal)
-	if not portal.PrimaryPart then
-		print("[MetaPortal] Portal has no PrimaryPart")
+	if portal.PrimaryPart == nil then
+		warn("[MetaPortal] Portal has no PrimaryPart")
 		return
 	end
 	
@@ -615,7 +589,7 @@ function MetaPortal.ReturnToRoot(plr)
 	-- Workaround for current bug in LaunchData
 	local joinData = plr:GetJoinData()
 	if joinData.TeleportData ~= nil and joinData.TeleportData.IgnoreLaunchData ~= nil then
-		print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
+		-- print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
 		teleportData.IgnoreLaunchData = joinData.TeleportData.IgnoreLaunchData
 	end
 	
@@ -625,19 +599,19 @@ function MetaPortal.ReturnToRoot(plr)
 		return TeleportService:TeleportAsync(placeId, {plr}, teleportOptions)
 	end)
 	if not success then
-		print("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		error("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
 end
 
 function MetaPortal.FirePortal(portal, plr)
 	if portal == nil or plr == nil then
-		print("[MetaPortal] FirePortal passed nil inputs")
+		warn("[MetaPortal] FirePortal passed nil inputs")
 		return
 	end
 
 	local teleportPart = portal.PrimaryPart
 	if teleportPart == nil then
-		print("[MetaPortal] Portal has nil PrimaryPart")
+		warn("[MetaPortal] Portal has nil PrimaryPart")
 		return
 	end
 
@@ -670,7 +644,7 @@ function MetaPortal.FirePortal(portal, plr)
 			SetTeleportGuiRemoteEvent:FireClient(plr, pocketName)
 			--wait(1) -- let the local teleport GUI get set
 		else
-			print("[MetaPortal] WARNING: Failed to get pocket name to set TeleportGui")
+			warn("[MetaPortal] Failed to get pocket name to set TeleportGui")
 		end
 
 		teleportData.OriginPersistId = portal.PersistId.Value -- portal you came from
@@ -703,7 +677,7 @@ function MetaPortal.FirePortal(portal, plr)
 		teleportData.TargetPersistId = MetaPortal.PocketData.ParentOriginPersistId
 		
 		if not u then
-			print("[MetaPortal] Badly configured pocket")
+			warn("[MetaPortal] Badly configured pocket")
 			return
 		end
 		
@@ -722,7 +696,7 @@ function MetaPortal.FirePortal(portal, plr)
 	-- Workaround for current bug in LaunchData
 	local joinData = plr:GetJoinData()
 	if joinData.TeleportData ~= nil and joinData.TeleportData.IgnoreLaunchData ~= nil then
-		print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
+		-- print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
 		teleportData.IgnoreLaunchData = joinData.TeleportData.IgnoreLaunchData
 	end
 	
@@ -735,7 +709,7 @@ function MetaPortal.FirePortal(portal, plr)
 		return TeleportService:TeleportAsync(placeId, {plr}, teleportOptions)
 	end)
 	if not success then
-		print("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		error("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
 
     local success, errormessage = pcall(function()
@@ -743,9 +717,6 @@ function MetaPortal.FirePortal(portal, plr)
             eventId = "Pockets:FirePortal"
         })
 	end)
-	if not success then
-		print("[MetaPortal] GameAnalytics failed: ".. errormessage)
-	end
 end
 
 function MetaPortal.HasPocketCreatePermission(plr)
@@ -755,25 +726,15 @@ function MetaPortal.HasPocketCreatePermission(plr)
 end
 
 function MetaPortal.CreatePocketLink(plr, portal, pocketText)
-	if portal == nil then
-		print("[MetaPortal] Passed bad portal")
-		return
-	end
-
-	if pocketText == nil or pocketText == "" then
-		print("[MetaPortal] Passed bad pocketText to CreatePocketLink")
-		return
-	end
-
 	local placeId, pocketData = MetaPortal.PocketDataFromPocketName(pocketText)
 	if placeId == nil or pocketData == nil then
-		print("[MetaPortal] Failed to find pocket data for: `"..pocketText.."`")
+		warn("[MetaPortal] Failed to find pocket data for: `"..pocketText.."`")
 		return
 	end
 
 	if isPocket() then
 		if placeId == game.PlaceId and pocketData.PocketCounter == MetaPortal.PocketData.PocketCounter then
-			print("[MetaPortal] Attempted to link to current pocket, exiting")
+			warn("[MetaPortal] Attempted to link to current pocket, exiting")
 			return
 		end
 	end
@@ -797,9 +758,6 @@ function MetaPortal.CreatePocketLink(plr, portal, pocketText)
             eventId = "Pockets:CreatePocketLink"
         })
 	end)
-	if not success then
-		print("[MetaPortal] GameAnalytics failed: ".. errormessage)
-	end
 end
 
 function MetaPortal.AddPocketToListForPlayer(plr, pocketData)
@@ -823,7 +781,7 @@ function MetaPortal.AddPocketToListForPlayer(plr, pocketData)
 		end)
 	end)
 	if not success then
-		print("[MetaPortal] UpdateAsync fail for " .. playerKey .. " with ".. updatedList)
+		error("[MetaPortal] UpdateAsync fail for " .. playerKey .. " with ".. updatedList)
 		return
 	end
 end
@@ -834,7 +792,7 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
 	
 	local placeId = Config.PlaceIdOfPockets[pocketChosen]
 	if placeId == nil then
-		print("[MetaPortal] Could not find selected pocket type")
+		warn("[MetaPortal] Could not find selected pocket type")
 		return
 	end
 
@@ -845,8 +803,9 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
         waitForBudget(Enum.DataStoreRequestType.SetIncrementAsync)
 		return DataStore:IncrementAsync(placeKey, 1)
 	end)
-	if success then
-		print("[MetaPortal] PlaceID counter is now "..pocketCounter)
+	if not success then
+		error("[MetaPortal] Failed to increment pocketCounter " .. pocketCounter)
+        return
 	end
 
 	local accessCode = TeleportService:ReserveServer(placeId)
@@ -875,7 +834,7 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
         return DataStore:SetAsync(pocketKey,pocketJSON)
     end)
     if not success then
-        print("[MetaPortal] SetAsync fail for " .. pocketKey .. " with ".. errormessage)
+        error("[MetaPortal] SetAsync fail for " .. pocketKey .. " with ".. errormessage)
         return
     end
 
@@ -885,7 +844,7 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
 		return DataStore:SetAsync(portalKey,pocketJSON)
 	end)
 	if not success then
-		print("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. errormessage)
+		error("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. errormessage)
 		return
 	end
 
@@ -894,10 +853,6 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
             eventId = "Pockets:CreatePocket"
         })
 	end)
-	if not success then
-		print("[MetaPortal] GameAnalytics failed ".. errormessage)
-		return
-	end
 
 	MetaPortal.AddPocketToListForPlayer(plr, pocketData)
 	MetaPortal.AttachValuesToPocketPortal(portal, pocketData)
@@ -936,8 +891,8 @@ function getNameFromUserId(userId)
 		return userName
 	end
 	
-	print("[MetaPortal] Unable to find name for UserId:", userId)
-	return nil
+	warn("[MetaPortal] Unable to find name for UserId:", userId)
+	return
 end
 
 function MetaPortal.AttachValuesToPocketPortal(portal, data)
@@ -1012,17 +967,12 @@ function MetaPortal.AttachValuesToPocketPortal(portal, data)
 end
 
 function MetaPortal.KeyForUser(plr)
-	if plr == nil then
-		print("[MetaPortal] KeyForUser passed nil player")
-		return
-	end
-
 	return "player/" .. plr.UserId
 end
 
 function MetaPortal.KeyForPortal(portal)
 	if not portal.PersistId then
-		print("[MetaPortal] Pocket has no PersistId")
+		warn("[MetaPortal] Pocket has no PersistId")
 		return
 	end
 	
@@ -1036,7 +986,7 @@ function MetaPortal.KeyForPortal(portal)
 		-- to involve the unique identifier of the pocket
 		local pocketId = script.Parent:GetAttribute("PocketId")
 		if not pocketId then
-			print("[MetaPortal] Failed to initialise pocket portal")
+			warn("[MetaPortal] Failed to initialise pocket portal")
 			return
 		end
 
@@ -1066,7 +1016,7 @@ function MetaPortal.ConnectBlankPocketPortalTouched(portal)
 				local plr = Players:GetPlayerFromCharacter(otherPart.Parent)
 				if plr then	
 					if not MetaPortal.HasPocketCreatePermission(plr) and not RunService:IsStudio() then
-						print("[MetaPortal] User is not authorised to make pockets")
+						warn("[MetaPortal] User is not authorised to make pockets")
 						wait(0.1)
 						db = false
 						return
@@ -1085,7 +1035,7 @@ function MetaPortal.ConnectBlankPocketPortalTouched(portal)
 					
 					-- In a pocket the creator can make as many sub-pockets as they wish
 					if count >= Config.PocketQuota and not (isPocket() and MetaPortal.PocketData.CreatorId == plr.UserId) then
-						print("[MetaPortal] User has reached the pocket quota")
+						warn("[MetaPortal] User has reached the pocket quota")
 						wait(0.1)
 						db = false
 						return
@@ -1106,12 +1056,12 @@ function MetaPortal.InitPocketPortal(portal)
 	local DataStore = DataStoreService:GetDataStore(Config.PocketDataStoreTag)
 	
 	if not portal.PersistId then
-		print("[MetaPortal] Pocket has no PersistId")
+		warn("[MetaPortal] Pocket has no PersistId")
 		return
 	end
 
 	if not portal.PrimaryPart then
-		print("[MetaPortal] Pocket has no PrimaryPart")
+		warn("[MetaPortal] Pocket has no PrimaryPart")
 		return
 	end
 	
@@ -1131,7 +1081,7 @@ function MetaPortal.InitPocketPortal(portal)
 		return DataStore:GetAsync(portalKey)
 	end)
 	if not success then
-		print("[MetaPortal] GetAsync fail for pocket portal" .. portalKey .. " " .. pocketJSON)
+		earn("[MetaPortal] GetAsync fail for pocket portal" .. portalKey .. " " .. pocketJSON)
 		return
 	end
 	
@@ -1146,7 +1096,7 @@ end
 
 function MetaPortal.UnlinkPortal(plr, portal)
 	if portal:FindFirstChild("CreatorId") == nil or portal.CreatorId.Value == nil then
-		print("[MetaPortal] Attempt to unlink malformed portal")
+		warn("[MetaPortal] Attempt to unlink malformed portal")
 		return
 	end
 
@@ -1167,7 +1117,7 @@ function MetaPortal.UnlinkPortal(plr, portal)
 	end
 
 	if not canUnlink then
-		print("[MetaPortal] Player does not have permission to unlink this portal")
+		warn("[MetaPortal] Player does not have permission to unlink this portal")
 		return
 	end
 
@@ -1176,11 +1126,7 @@ function MetaPortal.UnlinkPortal(plr, portal)
             eventId = "Pockets:UnlinkPortal"
         })
 	end)
-	if not success then
-		print("[MetaPortal] GameAnalytics failed ".. errormessage)
-		return
-	end
-
+	
 	local DataStore = DataStoreService:GetDataStore(Config.PocketDataStoreTag)
 
 	-- Erase the contents stored for this portal
@@ -1189,7 +1135,7 @@ function MetaPortal.UnlinkPortal(plr, portal)
 		return DataStore:RemoveAsync(portalKey)
 	end)
 	if not success then
-		print("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. pocketJSON)
+		warn("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. pocketJSON)
 		return
 	end
 
@@ -1237,7 +1183,7 @@ function MetaPortal.PlayerArrive(plr)
 	end
 
 	if joinData.TeleportData and joinData.TeleportData.pocket then
-		print("[MetaPortal] Passing user "..plr.DisplayName.." through to "..teleportData.pocket)
+		warn("[MetaPortal] Passing user "..plr.DisplayName.." through to "..teleportData.pocket)
 		local passThrough = true
 		MetaPortal.GotoPocketHandler(plr, teleportData.pocket, passThrough)
 		return
@@ -1268,12 +1214,12 @@ function MetaPortal.PlayerArrive(plr)
 		if queryDict["pocket"] ~= nil then
 			local pocketName = queryDict["pocket"]
 			if pocketName ~= nil and pocketName ~= "" then
-				print("[MetaPortal] User "..plr.DisplayName.." arrived with pocket launch data "..pocketName)
+				warn("[MetaPortal] User "..plr.DisplayName.." arrived with pocket launch data "..pocketName)
 
 				local passThrough = true
                 if queryDict["targetBoardPersistId"] ~= nil then
                     local targetBoard = queryDict["targetBoardPersistId"]
-                    print("[MetaPortal] User arrived with target board "..targetBoard)
+                    -- print("[MetaPortal] User arrived with target board "..targetBoard)
                     MetaPortal.GotoPocketHandler(plr, pocketName, passThrough, targetBoard)
                 else
 				    MetaPortal.GotoPocketHandler(plr, pocketName, passThrough)		
