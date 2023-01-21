@@ -86,13 +86,19 @@ function BoardDecalService.Start()
 			if not board:IsDescendantOf(game.Workspace) then return end
 			if board:FindFirstChild("PersistId") == nil then return end
 			
-			waitForBudget(Enum.DataStoreRequestType.GetAsync)
-			
 			local decalKey = decalKeyForBoard(board)
-			local assetId = DataStore:GetAsync(decalKey)
-			if assetId then
-				BoardDecalService.SetDecal(board, assetId)
-			end
+
+            local success, assetId = pcall(function()
+                waitForBudget(Enum.DataStoreRequestType.GetAsync)
+                return DataStore:GetAsync(decalKey)
+            end)
+            if not success then
+                warn("[BoardDecalService] Failed to get decal assetId: ".. assetId)
+            else
+                if assetId ~= nil then
+                    BoardDecalService.SetDecal(board, assetId)
+                end
+            end
 		end)
 	end
 end
