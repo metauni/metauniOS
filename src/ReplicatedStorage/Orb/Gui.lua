@@ -1075,7 +1075,7 @@ function Gui.CreateTopbarItems()
 
     iconBoardcam = Icon.new()
     iconBoardcam:setImage(eyeIconAssetId)
-    iconBoardcam:setLabel("Look")
+    --iconBoardcam:setLabel("Look")
     iconBoardcam:setOrder(4)
     iconBoardcam:setTheme(Themes["BlueGradient"])
     iconBoardcam:setEnabled(true)
