@@ -70,7 +70,6 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 			"GiveVRChalk",
 			"MetaChalk",
 			"MetaAdmin",
-			"Chalk",
 		},
 	
 		[game.ServerScriptService] = {
@@ -102,8 +101,9 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 		end
 	end
 
-	writeFromModelFile(game.ReplicatedStorage, "Chalk.rbxmx")
-	writeFromModelFile(game.Chat, "ChatModules.rbxm")
+	-- For legacy AdminCommands - no longer applicable
+	-- writeFromModelFile(game.ReplicatedStorage, "Chalk.rbxmx")
+	-- writeFromModelFile(game.Chat, "ChatModules.rbxm")
 
 	-- UTC timestamp that matches the format used in Version History
 
