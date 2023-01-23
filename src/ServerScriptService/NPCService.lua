@@ -126,6 +126,13 @@ local function humanReadableTimeInterval(d)
     return "around " .. tostring(numMonths) .. " months"
 end
 
+local function updateWith(t, q)
+    local s = {}
+    for k, v in pairs(t) do s[k] = v end
+    for k, v in pairs(q) do s[k] = v end
+    return s
+end
+
 --
 -- NPC class
 --
@@ -135,22 +142,32 @@ NPC.__index = NPC
 
 NPC.PersonalityProfile = {}
 NPC.PersonalityProfile.Normal = {
+    Name = "Normal",
     IntervalBetweenSummaries = 8,
     MaxRecentActions = 5,
-    MaxThoughts = 9,
+    MaxThoughts = 8,
     MaxSummaries = 20,
     SearchShortTermMemoryProbability = 0.1,
-    SearchLongTermMemoryProbability = 0.08,
+    SearchLongTermMemoryProbability = 0.1,
     SearchReferencesProbability = 0.25,
     MaxConsecutivePlan = 2,
-    TimestepDelayNormal = 10,
-    TimestepDelayVoiceChat = 5,
+    TimestepDelayNormal = 12,
+    TimestepDelayVoiceChat = 6,
     ReferenceRelevanceScoreCutoff = 0.8,
     MemoryRelevanceScoreCutoff = 0.7,
     HearingRadius = 40,
     GetsDetailedObservationsRadius = 40,
     PromptPrefix = SecretService.NPCSERVICE_PROMPT
 }
+
+NPC.PersonalityProfile.Seminar = updateWith(NPC.PersonalityProfile.Normal, {
+    Name = "Seminar",
+    TimestepDelayNormal = 20,
+    TimestepDelayVoiceChat = 10,
+    HearingRadius = 60,
+    GetsDetailedObservationsRadius = 40,
+    PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
+})
 
 NPC.ActionType = {
 	Unhandled = 0,
@@ -176,16 +193,9 @@ function NPC.new(instance: Model)
     npc.Summaries = {}
     npc.PlanningCounter = 0
     npc.PersonalityProfile = NPC.PersonalityProfile.Normal
-    npc.TimestepDelay = NPC.PersonalityProfile.Normal.TimestepDelayNormal
+    npc.TimestepDelay = npc.PersonalityProfile.TimestepDelayNormal
     npc.OrbOffset = nil
     
-    -- NPCService.thoughts[npc] = {}
-    -- NPCService.recentActions[npc] = {}
-    -- NPCService.summaries[npc] = {}
-    -- NPCService.planningCounter[npc] = 0
-    -- NPCService.personalityProfile[npc] = 
-    -- NPCService.timestepDelay[npc] = 
-
     npc.Animations = {}
     local animator = instance.Humanoid.Animator
     npc.Animations.WalkAnim = animator:LoadAnimation(instance.Animate.walk.WalkAnim)
@@ -198,7 +208,29 @@ function NPC.new(instance: Model)
     return npc
 end
 
+function NPC:UpdatePersonalityProfile()
+    -- Currently there are only two profiles: Normal and Seminar
+    -- and the latter is only possible for NPCs with TargetOrb set
+    local targetOrbValue = self.Instance:FindFirstChild("TargetOrb")
+    if targetOrbValue == nil then return end
+    if targetOrbValue.Value == nil then return end
+    local orb = self.Instance.TargetOrb.Value
+    if orb:FindFirstChild("Speaker") == nil then return end
+    
+    if orb.Speaker.Value ~= nil then
+        print("[NPC] Setting Seminar personality profile")
+        self.PersonalityProfile = NPC.PersonalityProfile.Seminar
+    else
+        print("[NPC] Setting Normal personality profile")
+        self.PersonalityProfile = NPC.PersonalityProfile.Normal
+    end
+
+    self.TimestepDelay = self.PersonalityProfile.TimestepDelayNormal
+end
+
 function NPC:Timestep(startup)
+    self:UpdatePersonalityProfile()
+
     if math.random() < self.PersonalityProfile.SearchShortTermMemoryProbability then
         local memory = self:ShortTermMemory()
         if memory ~= nil then
@@ -229,8 +261,7 @@ function NPC:Timestep(startup)
     self:Prompt()	
     
     -- Walk an NPC targetting an orb to maintain a fixed offset from the orb
-    local targetOrbValue = self.Instance:FindFirstChild("TargetOrb")
-    if targetOrbValue ~= nil and targetOrbValue.Value ~= nil then
+    if self.PersonalityProfile.Name == "Seminar" then
         local targetOrb = self.Instance.TargetOrb.Value
         local orbPos = getInstancePosition(targetOrb)
 
@@ -242,7 +273,7 @@ function NPC:Timestep(startup)
         local targetPos = getInstancePosition(targetOrb) + self.OrbOffset
         local distance = (targetPos - self.Instance.PrimaryPart.Position).Magnitude
         
-        if not self.Instance:GetAttribute("walking") and distance > 5 then    
+        if (not self.Instance:GetAttribute("walking")) and distance > 5 then  
             self:WalkToPos(targetPos)
         end
     end
@@ -1225,6 +1256,7 @@ function NPCService.HandleTranscription(sourcePlayer, message)
                 print("[NPCService] Shifting to faster NPC processing for voice chat")
             end
             -- TODO: throttle actively depending on interaction style
+            -- Also we have no way of dropping out of this mode later
 		end
 	end
 end
