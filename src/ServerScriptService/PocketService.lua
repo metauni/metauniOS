@@ -201,7 +201,6 @@ function MetaPortal.ReturnToLastPocket(player)
 end
 
 function MetaPortal.TeleportFailed(player, teleportResult, errorMessage, placeId)
-	error("[MetaPortal] Teleport failed for "..player.Name.." to place "..placeId.." : "..errorMessage)
 	player:LoadCharacter()
 
     local success, err = pcall(function()
@@ -209,6 +208,8 @@ function MetaPortal.TeleportFailed(player, teleportResult, errorMessage, placeId
             eventId = "Pockets:TeleportFailed"
         })
 	end)	
+
+    error("[MetaPortal] Teleport failed for "..player.Name.." to place "..placeId.." : "..errorMessage)
 end
 
 -- passThrough means we are handing a player off to a pocket, and don't
@@ -313,7 +314,7 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
 		return TeleportService:TeleportAsync(placeId, {plr}, teleportOptions)
 	end)
 	if not success then
-		error("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		warn("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
 
     local success, err = pcall(function()
@@ -328,7 +329,7 @@ function MetaPortal.StoreReturnToPocketData(plr, placeId, pocketCounter, accessC
 	local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 	
 	if plr == nil or placeId == nil or pocketCounter == nil or accessCode == nil then
-		error("[MetaPortal] Bad data passed to StoreReturnToPocketData")
+		warn("[MetaPortal] Bad data passed to StoreReturnToPocketData")
 		return
 	end
 
@@ -343,7 +344,7 @@ function MetaPortal.StoreReturnToPocketData(plr, placeId, pocketCounter, accessC
 		return DataStore:SetAsync(returnToPocketKey, returnToPocketData)
 	end)
 	if not success then
-		error("[MetaPortal] SetAsync fail for " .. returnToPocketKey .. " with ".. errormessage)
+		warn("[MetaPortal] SetAsync fail for " .. returnToPocketKey .. " with ".. errormessage)
 		return
 	end
 end
@@ -364,7 +365,7 @@ function MetaPortal.PocketDataFromPocketName(pocketText)
 	
 	local pocketCounter = tonumber(strParts[#strParts])
 	if pocketCounter == nil then
-		error("[MetaPortal] Extraction of pocket counter failed")
+		warn("[MetaPortal] Extraction of pocket counter failed")
 		return
 	end
 	
@@ -456,7 +457,7 @@ function MetaPortal.InitPocket(data)
 	local pocketCounter = data.PocketCounter
 	
 	if pocketCounter == nil then
-		error("[MetaPortal] Insufficient information to initialise pocket")
+		warn("[MetaPortal] Insufficient information to initialise pocket")
 		return
 	end
 	
@@ -599,7 +600,7 @@ function MetaPortal.ReturnToRoot(plr)
 		return TeleportService:TeleportAsync(placeId, {plr}, teleportOptions)
 	end)
 	if not success then
-		error("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		warn("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
 end
 
@@ -701,7 +702,14 @@ function MetaPortal.FirePortal(portal, plr)
 	end
 	
     -- Track players across pockets
-    teleportData = GameAnalytics:addGameAnalyticsTeleportData({plr.UserId}, teleportData)
+    local success, updatedTeleportData = pcall(function()
+        return GameAnalytics:addGameAnalyticsTeleportData({plr.UserId}, teleportData)
+    end)
+    if success then
+        teleportData = updatedTeleportData
+    else
+        warn("[Portal] GameAnalytics call failed: " .. updatedTeleportData)
+    end
     
 	teleportOptions:SetTeleportData(teleportData)
 	
@@ -709,7 +717,7 @@ function MetaPortal.FirePortal(portal, plr)
 		return TeleportService:TeleportAsync(placeId, {plr}, teleportOptions)
 	end)
 	if not success then
-		error("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		warn("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
 
     local success, errormessage = pcall(function()
@@ -781,7 +789,7 @@ function MetaPortal.AddPocketToListForPlayer(plr, pocketData)
 		end)
 	end)
 	if not success then
-		error("[MetaPortal] UpdateAsync fail for " .. playerKey .. " with ".. updatedList)
+		warn("[MetaPortal] UpdateAsync fail for " .. playerKey .. " with ".. updatedList)
 		return
 	end
 end
@@ -804,7 +812,7 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
 		return DataStore:IncrementAsync(placeKey, 1)
 	end)
 	if not success then
-		error("[MetaPortal] Failed to increment pocketCounter " .. pocketCounter)
+		warn("[MetaPortal] Failed to increment pocketCounter " .. pocketCounter)
         return
 	end
 
@@ -834,7 +842,7 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
         return DataStore:SetAsync(pocketKey,pocketJSON)
     end)
     if not success then
-        error("[MetaPortal] SetAsync fail for " .. pocketKey .. " with ".. errormessage)
+        warn("[MetaPortal] SetAsync fail for " .. pocketKey .. " with ".. errormessage)
         return
     end
 
@@ -844,7 +852,7 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
 		return DataStore:SetAsync(portalKey,pocketJSON)
 	end)
 	if not success then
-		error("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. errormessage)
+		warn("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. errormessage)
 		return
 	end
 
