@@ -968,6 +968,7 @@ function Gui.CreateTopbarItems()
     Gui.ListenIcon = icon
 
     iconSpeaker = Icon.new()
+    iconSpeaker:setName("Speaker")
     iconSpeaker:setImage(speakerIconAssetId)
     iconSpeaker:setOrder(2)
     iconSpeaker:setLabel("Speaker")
