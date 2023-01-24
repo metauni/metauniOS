@@ -1,5 +1,6 @@
 local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
 local PermissionsController = {}
 
@@ -21,10 +22,17 @@ function PermissionsController:Start()
 		SystemChannel:DisplaySystemMessage(message, metadata)
 	end)
 
-	do
-		local IconController = require(ReplicatedStorage.Icon.IconController)
-		IconController.setLeftOffset(12 + 32)
-	end
+	-- Fix for topbarplus positioning (it doesn't detect chat button with new TextChatService)
+	task.spawn(function()
+		while true do
+			if StarterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Chat) then
+				local IconController = require(ReplicatedStorage.Icon.IconController)
+				IconController.updateTopbar() -- Fixes positioning
+				return
+			end
+			task.wait(1/4)
+		end
+	end)
 end
 
 return PermissionsController
