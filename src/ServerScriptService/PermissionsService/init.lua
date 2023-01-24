@@ -806,19 +806,5 @@ end
 
 return PermissionsService
 
--- return {
--- 	Init = function()
-		
--- Promise.reject("abc")
--- 	:catch(function(...)
--- 		print("caught", ...)
--- 		return Promise.reject(...)
--- 	end)
--- 	:andThen(function(...)
--- 		print("And then", ...)
--- 	end)
--- 	end
--- }
-
 
 

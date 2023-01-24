@@ -1,4 +1,3 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
@@ -13,24 +12,6 @@ local Players = game:GetService("Players")
 local Remotes = script.Parent.Remotes
 local Config = require(script.Parent.Config)
 local EmojiList = require(script.Parent.EmojiList)
-
-local OrbAttachRemoteEvent = Remotes.OrbAttach
-local OrbDetachRemoteEvent = Remotes.OrbDetach
-local OrbAttachSpeakerRemoteEvent = Remotes.OrbAttachSpeaker
-local OrbDetachSpeakerRemoteEvent = Remotes.OrbDetachSpeaker
-local OrbSpeakerMovedRemoteEvent = Remotes.OrbSpeakerMoved
-local OrbTeleportRemoteEvent = Remotes.OrbTeleport
-local OrbTweeningStartRemoteEvent = Remotes.OrbTweeningStart
-local OrbTweeningStopRemoteEvent = Remotes.OrbTweeningStop
-local OrbListenOnRemoteEvent = Remotes.OrbListenOn
-local OrbListenOffRemoteEvent = Remotes.OrbListenOff
-local OrbcamOnRemoteEvent = Remotes.OrbcamOn
-local OrbcamOffRemoteEvent = Remotes.OrbcamOff
-local VRSpeakerChalkEquipRemoteEvent = Remotes.VRSpeakerChalkEquip
-local VRSpeakerChalkUnequipRemoteEvent = Remotes.VRSpeakerChalkUnequip
-local SpecialMoveRemoteEvent = Remotes.SpecialMove
-local AskQuestionRemoteEvent = Remotes.AskQuestion
-local NewEmojiRemoteEvent = Remotes.NewEmoji
 
 local localPlayer
 
@@ -98,17 +79,17 @@ function Gui.Init()
     -- Attach and detach
     --
 
-    OrbAttachSpeakerRemoteEvent.OnClientEvent:Connect(function(speaker,orb)
+    Remotes.OrbAttachSpeaker.OnClientEvent:Connect(function(speaker,orb)
         wait(0.5) -- wait to make sure we have replicated values
         Gui.RefreshAllPrompts()
     end)
-    OrbDetachSpeakerRemoteEvent.OnClientEvent:Connect(function(orb)
+    Remotes.OrbDetachSpeaker.OnClientEvent:Connect(function(orb)
         wait(0.5) -- wait to make sure we have replicated values
         Gui.RefreshAllPrompts()
     end)
 
     Gui.SetupEmojiGui()
-    NewEmojiRemoteEvent.OnClientEvent:Connect(Gui.HandleNewEmoji)
+    Remotes.NewEmoji.OnClientEvent:Connect(Gui.HandleNewEmoji)
 
     if not RunService:IsStudio() then
         
@@ -198,7 +179,6 @@ function Gui.Init()
         if #targets < 2 then return end
 
         local camera = workspace.CurrentCamera
-        local cameraPos = camera.CFrame.Position
         local focusPos = getInstancePosition(targets[1])
 
         local newCameraPos = (targets[1].CFrame * CFrame.new(0,0,-20)).Position
@@ -232,10 +212,10 @@ function Gui.Init()
 
     ContextActionService:BindAction("OrbcamViewToggle", OrbcamViewActivate, false, ORBCAMVIEW_MACRO_KB[#ORBCAMVIEW_MACRO_KB])
 
-    OrbTweeningStartRemoteEvent.OnClientEvent:Connect(Gui.OrbTweeningStart)
-    OrbTweeningStopRemoteEvent.OnClientEvent:Connect(Gui.OrbTweeningStop)
+    Remotes.OrbTweeningStart.OnClientEvent:Connect(Gui.OrbTweeningStart)
+    Remotes.OrbTweeningStop.OnClientEvent:Connect(Gui.OrbTweeningStop)
 
-    SpecialMoveRemoteEvent.OnClientEvent:Connect(Gui.SpecialMove)
+    Remotes.SpecialMove.OnClientEvent:Connect(Gui.SpecialMove)
 
     if VRService.VREnabled then
         -- In VR we need to tell other clients when we equip the chalk
@@ -244,12 +224,12 @@ function Gui.Init()
             chalkTool.Equipped:Connect(function()
                 if Gui.Orb == nil then return end
                 if Gui.Speaking == false then return end
-                VRSpeakerChalkEquipRemoteEvent:FireServer(Gui.Orb)
+                Remotes.VRSpeakerChalkEquip:FireServer(Gui.Orb)
             end)
             chalkTool.Unequipped:Connect(function()
                 if Gui.Orb == nil then return end
                 if Gui.Speaking == false then return end
-                VRSpeakerChalkUnequipRemoteEvent:FireServer(Gui.Orb)
+                Remotes.VRSpeakerChalkUnequip:FireServer(Gui.Orb)
             end)
         else
             warn("[Orb] Failed to find Chalk tool")
@@ -344,7 +324,7 @@ function Gui.HandleAskQuestionGui()
         end
         
         screenGui.Enabled = false
-        AskQuestionRemoteEvent:FireServer(Gui.Orb, textBox.Text)
+        Remotes.AskQuestion:FireServer(Gui.Orb, textBox.Text)
         textBox.Text = ""
     end
     
@@ -460,13 +440,13 @@ function Gui.SetupProximityPrompts(orb)
             if promptTriggered ~= prompt then return end
 
             if promptName == "LuggagePrompt" or promptName == "NormalPrompt" then
-                OrbAttachRemoteEvent:FireServer(orb)
+                Remotes.OrbAttach:FireServer(orb)
                 Gui.Attach(orb)
             end
 
             if promptName == "SpeakerPrompt" then
                 if orb.Speaker.Value == nil then
-                    OrbAttachSpeakerRemoteEvent:FireServer(orb)
+                    Remotes.OrbAttachSpeaker:FireServer(orb)
                     Gui.AttachSpeaker(orb)
                 end
             end
@@ -509,7 +489,7 @@ function Gui.SetupProximityPrompts(orb)
                 if Gui.Orb ~= orb then return end
                 if not Gui.Speaking then return end
 
-                SpecialMoveRemoteEvent:FireServer(Gui.Orb)
+                Remotes.SpecialMove:FireServer(Gui.Orb)
             end
 
             if promptName == "VROrbcamPrompt" then
@@ -583,7 +563,7 @@ function Gui.MakePlayerTransparent(plr, transparency)
 end
 
 function Gui.HandleVR()
-    VRSpeakerChalkEquipRemoteEvent.OnClientEvent:Connect(function(speaker)
+    Remotes.VRSpeakerChalkEquip.OnClientEvent:Connect(function(speaker)
 		if Gui.Orb == nil then return end
         if Gui.Orb.Speaker.Value == nil then return end
         if Gui.Orb.Speaker.Value ~= speaker then return end
@@ -592,7 +572,7 @@ function Gui.HandleVR()
         Gui.MakePlayerTransparent(speaker, 0.2)
 	end)
 
-    VRSpeakerChalkUnequipRemoteEvent.OnClientEvent:Connect(function(speaker)
+    Remotes.VRSpeakerChalkUnequip.OnClientEvent:Connect(function(speaker)
 		if Gui.Orb == nil then return end
         if Gui.Orb.Speaker.Value == nil then return end
         if Gui.Orb.Speaker.Value ~= speaker then return end
@@ -817,7 +797,7 @@ function Gui.ListenOn()
         SoundService:SetListener(Enum.ListenerType.ObjectCFrame, Gui.Orb.EarRingTracker)
     end
 
-    OrbListenOnRemoteEvent:FireServer()
+    Remotes.OrbListenOn:FireServer()
 end
 
 function Gui.ListenOff()
@@ -829,7 +809,7 @@ function Gui.ListenOff()
         SoundService:SetListener(Enum.ListenerType.Camera)
     end
 
-    OrbListenOffRemoteEvent:FireServer()
+    Remotes.OrbListenOff:FireServer()
 end
 
 -- Detach, as listener or speaker
@@ -861,7 +841,7 @@ function Gui.Detach()
     end
 
     localPlayer.PlayerGui.EmojiGui:ClearAllChildren() -- remove emojis
-    OrbDetachRemoteEvent:FireServer(orb)
+    Remotes.OrbDetach:FireServer(orb)
     Gui.Orb = nil
     Gui.RefreshAllPrompts()
     Gui.RefreshTopbarItems()
@@ -880,7 +860,7 @@ function Gui.AttachSpeaker(orb)
         if character == nil then return end    
         local waypoint = Gui.NearestWaypoint(character.PrimaryPart.Position)
         if waypoint ~= nil then
-            OrbSpeakerMovedRemoteEvent:FireServer(Gui.Orb, waypoint.Position)
+            Remotes.OrbSpeakerMoved:FireServer(Gui.Orb, waypoint.Position)
         else
             warn("[Orb] Could not find nearby waypoint")
         end
@@ -1043,7 +1023,7 @@ function Gui.CreateTopbarItems()
     iconReturn:setTheme(Themes["BlueGradient"])
     iconReturn:setEnabled(false)
     iconReturn:bindEvent("selected", function(self)
-        OrbTeleportRemoteEvent:FireServer(Gui.Orb)
+        Remotes.OrbTeleport:FireServer(Gui.Orb)
         iconReturn:deselect()
     end)
     Gui.OrbReturnIcon = iconReturn
@@ -1065,7 +1045,7 @@ function Gui.CreateTopbarItems()
                                     :bindEvent("selected", function(self)
                                         self:deselect()
                                         iconEmoji:deselect()
-                                        NewEmojiRemoteEvent:FireServer(Gui.Orb, e)
+                                        Remotes.NewEmoji:FireServer(Gui.Orb, e)
                                         Gui.AddEmojiToScreen(e)
                                     end))
     end
@@ -1127,6 +1107,7 @@ local function resetCameraSubject()
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
+        -- selene: allow(incorrect_standard_library_use)
 		workspace.CurrentCamera.CameraSubject = humanoid
 	end
 
@@ -1414,7 +1395,6 @@ function Gui.BoardcamHoverStarted()
             -- Don't remake highlights for the same objects
             return
         else
-            local boardcamHighlightFolder = game.Workspace:FindFirstChild("BoardcamHighlights")
             if boardcamHighlightFolder ~= nil then
                 boardcamHighlightFolder:ClearAllChildren()
             end
@@ -1539,7 +1519,7 @@ function Gui.OrbcamOn()
     
     local guiOff = Gui.OrbcamGuiOff
     local orb = Gui.Orb
-    OrbcamOnRemoteEvent:FireServer()
+    Remotes.OrbcamOn:FireServer()
 
     -- For game streaming, we need the world to replicate around the orb we're attached to
     if game.Workspace.StreamingEnabled then
@@ -1664,7 +1644,7 @@ end
 
 function Gui.OrbcamOff()
     local guiOff = Gui.OrbcamGuiOff
-    OrbcamOffRemoteEvent:FireServer()
+    Remotes.OrbcamOff:FireServer()
 
 	if Gui.CameraTween then Gui.CameraTween:Cancel() end
     if Gui.ReplicationFocusPartTween then Gui.ReplicationFocusPartTween:Cancel() end
