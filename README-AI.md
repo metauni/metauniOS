@@ -44,7 +44,7 @@ A text completion model like GPT takes in text, breaks the text into *tokens* an
 
 So you cannot simply paste a book into the text window and start asking GPT questions. Similarly, a chatbot can't just read in an arbitrary long history of its interactions with you and start conversing on the basis of that history. ChatGPT is based on the same technology, with some wrapping that is not public, probably similar to what is described below.
 
-You can think of the context as *short term memory* for the model. The weights themselves contain an immense amount of knowledge, but you cannot directly augment that (except by fine-tuning, which raises the cost prohibitively and is in most cases probably inferior to the strategy described here). They key to overcoming this context limit is *embeddings* which can be used to source relevant information and include it in the context.
+You can think of the context as *short term memory* for the model. The weights themselves contain an immense amount of knowledge, but you cannot directly augment that (except by fine-tuning, which raises the cost prohibitively and is in most cases probably inferior to the strategy described here). The key to overcoming this context limit is *embeddings* which can be used to source relevant information and include it in the context.
 
 To explain consider the following prompt for one of metauni's seminarbots (Doctr). It is split into two parts. The first part is the *preamble*:
 
@@ -95,7 +95,7 @@ In subsections we will now dig into how some of the ingredients here work. First
 
 ### Embeddings and vector databases
 
-Modern AIs based on deep learning models such as Transformers learn and compute on *vectors*. If you show a word, a sentence or an image to a Transformer model that is trained to understand it, its ``thoughts'' are vectors that can be extracted as a useful representation called an [embedding](https://txt.cohere.ai/sentence-word-embeddings/).
+Modern AIs based on deep learning models such as Transformers learn and compute on *vectors*. If you show a word, a sentence or an image to a Transformer model that is trained to understand it, its "thoughts" are vectors that can be extracted as a useful representation called an [embedding](https://txt.cohere.ai/sentence-word-embeddings/).
 
 A vector database such as [Pinecone](https://www.pinecone.io/) stores these embeddings. In a normal SQL database you write queries in a query language that includes statements like `SELECT name WHERE age > 20`. In a vector database the language is linear algebra, and is organised around dot products: you query the database by providing an embedding and asking for similar embeddings (that is, vectors that point in a similar direction).
 
@@ -117,6 +117,8 @@ Action: Say to starsonthars "Hey, I remember the cool joke that we talked about.
 Good taste. Note that this is highly unlikely to be the actual joke it told. It is simply predicting the most probable next token given the context, so it makes up a new joke. At some point several days ago that summary was generated, an embedding vector was computed, and together with a timestamp it was stored to to the vector database Pinecone. This is what we call *long term memories*. There is also in-game a short term memory consisting of these summaries from the past 30min or so. Both are queried and dealt with similarly, so I'll now elide the difference.
 
 With some probability, every time the agent "ticks" (say every 12 seconds) it has some probability to look up a memory. To do so, it embeds a summary of its state of mind and then queries the vector database of memories using that embedding, to find memories which are *semantically similar to its current environment*. In the above case, it sees `starsonthars` in its environment and the query is probably picking up on that; it most likely retrieved three recent memories of interacting with me and sampled one of them.
+
+This process of *querying* (ultimately by dot products), and using the result of queries to *update* representations (or in our case, augment a prompt) is similar to the core architectural feature of Transformers, called *attention*. So it is quite idiomatic in that sense. Future generations of Transformers will probably incorporate elements like this more deeply, rather than as a somewhat awkward "outer layer" in the fashion being described here.
 
 ### References
 
