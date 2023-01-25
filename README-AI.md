@@ -136,5 +136,5 @@ The prompt in the previous section is `873` words (so about one quarter of the m
 
 This section assumes general familiarity with Transformer models and with the GPT family in particular (that is, concepts like *prompt, context window, entity, token, weights, fine-tuning*). The GPT family and other Large Language Models (LLMs) have billions of parameters and are trained on very large datasets: these are large complex artifacts and it is far from clear how to detect their capabilities or elicit them in practice. As a result, it sometimes takes some effort to get good performance on a given task (especially when this involves reasoning or long term coherence).
 
-OpenAI's guide to [improving reliability](https://github.com/openai/openai-cookbook/blob/main/techniques_to_improve_reliability.md).
+OpenAI's guide to [improving reliability](https://github.com/openai/openai-cookbook/blob/main/techniques_to_improve_reliability.md). And [GPT Primer](https://gpt-index.readthedocs.io/en/latest/guides/primer.html) a collection of techniques for software engineering with Transformer models.
 
