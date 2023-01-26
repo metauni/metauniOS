@@ -129,12 +129,12 @@ function PermissionsService:promisePermissionsDataStore()
 	if game.PrivateServerId ~= ""then
 		if game.PrivateServerOwnerId == 0 then
 			-- Pocket (Reserved Server)
-			return Promise.new(function()
+			return Promise.new(function(resolve)
 				if Pocket:GetAttribute("PocketId") == nil then
 					Pocket:GetAttributeChangedSignal("PocketId"):Wait()
 				end
 				local pocketId = Pocket:GetAttribute("PocketId")
-				DataStoreService:GetDataStore(POCKET_PATTERN:format(pocketId))
+				resolve(DataStoreService:GetDataStore(POCKET_PATTERN:format(pocketId)))
 			end)
 		else
 			-- Private Server
