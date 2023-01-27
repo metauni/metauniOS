@@ -33,14 +33,14 @@ NPCService.NPCs = {}
 local REFERENCE_PROPER_NAMES = {
     ["euclid"] = "Euclid",
     ["brighter"] = "Adam Dorr's book Brighter",
-    ["harbison"] = "Harbison's book \"Travels in the History of Architecture\"",
-    ["spinningworld"] = "the book \"The Spinning World\"", -- cost $2.66 for embeddings
-    ["scientist_as_rebel"] = "Freeman Dyson's book \"The Scientist As Rebel\"",
-    ["darwin_machines"] = "George Dyson's book \"Darwin among the Machines\"",
-    ["turings_cathedral"] = "George Dyson's book \"Turing's Cathedral\"",
-    ["how_buildings_learn"] = "Stewart Brand's book \"How Building's Learn\"",
-    ["human_use_human_beings"] = "Norbert W's book \"Human use of Human Beings\"",
-    ["analogia"] = "George Dyson's book \"Analogia\""
+    ["harbison"] = "Harbison's book 'Travels in the History of Architecture'",
+    ["spinningworld"] = "the book 'The Spinning World'", -- cost $2.66 for embeddings
+    ["scientist_as_rebel"] = "Freeman Dyson's book 'The Scientist As Rebel'",
+    ["darwin_machines"] = "George Dyson's book 'Darwin among the Machines'",
+    ["turings_cathedral"] = "George Dyson's book 'Turing's Cathedral'",
+    ["how_buildings_learn"] = "Stewart Brand's book 'How Building's Learn'",
+    ["human_use_human_beings"] = "Norbert W's book 'Human use of Human Beings'",
+    ["analogia"] = "George Dyson's book 'Analogia'"
 }
 
 -- Utils
@@ -157,7 +157,7 @@ NPC.PersonalityProfile.Normal = {
     MaxSummaries = 20,
     SearchShortTermMemoryProbability = 0.1,
     SearchLongTermMemoryProbability = 0.1,
-    SearchReferencesProbability = 0.25,
+    SearchReferencesProbability = 0.2,
     MaxConsecutivePlan = 2,
     TimestepDelayNormal = 12,
     TimestepDelayVoiceChat = 8,
@@ -172,7 +172,7 @@ NPC.PersonalityProfile.Seminar = updateWith(NPC.PersonalityProfile.Normal, {
     Name = "Seminar",
     SearchShortTermMemoryProbability = 0.2,
     SearchLongTermMemoryProbability = 0.2,
-    SearchReferencesProbability = 0.4,
+    SearchReferencesProbability = 0.3,
     TimestepDelayNormal = 30,
     TimestepDelayVoiceChat = 15,
     ReferenceRelevanceScoreCutoff = 0.81,
@@ -441,10 +441,6 @@ end
 function NPC:SearchReferences()
     local summary = self:GenerateSummary("ideas")
     if summary == nil then return end
-
-    -- DEBUG
-    print("-----")
-    print("Ideas summary: " .. summary)
 
     local embedding = AIService.Embedding(summary)
     if embedding == nil then return end
@@ -1419,13 +1415,26 @@ end
 -- TODO: currently we do not correctly parse things unless the capitalisation is correct
 
 function NPCService.ParseActions(actionText:string)
-	
+	local function findMessage(text)
+        -- Find the closing quote, if it exists, sometimes GPT
+        -- forgets if there are a lot of punctuation chars
+        local message = text
+        local submsg = string.match(text, "([^\"]+)\".*")
+        if submsg ~= nil then message = submsg end
+        --print("============ findMessage =======")
+        --print("Given: " .. text)
+        --print()
+        --print("Returning: " .. message)
+        --print("=====================")
+        return message
+    end
+    
     -- Walk and Say
     -- Example: Walk to starsonthars and say "Hi, I'm Shoal. Do you like talking about math and science?"
     local walkSayPrefixes = {"Walk to", "Go to", "Follow"}
     local walkSayRegexes = {}
     for _, p in walkSayPrefixes do
-        table.insert(walkSayRegexes, "^" .. p .. " ([^, ]+) .*\"(.+)\"")
+        table.insert(walkSayRegexes, "^" .. p .. " ([^,\" ]+) [^\"]*\"(.+)")
     end
     
     for _, r in walkSayRegexes do
@@ -1435,6 +1444,8 @@ function NPCService.ParseActions(actionText:string)
 
             local sayActionDict = {}
             local walkActionDict = {}
+
+            message = findMessage(message)
 
 			sayActionDict.Type = NPC.ActionType.Say
             sayActionDict.Content = message
@@ -1456,7 +1467,7 @@ function NPCService.ParseActions(actionText:string)
     local waveSayPrefixes = {"Wave to", "Wave and say to", "Give a friendly farewell to", "Wave a hand in greeting to"}
     local waveSayRegexes = {}
     for _, p in waveSayPrefixes do
-        table.insert(waveSayRegexes, "^" .. p .. " ([^, ]+) .*\"(.+)\"")
+        table.insert(waveSayRegexes, "^" .. p .. " ([^, ]+) [^\"]*\"(.+)")
     end
 
     for _, r in waveSayRegexes do
@@ -1472,6 +1483,8 @@ function NPCService.ParseActions(actionText:string)
                 table.insert(actionList, waveActionDict)
             end
 
+            message = findMessage(message)
+
             local sayActionDict = {}
             sayActionDict.Type = NPC.ActionType.Say
             sayActionDict.Content = message
@@ -1486,7 +1499,7 @@ function NPCService.ParseActions(actionText:string)
     -- Currently only handles pointing to objects
 	for _, obj in CollectionService:GetTagged(NPCService.ObjectTag) do
 		local name = obj.Name
-        local suffix = " .*\"(.+)\""
+        local suffix = " .*\"(.+)"
         local regexes = {"^Point to the ","^Point to ", "^Point at the ","^Point at ",
                 "^Point at the direction of the ","^Point at the direction of "}
 		for _, r in regexes do
@@ -1498,6 +1511,8 @@ function NPCService.ParseActions(actionText:string)
 				pointActionDict.Type = NPC.ActionType.Point
 				pointActionDict.Target = obj
                 table.insert(actionList, pointActionDict)
+
+                message = findMessage(message)
 
                 local sayActionDict = {}
                 sayActionDict.Type = NPC.ActionType.Say
@@ -1532,7 +1547,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-    local laughSayRegexes = {"^Laugh .*\"(.+)\""}
+    local laughSayRegexes = {"^Laugh .*\"(.+)"}
     for _, r in laughSayRegexes do
 		local message = string.match(actionText, r)
 		if message ~= nil then
@@ -1541,6 +1556,8 @@ function NPCService.ParseActions(actionText:string)
             local laughActionDict = {}
 			laughActionDict.Type = NPC.ActionType.Laugh
 			table.insert(actionList, laughActionDict)
+
+            message = findMessage(message)
 
             local sayActionDict = {}
             sayActionDict.Type = NPC.ActionType.Say
@@ -1618,7 +1635,7 @@ function NPCService.ParseActions(actionText:string)
     local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to", "Agree", "Turn towards"}
     local sayToRegexes = {}
     for _, p in sayToPrefixes do
-        table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .*\"(.+)\"")
+        table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) [^\"]*\"(.+)")
     end
     
     for _, r in sayToRegexes do
@@ -1630,6 +1647,8 @@ function NPCService.ParseActions(actionText:string)
                 sayActionDict.Target = targetInstance
 			end
             
+            message = findMessage(message)
+
 			sayActionDict.Type = NPC.ActionType.Say
             sayActionDict.Content = message
             return {sayActionDict}
@@ -1639,8 +1658,10 @@ function NPCService.ParseActions(actionText:string)
 	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion", "Pause", "Wave"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
-			local message = string.match(actionText, "^" .. p .. ".*\"(.+)\"")
+			local message = string.match(actionText, "^" .. p .. " [^\"]*\"(.+)")
 			if message ~= nil then
+                message = findMessage(message)
+
                 local actionDict = {}
 				actionDict.Type = NPC.ActionType.Say
 				actionDict.Content = message
