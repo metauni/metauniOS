@@ -10,6 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
 local Destructor = require(ReplicatedStorage.Destructor)
+local Rx = require(ReplicatedStorage.Rx)
+local Rxi = require(ReplicatedStorage.Rxi)
 local Remotes = ReplicatedStorage.Drone.Remotes
 
 local Drone = {}
@@ -62,11 +64,11 @@ function Drone:_attachToHost(droneCharacter: Model, hostCharacter: Model)
 
 	destructor:Add(droneCharacter.DescendantAdded:Connect(hideDescendant))
 
-	droneCharacter:WaitForChild("Humanoid").PlatformStand = true
+	droneCharacter.Humanoid.PlatformStand = true
 
 	destructor:Add(function()
 
-		droneCharacter:WaitForChild("Humanoid").PlatformStand = false
+		droneCharacter.Humanoid.PlatformStand = false
 	end)
 
 	droneCharacter:PivotTo(hostCharacter:GetPivot())
@@ -108,88 +110,60 @@ function Drone.new(player: Player, hostUserId: number)
 	
 	self._destructor = Destructor.new()
 
-	local function initHostPlayer(host)
-
-		local hostDestructor = Destructor.new()
-		local attachDestructor = Destructor.new()
-		
-		hostDestructor:Add(attachDestructor)
-		self._destructor:Add(hostDestructor)
-
-		self._destructor:Add(function()
-			self.Player.Character:SetAttribute("DroneHostUserId", nil)
-		end)
-
-		local function maybeBothThere()
-			if self.Player.Character and host.Character then
-				self.Player.Character:SetAttribute("DroneHostUserId", self.HostUserId)
-				attachDestructor:Add(self:_attachToHost(self.Player.Character, host.Character))
-			end
-		end
-
-		local function notBothThere()
-			attachDestructor:Destroy()
-			self.Player.Character:SetAttribute("DroneHostUserId", nil)
-		end
-
-		maybeBothThere()
-		
-		hostDestructor:Add(host.CharacterAdded:Connect(function()
-			Players.LocalPlayer.Character:SetAttribute("DroneHostUserId", self.HostUserId)
-			maybeBothThere()
-		end))
-		
-		hostDestructor:Add(self.Player.CharacterAdded:Connect(maybeBothThere))
-
-		hostDestructor:Add(host.CharacterRemoving:Connect(notBothThere))
-		
-		hostDestructor:Add(self.Player.CharacterRemoving:Connect(notBothThere))
-
-		hostDestructor:Add(Players.PlayerRemoving:Connect(function(removingPlayer)
-			
-			if removingPlayer == host then
-				
-				hostDestructor:Destroy()
-			end
-		end))
-
-		hostDestructor:Add(Remotes.DetachDrone.OnServerEvent:Connect(function(_player, droneUserId)
-			if droneUserId == self.Player.UserId then
-				attachDestructor:Destroy()
-			end
-		end))
-
-		Remotes.ReattachDrone.OnServerEvent:Connect(function(_player, droneUserId)
-			if droneUserId == self.Player.UserId then
-				maybeBothThere()
-			end
-		end)
+	local function observePlayerByUserId(userId: number)
+		return Rx.merge({
+			Rx.of(Players:GetPlayerByUserId(userId)),
+			Rx.fromSignal(Players.PlayerAdded):Pipe {
+				Rx.map(function(plr: Player)
+					if plr.UserId == userId then
+						return plr
+					end
+				end)
+			},
+			Rx.fromSignal(Players.PlayerRemoving):Pipe {
+				Rx.map(function(plr: Player)
+					if plr.UserId == userId then
+						return nil
+					end
+				end)
+			},
+		})
 	end
 
-	local host = Players:GetPlayerByUserId(hostUserId)
+local function observeCompleteCharacter(obsPlayer: Rx.Observable): Rx.Observable
+	local obsChar = obsPlayer:Pipe({Rxi.property("Character")})
 
-	if host then
+	return Rx.combineLatest {
+		obsChar,
+		obsChar:Pipe({Rxi.findFirstChildOfClass("Humanoid")}),
+		obsChar:Pipe({Rxi.findFirstChildWithClass("Part", "HumanoidRootPart")}),
+	}:Pipe {
+		Rx.map(function(data)
+			if data[1] and data[2] and data[3] then
+				return data[1]
+			end
+		end)
+	}
+end
+
+	local attachDestructor = Destructor.new()
+
+	local subscription = Rx.combineLatest {
+		DroneCharacter = Rx.of(player):Pipe {
+			observeCompleteCharacter
+		},
+		HostCharacter = observePlayerByUserId(self.HostUserId):Pipe {
+			observeCompleteCharacter
+		},
+	}:Subscribe(function(data)
 		
-		initHostPlayer(host)
-	end
-
-	self._destructor:Add(Players.PlayerAdded:Connect(function(addedPlayer)
-		
-		if addedPlayer.UserId == hostUserId then
-
-			initHostPlayer(addedPlayer)
-		end
-	end))
-
-	local connection
-	connection = Players.PlayerRemoving:Connect(function(removingPlayer)
-		
-		if removingPlayer == player then
-			
-			connection:Disconnect()
-			self._destructor:Destroy()
+		attachDestructor:Destroy()
+		if data.DroneCharacter and data.HostCharacter then
+			self:_attachToHost(data.DroneCharacter, data.HostCharacter)
 		end
 	end)
+
+	self._destructor:Add(subscription)
 
 	return self
 end

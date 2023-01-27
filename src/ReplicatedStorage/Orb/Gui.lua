@@ -176,7 +176,11 @@ function Gui.Init()
             end
         end
 
-        if #targets < 2 then return end
+        if #targets == 0 then
+            table.insert(targets, poi)
+        end
+
+        -- if #targets < 2 then return end
 
         local camera = workspace.CurrentCamera
         local focusPos = getInstancePosition(targets[1])

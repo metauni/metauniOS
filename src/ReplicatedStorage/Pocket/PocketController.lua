@@ -194,11 +194,9 @@ return {
 					for _, board in boards do
 						if board:FindFirstChild("PersistId") then
 							if board.PersistId.Value == tonumber(teleportData.TargetBoardPersistId) then
-														local boardPart = if board:IsA("Model") then board.PrimaryPart else board
-														if boardPart == nil then continue end -- perhaps due to streaming
 		
-								local offsetCFrame = boardPart.CFrame * CFrame.new(0, 0, -10)
-														local newCFrame = CFrame.lookAt(offsetCFrame.Position, boardPart.Position)
+								local offsetCFrame = board.CFrame * CFrame.new(0, 0, -10)
+														local newCFrame = CFrame.lookAt(offsetCFrame.Position, board.Position)
 														localCharacter:WaitForChild("HumanoidRootPart")
 								localCharacter.HumanoidRootPart:PivotTo(newCFrame)
 							end

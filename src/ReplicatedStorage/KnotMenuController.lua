@@ -169,15 +169,11 @@ local function StartDisplay(board, displayType)
 end
 
 local function EndBoardSelectMode()
-	local boards = CollectionService:GetTagged("metaboard")
 
-	for _, board in boards do
+	for _, board in CollectionService:GetTagged("metaboard") do
 		if board:FindFirstChild("PersistId") == nil then continue end
-		
-		local boardPart = if board:IsA("Model") then board.PrimaryPart else board
-        if boardPart == nil then continue end -- perhaps due to streaming
 
-		local c = boardPart:FindFirstChild("ClickTargetClone")
+		local c = board:FindFirstChild("ClickTargetClone")
 		if c ~= nil then
 			c:Destroy()
 		end
@@ -231,11 +227,8 @@ local function StartBoardSelectMode(onBoardSelected, displayType)
 
 	local boards = CollectionService:GetTagged("metaboard")
 
-	for _, board in boards do
-		if board:FindFirstChild("PersistId") == nil then continue end
-
-		local boardPart = if board:IsA("Model") then board.PrimaryPart else board
-		if boardPart == nil then continue end -- perhaps due to streaming
+	for _, boardPart in boards do
+		if boardPart:FindFirstChild("PersistId") == nil then continue end
 
 		local clickClone = boardPart:Clone()
 		for _, t in ipairs(CollectionService:GetTags(clickClone)) do
@@ -255,7 +248,7 @@ local function StartBoardSelectMode(onBoardSelected, displayType)
 		clickDetector.MaxActivationDistance = 500
 		clickDetector.Parent = clickClone
 		clickDetector.MouseClick:Connect(function()
-			onBoardSelected(board, displayType)
+			onBoardSelected(boardPart, displayType)
             boardSelectModeActive = false
 			EndBoardSelectMode()
 		end)

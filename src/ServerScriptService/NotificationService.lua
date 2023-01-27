@@ -125,9 +125,7 @@ function NotificationService.UpdateBoardSubscriberDisplays()
         -- 27, 20.25, 0.113 we use a display of size 7 x 1.125. We scale
         -- proportionately for other boards
 
-        local boardPart = if board:IsA("Model") then board.PrimaryPart else board
-
-        local scaleFactor = boardPart.Size.Y / 20.25
+        local scaleFactor = board.Size.Y / 20.25
 		local countPartWidth = 7 * scaleFactor
 		local countPartHeight = 1.125 * scaleFactor
 		
@@ -137,7 +135,7 @@ function NotificationService.UpdateBoardSubscriberDisplays()
 			countPart = Instance.new("Part")
 			countPart.Name = "SubscriberCountPart"
 			countPart.Size = Vector3.new(countPartWidth, countPartHeight, 0.1)
-			countPart.CFrame = boardPart.CFrame * CFrame.new(-boardPart.Size.X/2 + countPartWidth/2, -boardPart.Size.Y/2 - countPartHeight/2, 0.01)
+			countPart.CFrame = board.CFrame * CFrame.new(-board.Size.X/2 + countPartWidth/2, -board.Size.Y/2 - countPartHeight/2, 0.01)
 			countPart.Anchored = true
 			countPart.CastShadow = false
 			countPart.CanCollide = false

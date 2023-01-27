@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -106,19 +107,28 @@ return {
 				if humanoid.MoveDirection.Magnitude ~= 0 then
 					return
 				end
+				
+				local centroid do
+					
+					if CollectionService:HasTag(poi, "metaboard") then
+						centroid = poi.Position
+					else
 
-				local targets = {}
-				for _, c in ipairs(poi:GetChildren()) do
-						if c:IsA("ObjectValue") and c.Name == "Target" then
-								if c.Value ~= nil then
-										table.insert(targets, c.Value.Position)
+						local targets = {}
+						for _, c in ipairs(poi:GetChildren()) do
+								if c:IsA("ObjectValue") and c.Name == "Target" then
+										if c.Value ~= nil then
+												table.insert(targets, c.Value.Position)
+										end
 								end
 						end
+
+						centroid = Sift.Array.reduce(targets, function(acc, target)
+							return acc + target
+						end) / #targets
+					end
 				end
 
-				local centroid = Sift.Array.reduce(targets, function(acc, target)
-					return acc + target
-				end) / #targets
 
 				-- We're not on same side of the orb as the targets
 				if (root.Position - orbPos).Unit:Dot((centroid - orbPos).Unit) < 0 then

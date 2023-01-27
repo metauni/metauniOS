@@ -10,6 +10,10 @@ local versionValue = script:FindFirstChild("version")
 local Version = (versionValue and versionValue.Value or "dev")
 print("[metauniOS] Version: "..Version)
 
+do -- Convert Model metaboards to Part metaboards
+	require(script.patchLegacymetaboards)()
+end
+
 local function migrate(source, target)
 	for _, instance in source:GetChildren() do
 		instance.Parent = target

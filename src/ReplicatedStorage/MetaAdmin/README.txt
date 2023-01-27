@@ -1,1 +1,0 @@
-This is a temporary hack until AdminCommands is redone

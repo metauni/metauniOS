@@ -340,4 +340,25 @@ function export.children()
 	}
 end
 
+--------------------------------------------------------------------------------
+-- metauni ADDITIONS
+--------------------------------------------------------------------------------
+
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+
+function export.tagged(tag: string): Rx.Observable
+	return Rx.merge({
+		Rx.from(CollectionService:GetTagged(tag)),
+		Rx.fromSignal(CollectionService:GetInstanceAddedSignal(tag))
+	})
+end
+
+function export.players(): Rx.Observable
+	return Rx.merge({
+		Rx.from(Players:GetPlayers()),
+		Rx.fromSignal(Players.PlayerAdded)
+	})
+end
+
 return table.freeze(export)

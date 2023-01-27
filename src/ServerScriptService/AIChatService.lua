@@ -140,25 +140,18 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
             end
 
             if #targets == 2 then
-                -- The Poi target is always a part, it may either be the PrimaryPart
-                -- of a metaboard, or the metaboard itself
+                -- The Poi target is always a part
                 local function isValidTarget(x)
-                    if CollectionService:HasTag(x, "metaboard") then return true end
-
-                    if x.Parent:IsA("Model") and CollectionService:HasTag(x.Parent, "metaboard") and x.Parent.PrimaryPart == x then
-                        return true
-                    end
-                    
-                    return false
+                    return CollectionService:HasTag(x, "metaboard") and x:IsA("BasePart")
                 end
 
-                local function boardInstanceFromTarget(x)
-                    if CollectionService:HasTag(x, "metaboard") then
-                        return x
-                    else
-                        return x.Parent
-                    end
-                end
+                -- local function boardInstanceFromTarget(x)
+                --     if CollectionService:HasTag(x, "metaboard") then
+                --         return x
+                --     else
+                --         return x.Parent
+                --     end
+                -- end
 
                 if isValidTarget(targets[1]) and isValidTarget(targets[2]) then
                     -- Discover which target is "leftboard" and which is "rightboard"
@@ -209,8 +202,8 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
                     local leftBoardInstance, rightBoardInstance
 
                     if extremeLeft and extremeLeft['Owner'] and extremeRight and extremeRight['Owner'] then
-                        leftBoardInstance = boardInstanceFromTarget(extremeLeft.Owner)
-                        rightBoardInstance = boardInstanceFromTarget(extremeRight.Owner)
+                        leftBoardInstance = extremeLeft.Owner
+                        rightBoardInstance = extremeRight.Owner
                     else
                         print("[AIChatService] Failed to identify left and right boards")
                         leftBoardInstance = targets[1].Parent
