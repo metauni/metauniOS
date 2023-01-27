@@ -1,6 +1,7 @@
 --
 -- NPCService
 --
+-- Techniques for improving inference: https://github.com/openai/openai-cookbook/blob/main/techniques_to_improve_reliability.md
 
 -- Roblox services
 local Players = game:GetService("Players")
@@ -32,7 +33,14 @@ NPCService.NPCs = {}
 local REFERENCE_PROPER_NAMES = {
     ["euclid"] = "Euclid",
     ["brighter"] = "Adam Dorr's book Brighter",
-    ["harbison"] = "Harbison's book \"Travels in the History of Architecture\""
+    ["harbison"] = "Harbison's book \"Travels in the History of Architecture\"",
+    ["spinningworld"] = "the book \"The Spinning World\"", -- cost $2.66 for embeddings
+    ["scientist_as_rebel"] = "Freeman Dyson's book \"The Scientist As Rebel\"",
+    ["darwin_machines"] = "George Dyson's book \"Darwin among the Machines\"",
+    ["turings_cathedral"] = "George Dyson's book \"Turing's Cathedral\"",
+    ["how_buildings_learn"] = "Stewart Brand's book \"How Building's Learn\"",
+    ["human_use_human_beings"] = "Norbert W's book \"Human use of Human Beings\"",
+    ["analogia"] = "George Dyson's book \"Analogia\""
 }
 
 -- Utils
@@ -110,20 +118,20 @@ local function humanReadableTimeInterval(d)
 
     if numMinutes < 5 then return "less than five minutes" end
     if numMinutes < 10 then return "around ten minutes" end
-    if numMinutes < 60 then return "around " .. tostring(math.floor(numMinutes / 10) * 10) .. " minutes" end
+    if numMinutes < 60 then return `around {tostring(math.floor(numMinutes / 10) * 10)} minutes` end
 
     local numHours = math.floor(numMinutes / 60)
     if numHours == 1 then return "around an hour" end
-    if numHours < 24 then return "around " .. tostring(numHours) .. " hours" end
+    if numHours < 24 then return `around {tostring(numHours)} hours` end
     
     local numDays = math.floor(numHours / 24)
     if numDays == 1 then return "around a day" end
-    if numDays < 30 then return "around " .. tostring(numDays) .. " days" end
+    if numDays < 30 then return `around {tostring(numDays)} days` end
 
     local numMonths = math.floor(numDays / 30)
     if numMonths == 1 then return "around a month" end
     
-    return "around " .. tostring(numMonths) .. " months"
+    return `around {tostring(numMonths)} months`
 end
 
 local function updateWith(t, q)
@@ -152,7 +160,7 @@ NPC.PersonalityProfile.Normal = {
     SearchReferencesProbability = 0.25,
     MaxConsecutivePlan = 2,
     TimestepDelayNormal = 12,
-    TimestepDelayVoiceChat = 6,
+    TimestepDelayVoiceChat = 8,
     ReferenceRelevanceScoreCutoff = 0.8,
     MemoryRelevanceScoreCutoff = 0.7,
     HearingRadius = 40,
@@ -162,8 +170,13 @@ NPC.PersonalityProfile.Normal = {
 
 NPC.PersonalityProfile.Seminar = updateWith(NPC.PersonalityProfile.Normal, {
     Name = "Seminar",
-    TimestepDelayNormal = 20,
-    TimestepDelayVoiceChat = 10,
+    SearchShortTermMemoryProbability = 0.2,
+    SearchLongTermMemoryProbability = 0.2,
+    SearchReferencesProbability = 0.4,
+    TimestepDelayNormal = 30,
+    TimestepDelayVoiceChat = 15,
+    ReferenceRelevanceScoreCutoff = 0.81,
+    MemoryRelevanceScoreCutoff = 0.8,
     HearingRadius = 60,
     GetsDetailedObservationsRadius = 40,
     PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
@@ -190,6 +203,7 @@ function NPC.new(instance: Model)
     npc.Instance = instance
     npc.Thoughts = {}
     npc.RecentActions = {}
+    npc.RecentReferences = {}
     npc.Summaries = {}
     npc.PlanningCounter = 0
     npc.PersonalityProfile = NPC.PersonalityProfile.Normal
@@ -205,6 +219,8 @@ function NPC.new(instance: Model)
     npc.Animations.PointAnim = animator:LoadAnimation(instance.Animate.point.PointAnim)
     npc.Animations.IdleAnim = animator:LoadAnimation(instance.Animate.idle.Animation1)
     
+    npc.Animations.IdleAnim:Play()
+
     return npc
 end
 
@@ -218,10 +234,8 @@ function NPC:UpdatePersonalityProfile()
     if orb:FindFirstChild("Speaker") == nil then return end
     
     if orb.Speaker.Value ~= nil then
-        print("[NPC] Setting Seminar personality profile")
         self.PersonalityProfile = NPC.PersonalityProfile.Seminar
     else
-        print("[NPC] Setting Normal personality profile")
         self.PersonalityProfile = NPC.PersonalityProfile.Normal
     end
 
@@ -235,7 +249,7 @@ function NPC:Timestep(startup)
         local memory = self:ShortTermMemory()
         if memory ~= nil then
             if not self:IsRepeatThought(memory) then
-                npc:AddThought(memory, "memory")
+                self:AddThought(memory, "memory")
             end
         end
     end
@@ -258,7 +272,7 @@ function NPC:Timestep(startup)
         end
     end
     
-    self:Prompt()	
+    self:Prompt()
     
     -- Walk an NPC targetting an orb to maintain a fixed offset from the orb
     if self.PersonalityProfile.Name == "Seminar" then
@@ -302,9 +316,7 @@ end
 
 function NPC:AddThought(thought, type)
 	local entry = { Thought = thought, Timestamp = tick() }
-    if type ~= nil then
-        entry.Type = type
-    end
+    if type ~= nil then entry.Type = type end
 
     -- Do not repeat memories or references
     if type == "memory" or type == "reference" then
@@ -316,7 +328,7 @@ function NPC:AddThought(thought, type)
 	tableInsertWithMax(self.Thoughts, entry, self.PersonalityProfile.MaxThoughts)
 end
 
-function NPC:AddSummary(text)
+function NPC:AddSummary(text, type)
     -- Summaries are tables containing
     --      Timestamp
     --      Content
@@ -327,9 +339,8 @@ function NPC:AddSummary(text)
     summaryDict.Content = text
 
     local embedding = AIService.Embedding(text)
-    if embedding ~= nil then
-        summaryDict.Embedding = embedding
-    end
+    if embedding ~= nil then summaryDict.Embedding = embedding end
+    if type ~= nil then summaryDict.Type = type end
 
 	tableInsertWithMax(self.Summaries, summaryDict, self.PersonalityProfile.MaxSummaries)
 
@@ -339,7 +350,8 @@ function NPC:AddSummary(text)
             ["name"] = self.Instance.Name,
             ["id"] = self.Instance.PersistId.Value,
             ["timestamp"] = summaryDict.Timestamp,
-            ["content"] = summaryDict.Content
+            ["content"] = summaryDict.Content,
+            ["type"] = summaryDict.Type
         }
         AIService.StoreEmbedding("npc", embedding, metadata)
     end
@@ -371,7 +383,7 @@ function NPC:ShortTermMemory()
 
     local timediff = tick() - relevantSummary.Timestamp
     local intervalText = humanReadableTimeInterval(timediff) .. " ago"
-    local memoryText = "I remember that " .. intervalText .. ", " .. relevantSummary.Content
+    local memoryText = `I remember that {intervalText}, {relevantSummary.Content}`
     return memoryText
 end
 
@@ -422,44 +434,40 @@ function NPC:LongTermMemory(relevanceCutoff)
 
     local timediff = tick() - metadata["timestamp"]
     local intervalText = humanReadableTimeInterval(timediff) .. " ago"
-    local memoryText = "I remember that " .. intervalText .. ", " .. metadata["content"]
+    local memoryText = `I remember that {intervalText}, {metadata["content"]}`
     return memoryText
 end
 
 function NPC:SearchReferences()
-    local prompt = self:PromptContent()
+    local summary = self:GenerateSummary("ideas")
+    if summary == nil then return end
 
-    local embedding = AIService.Embedding(prompt)
+    -- DEBUG
+    print("-----")
+    print("Ideas summary: " .. summary)
+
+    local embedding = AIService.Embedding(summary)
     if embedding == nil then return end
 
-    -- Find which references this NPC pays attention to
-    local refText = nil
+    local refList = {}
     local referencesFolder = self.Instance:FindFirstChild("References")
-	if referencesFolder then
-		local references = referencesFolder:GetChildren()
-		if #references > 0 then
-			refText = references[math.random(1,#references)].Value
-		end
-	end
-
-    if refText == nil then return end
-
-    print("[NPC] Searching references: " .. refText)
+    if referencesFolder == nil or #referencesFolder:GetChildren() == 0 then return end
+    for _, ref in referencesFolder:GetChildren() do
+        table.insert(refList, ref.Value)
+    end
 
     local filter = {
-        ["name"] = refText
+        ["name"] = { ["$in"] = refList }
     }
     local topk = 3
     local matches = AIService.QueryEmbeddings("refs", embedding, filter, topk)
     if matches == nil then return end
-    if #matches == 0 then
-        warn("[NPC] No matches for query of references")
-        return
-    end
+    if #matches == 0 then return end
 
     local goodMatches = {}
     for _, match in matches do
-        if match["score"] > self.PersonalityProfile.ReferenceRelevanceScoreCutoff then
+        if match["score"] > self.PersonalityProfile.ReferenceRelevanceScoreCutoff and
+            not tableContains(self.RecentReferences, match["id"]) then
             table.insert(goodMatches, match)
         end
     end
@@ -467,6 +475,8 @@ function NPC:SearchReferences()
     if #goodMatches == 0 then return end
 
     local match = goodMatches[math.random(1,#goodMatches)]
+    tableInsertWithMax(self.RecentReferences, match["id"], 6)
+
     local metadata = match["metadata"]
     if metadata == nil then
         warn("[NPC] Got malformed match for reference")
@@ -476,12 +486,14 @@ function NPC:SearchReferences()
     local content = cleanstring(metadata["content"])
     local content = string.gsub(content, "\n", " ")
     local content = string.gsub(content, ":", " ") -- don't confuse the AI
+    local content = string.gsub(content, "\"", "'") -- so we can wrap in " quotes
 
-    local refContent = "I remember that page " .. metadata["page"] .. " of " .. REFERENCE_PROPER_NAMES[refText] .. " has written on it " .. content
+    local refName = REFERENCE_PROPER_NAMES[metadata["name"]]
+    local refContent = `I remember that page {metadata["page"]} of {refName} has written on it \"{content}\"`
     if self.Instance:GetAttribute("debug") then
         print("----------")
         print("[NPC] Found content reference")
-        print(refContent)
+        print(string.sub(refContent,1,30) .. "...")
         print("score = " .. match["score"])
         print("----------")
     end
@@ -490,7 +502,7 @@ end
 
 function NPC:Prompt()
 	local prompt = self.PersonalityProfile.PromptPrefix .. "\n"
-	prompt = prompt .. "Thought: My name is " .. self.Instance.Name .. "\n"
+	prompt = prompt .. `Thought: My name is {self.Instance.Name}\n`
 	
 	-- Sample one of the other personality thoughts
 	local personalityFolder = self.Instance:FindFirstChild("Personality")
@@ -498,16 +510,11 @@ function NPC:Prompt()
 		local personalityTexts = personalityFolder:GetChildren()
 		if #personalityTexts > 0 then
 			local pText = personalityTexts[math.random(1,#personalityTexts)].Value
-			prompt = prompt .. "Thought: " .. pText .. "\n"
+			prompt = prompt .. `Thought: {pText}\n`
 		end
 	end
 	
 	local middle = self:PromptContent()
-	-- DEBUG
-    if self.Instance:GetAttribute("debug") then
-        print(middle)
-    end
-
 	prompt = prompt .. middle .. "Action:"
 	
     -- If the agent has been talking to themself too much (i.e. planning)
@@ -529,6 +536,11 @@ function NPC:Prompt()
 	local freqPenalty = 1.4 -- was 1.4
 	local presPenalty = 1.6 -- was 1.6
 	
+    -- DEBUG
+    if self.Instance:GetAttribute("debug") then
+        print(prompt)
+    end
+
 	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
 		warn("[NPC] Got nil response from GPT3")
@@ -635,7 +647,7 @@ function NPC:PromptContent()
 	-- top because it seems to work well.
 	
 	for _, obj in observations do
-		middle = middle .. "Observation: " .. obj .. "\n"
+		middle = middle .. `Observation: {obj}\n`
 	end
 	
 	local entries = {}
@@ -653,7 +665,7 @@ function NPC:PromptContent()
 	end)
 	
 	for _, entry in sortedEntries do
-		middle = middle .. entry.Type .. ": " .. entry.Content .. "\n"	
+		middle = middle .. entry.Type .. `: {entry.Content}\n`
 	end
 	
 	return middle
@@ -715,14 +727,20 @@ function NPC:MostSimilarSummary(text, filter)
     return mostSimilarSummary
 end
 
-function NPC:GenerateSummary()
+function NPC:GenerateSummary(type)
     local name = self.Instance.Name
-	local prompt = "The following is a record of the history of Observations, Thoughts and Actions of agent named " .. name .. ".\n\n"
+	local prompt = `The following is a record of the history of Observations, Thoughts and Actions of agent named {name}.\n\n`
 	local middle = self:PromptContent()
 	prompt = prompt .. middle
 	prompt = prompt .. "\n"
-	prompt = prompt .. "A summary of this history of " .. name .. " in 40 words or less is given below, written in first person from " .. name .. "'s point of view\n"
-    prompt = prompt .. "The summary contains the details like names that will be useful for the agent to recall in future conversations.\n"
+	prompt = prompt .. `A summary of this history of {name} in 40 words or less is given below, written in first person from {name}'s point of view\n`
+
+    if type == "ideas" then
+        prompt = prompt .. "The summary focuses on the ideas, concepts and topics that are being discussed, not on the people present or actions irrelevant to the ideas.\n"
+    else
+        prompt = prompt .. "The summary contains the details like names that will be useful for the agent to recall in future conversations.\n"
+    end
+
 	prompt = prompt .. "\n"
 	prompt = prompt .. "Summary:"
 	
@@ -840,7 +858,7 @@ function NPC:Observe()
             if walkingDistanceObservationsCount > maxWalkingDistanceObservations then continue end
 		end
 		
-		local phrase = obj.Name .. " " .. phrase .. ". " .. obj.Description .. "."
+		local phrase = obj.Name .. ` {phrase}. {obj.Description}.`
 
         -- We have special sentences for boards (because there are lots of them)
         local objectIsBoard = CollectionService:HasTag(obj.Object, "metaboard")
@@ -916,19 +934,26 @@ function NPC:WalkToPos(targetPos)
 						nextWaypointIndex += 1
 						self.Instance.Humanoid:MoveTo(waypoints[nextWaypointIndex].Position)
 						self.Instance:SetAttribute("walking", true)
-					else
+                    elseif reached then
 						animationTrack:Stop()
+                        self.Animations.IdleAnim:Play()
 						reachedConnection:Disconnect()
 						blockedConnection:Disconnect()
 
-                        wait(0.1)
+                        task.wait(0.1)
                         self:RotateToFacePosition(targetPos)
-					end
+					else
+                        -- We failed to walk, teleport
+                        animationTrack:Stop()
+                        self.Animations.IdleAnim:Play()
+                        self.Instance:PivotTo(CFrame.lookAt(destPos, targetPos))
+                    end
 				end)
 			end
 
 			-- Initially move to second waypoint (first waypoint is path start; skip it)
 			nextWaypointIndex = 2
+            self.Animations.IdleAnim:Stop()
 			animationTrack:Play()
 			self.Instance:SetAttribute("walking", true)
 			self.Instance.Humanoid:MoveTo(waypoints[nextWaypointIndex].Position)
@@ -967,11 +992,12 @@ end
 function NPC:TakeAction(parsedAction)
 
 	if parsedAction.Type == NPC.ActionType.Dance then
-		local animationTrack = self.Animations.DanceAnim
-		animationTrack:Play()
+        self.Animations.IdleAnim:Stop()
+		self.Animations.DanceAnim:Play()
 
 		task.delay(3, function()
-			animationTrack:Stop()
+			self.Animations.DanceAnim:Stop()
+            self.Animations.IdleAnim:Play()
 		end)
 		return
 	end
@@ -983,11 +1009,12 @@ function NPC:TakeAction(parsedAction)
 			self:RotateToFacePosition(targetPos)
 		end
 
-		local animationTrack = self.Animations.LaughAnim
-		animationTrack:Play()
+        self.Animations.IdleAnim:Stop()
+		self.Animations.LaughAnim:Play()
 
 		task.delay(3, function()
-			animationTrack:Stop()
+			self.Animations.LaughAnim:Stop()
+            self.Animations.IdleAnim:Play()
 		end)
 		return
 	end
@@ -1000,11 +1027,12 @@ function NPC:TakeAction(parsedAction)
             task.wait(0.2)
 		end
 		
-		local animationTrack = self.Animations.PointAnim
-		animationTrack:Play()
+        self.Animations.IdleAnim:Stop()
+		self.Animations.PointAnim:Play()
 
         task.delay(3, function()
-			animationTrack:Stop()
+			self.Animations.PointAnim:Stop()
+            self.Animations.IdleAnim:Play()
 		end)
 
 		return
@@ -1017,18 +1045,19 @@ function NPC:TakeAction(parsedAction)
 			self:RotateToFacePosition(targetPos)
 		end
 		
-		local animationTrack = self.Animations.WaveAnim
-		animationTrack:Play()
+        self.Animations.IdleAnim:Stop()
+		self.Animations.WaveAnim:Play()
 
 		task.delay(3, function()
-			animationTrack:Stop()
+			self.Animations.WaveAnim:Stop()
+            self.Animations.IdleAnim:Play()
 		end)
 		return
 	end
 	
 	if parsedAction.Type == NPC.ActionType.Walk then
 		local target = parsedAction.Target
-		if target ~= nil and target ~= npc and not target:GetAttribute("walking") then
+		if target ~= nil and target ~= self.Instance and not target:GetAttribute("walking") then
 			local targetPos = getInstancePosition(target)
 			if targetPos ~= nil then
 				self:WalkToPos(targetPos)
@@ -1083,6 +1112,7 @@ function NPCService.Init()
     	
 	local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npcInstance in npcInstances do
+        print("[NPCService] Found NPC " .. npcInstance.Name)
         local npc = NPC.new(npcInstance)
         table.insert(NPCService.NPCs, npc)
 	end
@@ -1395,7 +1425,7 @@ function NPCService.ParseActions(actionText:string)
     local walkSayPrefixes = {"Walk to", "Go to", "Follow"}
     local walkSayRegexes = {}
     for _, p in walkSayPrefixes do
-        table.insert(walkSayRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
+        table.insert(walkSayRegexes, "^" .. p .. " ([^, ]+) .*\"(.+)\"")
     end
     
     for _, r in walkSayRegexes do
@@ -1423,10 +1453,10 @@ function NPCService.ParseActions(actionText:string)
 
     -- Wave and Say
     -- Example: Wave and say to Youtwice "See you soon!"
-    local waveSayPrefixes = {"Wave to", "Wave and say to", "Give a friendly farewell to"}
+    local waveSayPrefixes = {"Wave to", "Wave and say to", "Give a friendly farewell to", "Wave a hand in greeting to"}
     local waveSayRegexes = {}
     for _, p in waveSayPrefixes do
-        table.insert(waveSayRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
+        table.insert(waveSayRegexes, "^" .. p .. " ([^, ]+) .*\"(.+)\"")
     end
 
     for _, r in waveSayRegexes do
@@ -1456,11 +1486,11 @@ function NPCService.ParseActions(actionText:string)
     -- Currently only handles pointing to objects
 	for _, obj in CollectionService:GetTagged(NPCService.ObjectTag) do
 		local name = obj.Name
-        local regexes = {"^Point to the " .. name .. " .+\"(.+)\"","^Point to " .. name .. " .+\"(.+)\"",
-                "^Point at the " .. name .. " .+\"(.+)\"","^Point at " .. name .. " .+\"(.+)\"",
-                "^Point at the direction of the " .. name .. " .+\"(.+)\"","^Point at the direction of " .. name .. " .+\"(.+)\""}
+        local suffix = " .*\"(.+)\""
+        local regexes = {"^Point to the ","^Point to ", "^Point at the ","^Point at ",
+                "^Point at the direction of the ","^Point at the direction of "}
 		for _, r in regexes do
-			local message = string.match(actionText, r)
+			local message = string.match(actionText, r .. name .. suffix)
 			if message then
                 local actionList = {}
 
@@ -1502,7 +1532,7 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-    local laughSayRegexes = {"^Laugh .+ \"(.+)\""}
+    local laughSayRegexes = {"^Laugh .*\"(.+)\""}
     for _, r in laughSayRegexes do
 		local message = string.match(actionText, r)
 		if message ~= nil then
@@ -1562,12 +1592,11 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 	
-    local walkRegexes = {"^Walk to the ([^, ]+)","^Walk to ([^, ]+)",
-    "^Walk .+ to the ([^, ]+)", "^Walk .+ to ([^, ]+)",
-    "^Lead .+ to the ([^, ]+)", "^Lead .+ to ([^, ]+)",
-    "^Start walking .+ to the ([^, ]+)", "^Start walking .+ to ([^, ]+)",
-    "^Follow .+ to the ([^, ]+)","^Follow .+ to ([^, ]+)",
-    "^Follow .+ to go and see the ([^, ]+)","^Follow .+ to go and see ([^, ]+)",
+    local walkRegexes = {"^Walk .*to the ([^, ]+)", "^Walk .*to ([^, ]+)",
+    "^Lead .*to the ([^, ]+)", "^Lead .*to ([^, ]+)",
+    "^Start walking .*to the ([^, ]+)", "^Start walking .*to ([^, ]+)",
+    "^Follow .*to the ([^, ]+)","^Follow .*to ([^, ]+)",
+    "^Follow .*to go and see the ([^, ]+)","^Follow .*to go and see ([^, ]+)",
     "^Follow ([^, ]+)", -- important that this comes after more specific queries
     "^Go to the ([^, ]+)","^Go to ([^, ]+)",
     "^Start walking towards the ([^, ]+)","^Start walking towards ([^, ]+)"}
@@ -1589,7 +1618,7 @@ function NPCService.ParseActions(actionText:string)
     local sayToPrefixes = {"Say to", "Ask", "Reply to", "Respond to", "Tell", "Thank", "Smile and say to", "Wave and say to", "Laugh and say to", "Explain to", "Nod in agreement and say to", "Turn to", "Agree", "Turn towards"}
     local sayToRegexes = {}
     for _, p in sayToPrefixes do
-        table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .+\"(.+)\"")
+        table.insert(sayToRegexes, "^" .. p .. " ([^, ]+) .*\"(.+)\"")
     end
     
     for _, r in sayToRegexes do
@@ -1607,10 +1636,10 @@ function NPCService.ParseActions(actionText:string)
 		end
 	end
 
-	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion", "Pause"}
+	local sayPrefixes = {"Say", "Ask", "Reply", "Respond", "Tell", "Smile", "Nod", "Answer", "Look", "Introduce", "Tell", "Invite", "Examine", "Read", "Suggest", "Greet", "Offer", "Extend", "Explain", "Nod", "Agree", "Think", "Conclusion", "Pause", "Wave"}
 	for _, p in sayPrefixes do
 		if string.match(actionText, "^" .. p) then
-			local message = string.match(actionText, "^" .. p .. ".+\"(.+)\"")
+			local message = string.match(actionText, "^" .. p .. ".*\"(.+)\"")
 			if message ~= nil then
                 local actionDict = {}
 				actionDict.Type = NPC.ActionType.Say
