@@ -101,7 +101,6 @@ for placeName, placeId in pairs(placeIdsToUpdate) do
 		end
 	end
 
-	-- For legacy AdminCommands - no longer applicable
 	-- writeFromModelFile(game.ReplicatedStorage, "Chalk.rbxmx")
 	-- writeFromModelFile(game.Chat, "ChatModules.rbxm")
 
