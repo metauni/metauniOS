@@ -1,8 +1,6 @@
 --
 -- AIService
 --
--- Interfaces with OpenAI APIs and other AI services
--- via HttpService
 
 -- Roblox Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,18 +15,9 @@ local Sift = require(ReplicatedStorage.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Config
-local PINECONE_UPSERT_URLS = {
-    ["npc"] = "https://npc-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert",
-    ["boards"] = "https://boards-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
-}
-
-local PINECONE_QUERY_URLS = {
-    ["npc"] = "https://npc-d08c033.svc.us-west1-gcp.pinecone.io/query",
-    ["boards"] = "https://boards-d08c033.svc.us-west1-gcp.pinecone.io/query",
-    ["refs"] = "https://refs-d08c033.svc.us-west1-gcp.pinecone.io/query"
-}
-
-local VISION_API_URL = "http://34.116.106.66:8080"
+local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
+local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
+local VISION_API_URL = "https://www.metauniservice.com"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
@@ -189,32 +178,21 @@ function AIService.Embedding(text, plr)
     return responseVector
 end
 
-function AIService.StoreEmbedding(embeddingType, vector, metadata)
-    local API_URL = PINECONE_UPSERT_URLS[embeddingType]
-    if API_URL == nil then
-        warn("[AIService] Invalid embedding type")
-        return
-    end
+function AIService.StoreEmbedding(vectorId, vector, metadata, namespace)
+    assert(vector ~= nil, "[AIService] nil vector")
+    assert(metadata ~= nil, "[AIService] nil metadata")
+    assert(namespace ~= nil, "[AIService] nil namespace")
 
-    if vector == nil then
-        warn("[AIService] Invalid vector for embedding")
-        return
-    end
-
-    if metadata == nil then
-        warn("[AIService] Invalid metadata for embedding")
-        return
-    end
-
-    local request = { ["vectors"] = {
+    local request = { ["namespace"] = namespace,
+        ["vectors"] = {
         {
-          ["id"] = HttpService:GenerateGUID(false),
+          ["id"] = vectorId,
           ["metadata"] = metadata,
           ["values"] = vector
         }} }
 
     local encodedRequest = HttpService:JSONEncode(request)
-    local responseData = safePostAsync(API_URL, encodedRequest, 
+    local responseData = safePostAsync(PINECONE_UPSERT_URL, encodedRequest, 
         {["Api-Key"] = SecretService.PINECONE_API_KEY})
 
     if responseData == nil then
@@ -222,19 +200,16 @@ function AIService.StoreEmbedding(embeddingType, vector, metadata)
     end
 end
 
-function AIService.QueryEmbeddings(embeddingType, vector, filter, topk)
-    local API_URL = PINECONE_QUERY_URLS[embeddingType]
-    if API_URL == nil then
-        warn("[AIService] Invalid embedding type")
-        return
-    end
+function AIService.QueryEmbeddings(vector, filter, topk, namespace)
+    namespace = namespace or ""
     local request = { ["vector"] = vector,
                       ["filter"] = filter,
                       ["topK"] = topk,
-                      ["includeMetadata"] = true }
+                      ["includeMetadata"] = true,
+                      ["namespace"] = namespace }
         
     local encodedRequest = HttpService:JSONEncode(request)
-    local responseData = safePostAsync(API_URL, encodedRequest, 
+    local responseData = safePostAsync(PINECONE_QUERY_URL, encodedRequest, 
         {["Api-Key"] = SecretService.PINECONE_API_KEY})
 
     if responseData == nil then

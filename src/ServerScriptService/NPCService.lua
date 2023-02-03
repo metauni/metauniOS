@@ -31,16 +31,15 @@ NPCService.TranscriptionTopic = "transcription"
 NPCService.NPCs = {}
 
 local REFERENCE_PROPER_NAMES = {
-    ["euclid"] = "Euclid",
-    ["brighter"] = "Adam Dorr's book Brighter",
-    ["harbison"] = "Harbison's book 'Travels in the History of Architecture'",
-    ["spinningworld"] = "the book 'The Spinning World'", -- cost $2.66 for embeddings
-    ["scientist_as_rebel"] = "Freeman Dyson's book 'The Scientist As Rebel'",
+    --["euclid"] = "Euclid",
+    ["brighter"] = "Adam Dorr's book 'Brighter'",
     ["darwin_machines"] = "George Dyson's book 'Darwin among the Machines'",
+    ["harbison"] = "Harbison's book 'Travels in the History of Architecture'",
+    ["scientist_as_rebel"] = "Freeman Dyson's book 'The Scientist As Rebel'",
     ["turings_cathedral"] = "George Dyson's book 'Turing's Cathedral'",
     ["how_buildings_learn"] = "Stewart Brand's book 'How Building's Learn'",
-    ["human_use_human_beings"] = "Norbert W's book 'Human use of Human Beings'",
-    ["analogia"] = "George Dyson's book 'Analogia'"
+    ["diamond_age"] = "Neal Stephenson's 'Diamond Age'",
+    ["star_trek_philosophy"] = "the book 'Star Trek and Philosophy'",
 }
 
 -- Utils
@@ -148,6 +147,7 @@ end
 local NPC = {}
 NPC.__index = NPC
 
+-- Note, many highly relevant references have scores of ~ 0.83, 0.84
 NPC.PersonalityProfile = {}
 NPC.PersonalityProfile.Normal = {
     Name = "Normal",
@@ -157,11 +157,13 @@ NPC.PersonalityProfile.Normal = {
     MaxSummaries = 20,
     SearchShortTermMemoryProbability = 0.1,
     SearchLongTermMemoryProbability = 0.1,
-    SearchReferencesProbability = 0.2,
+    SearchReferencesProbability = 0.15,
+    SearchTranscriptsProbability = 0.1,
     MaxConsecutivePlan = 2,
     TimestepDelayNormal = 12,
     TimestepDelayVoiceChat = 8,
-    ReferenceRelevanceScoreCutoff = 0.8,
+    ReferenceRelevanceScoreCutoff = 0.82,
+    TranscriptRelevanceScoreCutoff = 0.82,
     MemoryRelevanceScoreCutoff = 0.7,
     HearingRadius = 40,
     GetsDetailedObservationsRadius = 40,
@@ -172,10 +174,12 @@ NPC.PersonalityProfile.Seminar = updateWith(NPC.PersonalityProfile.Normal, {
     Name = "Seminar",
     SearchShortTermMemoryProbability = 0.2,
     SearchLongTermMemoryProbability = 0.2,
-    SearchReferencesProbability = 0.3,
+    SearchReferencesProbability = 0.25,
+    SearchTranscriptsProbability = 0.2,
     TimestepDelayNormal = 30,
     TimestepDelayVoiceChat = 15,
-    ReferenceRelevanceScoreCutoff = 0.81,
+    ReferenceRelevanceScoreCutoff = 0.8,
+    TranscriptRelevanceScoreCutoff = 0.8,
     MemoryRelevanceScoreCutoff = 0.8,
     HearingRadius = 60,
     GetsDetailedObservationsRadius = 40,
@@ -204,6 +208,7 @@ function NPC.new(instance: Model)
     npc.Thoughts = {}
     npc.RecentActions = {}
     npc.RecentReferences = {}
+    npc.RecentTranscripts = {}
     npc.Summaries = {}
     npc.PlanningCounter = 0
     npc.PersonalityProfile = NPC.PersonalityProfile.Normal
@@ -242,7 +247,7 @@ function NPC:UpdatePersonalityProfile()
     self.TimestepDelay = self.PersonalityProfile.TimestepDelayNormal
 end
 
-function NPC:Timestep(startup)
+function NPC:Timestep(forceSearch)
     self:UpdatePersonalityProfile()
 
     if math.random() < self.PersonalityProfile.SearchShortTermMemoryProbability then
@@ -254,9 +259,8 @@ function NPC:Timestep(startup)
         end
     end
 
-    -- Always grab a long term memory on startup
-    if startup or (math.random() < self.PersonalityProfile.SearchLongTermMemoryProbability) then
-        local relevanceCutoff = if startup then 0.5 else self.PersonalityProfile.MemoryRelevanceScoreCutoff
+    if forceSearch or (math.random() < self.PersonalityProfile.SearchLongTermMemoryProbability) then
+        local relevanceCutoff = if forceSearch then 0.5 else self.PersonalityProfile.MemoryRelevanceScoreCutoff
 
         local memory = self:LongTermMemory(relevanceCutoff)
         if memory ~= nil then
@@ -264,11 +268,19 @@ function NPC:Timestep(startup)
         end
     end
 
-    -- Search some references
-    if math.random() < self.PersonalityProfile.SearchReferencesProbability then
+    -- Search references
+    if forceSearch or math.random() < self.PersonalityProfile.SearchReferencesProbability then
         local ref = self:SearchReferences()
         if ref ~= nil then
             self:AddThought(ref, "reference")
+        end
+    end
+
+    -- Search transcripts
+    if forceSearch or math.random() < self.PersonalityProfile.SearchTranscriptsProbability then
+        local ref = self:SearchTranscripts()
+        if ref ~= nil then
+            self:AddThought(ref, "transcript")
         end
     end
     
@@ -318,8 +330,7 @@ function NPC:AddThought(thought, type)
 	local entry = { Thought = thought, Timestamp = tick() }
     if type ~= nil then entry.Type = type end
 
-    -- Do not repeat memories or references
-    if type == "memory" or type == "reference" then
+    if type == "memory" or type == "reference" or type == "transcript" then
         for _, entry in self.Thoughts do
             if entry.Type == type and entry.Thought == thought then return end
         end
@@ -344,7 +355,6 @@ function NPC:AddSummary(text, type)
 
 	tableInsertWithMax(self.Summaries, summaryDict, self.PersonalityProfile.MaxSummaries)
 
-    -- Send this to the vector storage database for later query
     if embedding then
         local metadata = {
             ["name"] = self.Instance.Name,
@@ -353,7 +363,8 @@ function NPC:AddSummary(text, type)
             ["content"] = summaryDict.Content,
             ["type"] = summaryDict.Type
         }
-        AIService.StoreEmbedding("npc", embedding, metadata)
+        local vectorId = HttpService:GenerateGUID(false)
+        AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
     end
 end
 
@@ -409,7 +420,7 @@ function NPC:LongTermMemory(relevanceCutoff)
         ["timestamp"] = { ["$lt"] = tick() - shortTermMemoryInterval }
     }
     local topk = 3
-    local matches = AIService.QueryEmbeddings("npc", embedding, filter, topk)
+    local matches = AIService.QueryEmbeddings(embedding, filter, topk, "npc")
     if matches == nil then return end
     if #matches == 0 then
         warn("[AIService] No matches for query of long term memory")
@@ -438,6 +449,66 @@ function NPC:LongTermMemory(relevanceCutoff)
     return memoryText
 end
 
+function NPC:SearchTranscripts()
+    local summary = self:GenerateSummary("ideas")
+    if summary == nil then return end
+
+    local embedding = AIService.Embedding(summary)
+    if embedding == nil then return end
+
+    local semList = {}
+    local seminarsFolder = self.Instance:FindFirstChild("Seminars")
+    if seminarsFolder == nil or #seminarsFolder:GetChildren() == 0 then return end
+    for _, sem in seminarsFolder:GetChildren() do
+        table.insert(semList, sem.Value)
+    end
+
+    local filter = {
+        ["seminar"] = { ["$in"] = semList }
+    }
+    local topk = 3
+    local matches = AIService.QueryEmbeddings(embedding, filter, topk, "transcripts")
+    if matches == nil then return end
+    if #matches == 0 then return end
+
+    local goodMatches = {}
+    for _, match in matches do
+        if match["score"] > self.PersonalityProfile.TranscriptRelevanceScoreCutoff and
+            not tableContains(self.RecentTranscripts, match["id"]) then
+            table.insert(goodMatches, match)
+        end
+    end
+
+    if #goodMatches == 0 then return end
+
+    local match = goodMatches[math.random(1,#goodMatches)]
+    tableInsertWithMax(self.RecentTranscripts, match["id"], 6)
+
+    local metadata = match["metadata"]
+    if metadata == nil then
+        warn("[NPC] Got malformed match for transcript")
+        return
+    end
+
+    local content = cleanstring(metadata["content"])
+    local content = string.gsub(content, "\n", " ")
+    local content = string.gsub(content, ":", " ") -- don't confuse the AI
+    local content = string.gsub(content, "\"", "'") -- so we can wrap in " quotes
+
+    local timediff = tick() - metadata["timestamp"]
+    local intervalText = humanReadableTimeInterval(timediff) .. " ago"
+
+    local refContent = `I remember that {intervalText} in the {metadata["seminar"]} seminar \"{content}\"`
+    if self.Instance:GetAttribute("debug") then
+        print("----------")
+        print("[NPC] Found transcript reference")
+        print(string.sub(refContent,1,30) .. "...")
+        print("score = " .. match["score"])
+        print("----------")
+    end
+    return refContent
+end
+
 function NPC:SearchReferences()
     local summary = self:GenerateSummary("ideas")
     if summary == nil then return end
@@ -456,7 +527,7 @@ function NPC:SearchReferences()
         ["name"] = { ["$in"] = refList }
     }
     local topk = 3
-    local matches = AIService.QueryEmbeddings("refs", embedding, filter, topk)
+    local matches = AIService.QueryEmbeddings(embedding, filter, topk, "refs")
     if matches == nil then return end
     if #matches == 0 then return end
 
@@ -496,9 +567,13 @@ function NPC:SearchReferences()
     return refContent
 end
 
+function NPC:RespondToMessage(message)
+    self:Timestep(true)
+end
+
 function NPC:Prompt()
 	local prompt = self.PersonalityProfile.PromptPrefix .. "\n"
-	prompt = prompt .. `Thought: My name is {self.Instance.Name}\n`
+	prompt = prompt .. `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.\n`
 	
 	-- Sample one of the other personality thoughts
 	local personalityFolder = self.Instance:FindFirstChild("Personality")
@@ -534,7 +609,7 @@ function NPC:Prompt()
 	
     -- DEBUG
     if self.Instance:GetAttribute("debug") then
-        print(prompt)
+        print(middle)
     end
 
 	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty)
@@ -1104,11 +1179,17 @@ end
 -- NPCService
 --
 
+local function newRemoteFunction(name)
+    local r = Instance.new("RemoteFunction")
+    r.Name = name
+    r.Parent = ReplicatedStorage
+end
+
 function NPCService.Init()
-    	
+    local remoteFunction = newRemoteFunction("GetNPCPrivacySettings")
+
 	local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npcInstance in npcInstances do
-        print("[NPCService] Found NPC " .. npcInstance.Name)
         local npc = NPC.new(npcInstance)
         table.insert(NPCService.NPCs, npc)
 	end
@@ -1245,10 +1326,6 @@ function NPCService.Start()
                     local obFolder = observationFolder(boardInstance)
                     obFolder:ClearAllChildren()
 
-                    --print("OCR board ====")
-                    --print(boardText)
-                    --print("====")
-
                     local stringValue = Instance.new("StringValue")
                     stringValue.Value = "The board has written on it \"" .. boardText .."\""
                     stringValue.Parent = obFolder
@@ -1256,8 +1333,6 @@ function NPCService.Start()
             end
         end
     end)
-
-    print("[NPCService] Started")
 end
 
 function NPCService.HandleTranscription(sourcePlayer, message)
@@ -1265,7 +1340,9 @@ function NPCService.HandleTranscription(sourcePlayer, message)
     -- rather the player whose Roblox account is being used as a channel
     -- for voice chat
     local sourcePlayerPos = getInstancePosition(sourcePlayer.Character)
+    local players = Players:GetPlayers(
 
+    )
     for _, npc in NPCService.NPCs do
 		local npcPos = getInstancePosition(npc.Instance)
 		if npcPos == nil then continue end
@@ -1276,10 +1353,13 @@ function NPCService.HandleTranscription(sourcePlayer, message)
 			local ob = "Someone nearby said \"" .. cleanstring(message) .. "\""
 			npc:AddThought(ob, "speech")
 
+            -- TODO
+            npc.Instance:SetAttribute("npcservice_hearing", true)
+
             -- We kick up the timestep frequency when voice chat is involved
             if npc.TimestepDelay ~= npc.PersonalityProfile.TimestepDelayVoiceChat then
                 npc.TimestepDelay = npc.PersonalityProfile.TimestepDelayVoiceChat
-                print("[NPCService] Shifting to faster NPC processing for voice chat")
+                --print("[NPCService] Shifting to faster NPC processing for voice chat")
             end
             -- TODO: throttle actively depending on interaction style
             -- Also we have no way of dropping out of this mode later
@@ -1288,28 +1368,32 @@ function NPCService.HandleTranscription(sourcePlayer, message)
 end
 
 function NPCService.HandleChat(speaker, message, target)
-	-- speaker is a player or npc Instance
 	local name
 	local pos
-	
+
 	if CollectionService:HasTag(speaker, NPCService.NPCTag) then
+        -- Speaker is a NPC
+        speakerIsPlayer = false
 		name = speaker.Name
 		if speaker.PrimaryPart == nil then return end
 		pos = speaker.PrimaryPart.Position
 	else
+        -- Speaker is a player
+        speakerIsPlayer = true
 		name = speaker.DisplayName
 		if speaker.Character == nil or speaker.Character.PrimaryPart == nil then return end
 		pos = speaker.Character.PrimaryPart.Position
 	end
 	
 	for _, npc in NPCService.NPCs do
+        if not npc.Instance or not npc.Instance:IsDescendantOf(game.Workspace) then continue end
 		if npc.Instance == speaker then continue end
 		local npcPos = getInstancePosition(npc.Instance)
 		if npcPos == nil then continue end
 		local distance = (npcPos - pos).Magnitude
 		
-        -- This NPC heard the chat message
 		if distance < npc.PersonalityProfile.HearingRadius then
+            -- This NPC heard the chat message
 			local ob = ""
             if target == nil then
                 ob = name .. " said \"" .. message .. "\""
@@ -1319,6 +1403,12 @@ function NPCService.HandleChat(speaker, message, target)
             end
 
 			npc:AddThought(ob)
+
+            -- If the message contains the name of this NPC, then we have
+            -- some special behaviour to prepare the agent to respond
+            if string.match(message, npc.Instance.Name) then
+                npc:RespondToMessage(message)
+            end
 		end
 	end
 end

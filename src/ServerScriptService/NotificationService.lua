@@ -10,7 +10,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
-local metauniServiceAddress = "http://34.116.106.66:8080"
+-- IP 34.116.106.66
+local metauniServiceAddress = "https://www.metauniservice.com"
 
 local function isPocket()
 	return (game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0)
