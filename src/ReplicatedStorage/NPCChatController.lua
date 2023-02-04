@@ -11,6 +11,8 @@ local State = Fusion.State
 local OnEvent = Fusion.OnEvent
 
 local localPlayer = Players.LocalPlayer
+local GetNPCPrivacySettings = ReplicatedStorage:WaitForChild("GetNPCPrivacySettings")
+local SetNPCPrivacySettings = ReplicatedStorage:WaitForChild("SetNPCPrivacySettings")
 
 local function getInstancePosition(x)
 	if x:IsA("Part") then return x.Position end
@@ -25,6 +27,22 @@ local NPCService = {
     NPCTag = "npcservice_npc"
 }
 
+local Perms = {}
+
+local function updateNPCPerms()
+    local myPerms = GetNPCPrivacySettings:InvokeServer()
+    if not myPerms then
+        warn(`[NPCChatController] Received invalid NPC permissions`)
+        return
+    end
+
+    local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
+    for _, npcInstance in npcInstances do
+        Perms[npcInstance]["Read"]:set(myPerms[tostring(npcInstance.PersistId.Value)]["Read"])
+        Perms[npcInstance]["Remember"]:set(myPerms[tostring(npcInstance.PersistId.Value)]["Remember"])
+    end
+end
+
 local function SetupAIMenu()
     -- Can see rbxassetid://12296137041
     -- Can hear rbxassetid://12296137475
@@ -32,7 +50,6 @@ local function SetupAIMenu()
 
     local AIFrameEnabled = Fusion.State(false)
     local NPCentries = {}
-    local NPCPrivacySettings = {} -- npc -> { "Hear", "See", "Remember" }
     local selectedColor = Color3.new(0.058823, 0.576470, 0.180392)
 
     table.insert(NPCentries,
@@ -94,10 +111,10 @@ local function SetupAIMenu()
     
     local npcs = CollectionService:GetTagged(NPCService.NPCTag)
     for _, npc in npcs do
-        NPCPrivacySettings[npc] = {}
-        NPCPrivacySettings[npc]["Hear"] = Fusion.State(1)
-        NPCPrivacySettings[npc]["See"] = Fusion.State(1)
-        NPCPrivacySettings[npc]["Remember"] = Fusion.State(1)
+        Perms[npc] = {}
+        Perms[npc]["Hear"] = Fusion.State(false)
+        Perms[npc]["Read"] = Fusion.State(false)
+        Perms[npc]["Remember"] = Fusion.State(false)
 
         table.insert(NPCentries, 
             New "Frame" {
@@ -120,7 +137,11 @@ local function SetupAIMenu()
                     New "ImageButton" {
                         Size = UDim2.new(0, 40, 0, 40),
                         BackgroundTransparency = Fusion.Computed(function()
-                            return NPCPrivacySettings[npc]["Hear"]:get()
+                            if Perms[npc]["Hear"]:get() then
+                                return 0
+                            else
+                                return 1
+                            end
                         end),
                         
                         Image = "rbxassetid://12296137475",
@@ -129,16 +150,22 @@ local function SetupAIMenu()
                             CornerRadius = UDim.new(0, 3)
                         }
                     },
-                    -- See image
+                    -- Read image
                     New "ImageButton" {
                         Size = UDim2.new(0, 40, 0, 40),
                         BackgroundTransparency = Fusion.Computed(function()
-                            return NPCPrivacySettings[npc]["See"]:get()
+                            if Perms[npc]["Read"]:get() then
+                                return 0
+                            else
+                                return 1
+                            end
                         end),
                         Image = "rbxassetid://12296137041",
                         BackgroundColor3 = selectedColor,
                         [OnEvent "Activated"] = function()
-                            NPCPrivacySettings[npc]["See"]:set(1 - NPCPrivacySettings[npc]["See"]:get())
+                            local perm = Perms[npc]["Read"]:get()
+                            Perms[npc]["Read"]:set(not perm)
+                            SetNPCPrivacySettings:FireServer(npc.PersistId.Value, "Read", not perm)
                         end,
                         [Children] = New "UICorner" {
                             CornerRadius = UDim.new(0, 3)
@@ -148,12 +175,18 @@ local function SetupAIMenu()
                     New "ImageButton" {
                         Size = UDim2.new(0, 40, 0, 40),
                         BackgroundTransparency = Fusion.Computed(function()
-                            return NPCPrivacySettings[npc]["Remember"]:get()
+                            if Perms[npc]["Remember"]:get() then
+                                return 0
+                            else
+                                return 1
+                            end
                         end),
                         Image = "rbxassetid://12296137280",
                         BackgroundColor3 = selectedColor,
                         [OnEvent "Activated"] = function()
-                            NPCPrivacySettings[npc]["Remember"]:set(1 - NPCPrivacySettings[npc]["Remember"]:get())
+                            local perm = Perms[npc]["Remember"]:get()
+                            Perms[npc]["Remember"]:set(not perm)
+                            SetNPCPrivacySettings:FireServer(npc.PersistId.Value, "Remember", not perm)
                         end,
                         [Children] = New "UICorner" {
                             CornerRadius = UDim.new(0, 3)
@@ -177,7 +210,7 @@ local function SetupAIMenu()
     local NPCFrame = New "Frame" {
             AnchorPoint = Vector2.new(0.5,0.5),
             Position = UDim2.fromScale(0.5,0.5),
-            Size = UDim2.new(0.9, 0, 0.5, 0),
+            Size = UDim2.new(0.9, 0, 0.55, 0),
             BackgroundColor3 = Color3.new(0,0,0),
             BackgroundTransparency = 0.2,
 
@@ -216,14 +249,14 @@ local function SetupAIMenu()
                 NPCFrame,
 
                 New "TextLabel" {
-                    Position = UDim2.fromScale(.5, .9),
+                    Position = UDim2.fromScale(.5, .85),
                     AnchorPoint = Vector2.new(.5, .5),
                     Size = UDim2.fromScale(0.9, 0.2),
                     TextColor3 = Color3.new(171, 171, 171),
                     BackgroundTransparency = 1,
                     TextSize = 15,
                     TextWrapped = true,
-                    Text = "Hear: whether the AI can hear you through transcription of voice chat. This depends on the seminar organiser. Read: whether the AI can read messages you type near it. Remember: whether the AI remembers its interactions with you, including summaries of your conversation. Note that interactions with the AI are sent to OpenAI for processing in the GPT model."
+                    Text = "Hear shows if the NPC can hear you via transcription of voice chat. Read shows if the NPC can read your text messages. Remember shows if the NPC remembers summaries of its interactions with you for later reference. Note queries are sent to OpenAI for processing."
                 },
 
                 New "UICorner" {
@@ -238,7 +271,7 @@ local function SetupAIMenu()
     
     local Icon = require(ReplicatedStorage.Icon)
     local Themes =  require(ReplicatedStorage.Icon.Themes)
-    
+
     local icon = Icon.new()
     icon:setImage(iconAssetId)
     icon:setLabel("AI")
@@ -247,6 +280,8 @@ local function SetupAIMenu()
     icon:setTheme(Themes["BlueGradient"])
     icon.deselectWhenOtherIconSelected = false
     icon:bindEvent("selected", function(self)
+        -- Update permissions from the server
+        updateNPCPerms()
         AIFrameEnabled:set(true)
     end)
     icon:bindEvent("deselected", function(self)
@@ -271,7 +306,9 @@ local function SetupAIMenu()
                     nearbyAIs = true
                     
                     if npcInstance:GetAttribute("npcservice_hearing") then
-                        NPCPrivacySettings[npcInstance]["Hear"]:set(0)
+                        Perms[npcInstance]["Hear"]:set(true)
+                    else
+                        Perms[npcInstance]["Hear"]:set(false)
                     end
 
                     break
