@@ -221,12 +221,13 @@ function AIService.QueryEmbeddings(vector, filter, topk, namespace)
     return matches
 end
 
-function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty)
+function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty, model)
     temperature = temperature or 0
     freqPenalty = freqPenalty or 0.0
     presPenalty = presPenalty or 0.0
+    model = model or "text-davinci-003"
 
-	local request = { ["model"] = "text-davinci-003",
+	local request = { ["model"] = model,
 		["prompt"] = promptText,
 		["temperature"] = temperature,
 		["max_tokens"] = maxTokens,

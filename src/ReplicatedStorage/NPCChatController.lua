@@ -14,6 +14,9 @@ local localPlayer = Players.LocalPlayer
 local GetNPCPrivacySettings = ReplicatedStorage:WaitForChild("GetNPCPrivacySettings")
 local SetNPCPrivacySettings = ReplicatedStorage:WaitForChild("SetNPCPrivacySettings")
 
+local Sift = require(ReplicatedStorage.Packages.Sift)
+local Array = Sift.Array
+
 local function getInstancePosition(x)
 	if x:IsA("Part") then return x.Position end
 	if x:IsA("Model") and x.PrimaryPart ~= nil then
@@ -110,7 +113,11 @@ local function SetupAIMenu()
     )
     
     local npcs = CollectionService:GetTagged(NPCService.NPCTag)
-    for _, npc in npcs do
+    local sortedNPCs = Array.sort(npcs, function(npc1, npc2)
+		return string.sub(npc1.Name,1,1) < string.sub(npc2.Name,1,1)
+	end)
+
+    for _, npc in sortedNPCs do
         Perms[npc] = {}
         Perms[npc]["Hear"] = Fusion.State(false)
         Perms[npc]["Read"] = Fusion.State(false)
@@ -292,19 +299,24 @@ local function SetupAIMenu()
         while task.wait(3) do
             if localPlayer.Character == nil or localPlayer.Character.PrimaryPart == nil then continue end
             
-            -- Look for active AIs within hearing distance
-            local nearbyAIs = false
+            local activeAIs = false
 
             local CUTOFF = 40
 
             local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
             for _, npcInstance in npcInstances do
                 if not npcInstance:IsDescendantOf(game.Workspace) then continue end
+                activeAIs = true
+
                 local npcPos = getInstancePosition(npcInstance)
-                if npcPos == nil then continue end
+
+                if npcInstance:GetAttribute("npcservice_hearing") then
+                    Perms[npcInstance]["Hear"]:set(true)
+                else
+                    Perms[npcInstance]["Hear"]:set(false)
+                end
+                
                 if (getInstancePosition(localPlayer.Character) - npcPos).Magnitude < CUTOFF then
-                    nearbyAIs = true
-                    
                     if npcInstance:GetAttribute("npcservice_hearing") then
                         Perms[npcInstance]["Hear"]:set(true)
                     else
@@ -315,7 +327,7 @@ local function SetupAIMenu()
                 end
             end
 
-            icon:setEnabled(nearbyAIs)
+            icon:setEnabled(activeAIs)
         end
     end)
 end

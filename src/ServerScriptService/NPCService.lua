@@ -22,7 +22,7 @@ local SecretService = require(ServerScriptService.SecretService)
 local BoardService = require(script.Parent.BoardService)
 
 local Sift = require(ReplicatedStorage.Packages.Sift)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
+local Array = Sift.Array
 
 local NPCService = {}
 NPCService.__index = NPCService
@@ -41,6 +41,15 @@ local REFERENCE_PROPER_NAMES = {
     ["how_buildings_learn"] = "Stewart Brand's book 'How Building's Learn'",
     ["diamond_age"] = "Neal Stephenson's 'Diamond Age'",
     ["star_trek_philosophy"] = "the book 'Star Trek and Philosophy'",
+    --["music_harmony_china"] = "Erica Brindley's 'Music, Cosmology and the Politics of Harmony in China'",
+    --["sacred_geometry"] = "Hidetoshi and Rothman's 'Sacred Geometry'",
+    --["who_owns_future"] = "Jaron Lanier's 'Who Owns the Future'",
+    --["innovators_dilemma"] = "Clayton Christensen's 'Innovator's Dilemma'",
+    --["great_stagnation"] = "Tyler Cowen's 'Great Stagnation'",
+    --["brief_history_university"] = "John Moore's 'A Brief History of Universities'",
+    ["russell_western_philosophy"] = "Bertrand Russell's 'History of Western Philosophy'",
+    ["russell_basic_writings"] = "Bertrand Russell's 'Basic Writings'",
+    ["russell_autobiography"] = "Bertrand Russell's autobiography"
 }
 
 -- Utils
@@ -104,12 +113,6 @@ local function getInstancePosition(x)
 	end
 	
 	return nil
-end
-
-local function getPlayerPosition(x)
-	if x.Character == nil then return end
-	if x.Character.PrimaryPart == nil then return end
-	return x.Character.PrimaryPart.Position
 end
 
 local function cleanstring(text)
@@ -206,19 +209,21 @@ function NPC.DefaultPersonalityProfiles()
         MaxSummaries = 20,
         SearchShortTermMemoryProbability = 0.1,
         SearchLongTermMemoryProbability = 0.1,
-        SearchReferencesProbability = 0.15,
-        SearchTranscriptsProbability = 0.1,
+        SearchReferencesProbability = 0.07,
+        SearchTranscriptsProbability = 0.05,
         MaxConsecutivePlan = 2,
-        TimestepDelayNormal = 12,
+        TimestepDelayNormal = 15,
         TimestepDelayVoiceChat = 8,
-        ReferenceRelevanceScoreCutoff = 0.82,
-        TranscriptRelevanceScoreCutoff = 0.82,
+        ReferenceRelevanceScoreCutoff = 0.83,
+        TranscriptRelevanceScoreCutoff = 0.83,
         MemoryRelevanceScoreCutoff = 0.7,
         ModelTemperature = 0.85,
 	    ModelFrequencyPenalty = 1.4,
 	    ModelPresencePenalty = 1.6,
+        ModelName = "text-davinci-003",
         HearingRadius = 40,
-        GetsDetailedObservationsRadius = 40,
+        GetsDetailedObservationsRadius = 60,
+        SecondsWithoutInteractionBeforeSleep = 2 * 60,
         PromptPrefix = SecretService.NPCSERVICE_PROMPT,
         PersonalityLines = {}, -- configured per NPC
         Seminars = {}, -- configured per NPC
@@ -238,9 +243,11 @@ function NPC.DefaultPersonalityProfiles()
         MemoryRelevanceScoreCutoff = 0.8,
         ModelTemperature = 0.9,
         HearingRadius = 60,
-        GetsDetailedObservationsRadius = 40,
+        GetsDetailedObservationsRadius = 60,
         PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
     })
+
+    personalityProfiles.OfficeHours = {}
 
     return personalityProfiles
 end
@@ -262,6 +269,7 @@ function NPC.new(instance: Model)
     npc.PlanningCounter = 0
     npc.PersonalityProfiles = NPC.DefaultPersonalityProfiles()
     npc.CurrentPersonalityProfile = "Normal"
+    npc.LastInteractionTimestamp = -math.huge -- last time the agent saw a chat or voice message from a player
     npc.OrbOffset = nil
     
     -- Personalisation
@@ -343,7 +351,7 @@ function NPC:Timestep(forceSearch)
     end
 
     -- Search transcripts
-    if forceSearch or math.random() < self:GetPersonality("SearchTranscriptsProbability") then
+    if math.random() < self:GetPersonality("SearchTranscriptsProbability") then
         local ref = self:SearchTranscripts()
         if ref ~= nil then
             self:AddThought(ref, "transcript")
@@ -432,6 +440,25 @@ function NPC:AddSummary(text, type)
         local vectorId = HttpService:GenerateGUID(false)
         AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
     end
+end
+
+function NPC:InOfficeHours()
+    local function minutesSinceBeginningOfWeek()
+        local dayOfWeek = tonumber(os.date("!%w"))
+        local secondsSinceMidnight = os.date("!%H") * 3600 + os.date("!%M") * 60 + os.date("!%S")
+        local secondsToLastSunday = dayOfWeek * 24 * 3600
+        return (secondsSinceMidnight + secondsToLastSunday) / 60
+    end
+
+    local minutesNow = minutesSinceBeginningOfWeek()
+    local officeHours = self.PersonalityProfiles.OfficeHours
+    for _, hours in officeHours do
+        if minutesNow >= hours.StartTime and minutesNow <= hours.StartTime + hours.Duration then
+            return true
+        end
+    end
+
+    return false
 end
 
 function NPC:ShortTermMemory()
@@ -663,7 +690,9 @@ function NPC:Prompt()
         print(middle)
     end
 
-	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty)
+    local model = self:GetPersonality("ModelName")
+
+	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty, model)
 	if responseText == nil then
 		warn("[NPC] Got nil response from GPT3")
 		return
@@ -1335,10 +1364,41 @@ function NPCService.Start()
                 timestepDelay += math.random(0, 2)
                 task.wait(timestepDelay)
 
-                if not npc.Instance:IsDescendantOf(game.Workspace) then continue end
+                -- Check to see if we are in office hours
+                local inOfficeHours = npc:InOfficeHours()
+                local inWorkspace = npc.Instance:IsDescendantOf(game.Workspace)
+
+                if inOfficeHours and not inWorkspace then
+                    local npcFolder = game.Workspace:FindFirstChild("NPCs")
+                    if npcFolder then
+                        npc.Instance.Parent = npcFolder
+                        inWorkspace = true
+                    end
+                end
+
+                -- If the agent has not been interacted with recently, and is not
+                -- in office hours, and has not been summoned, move it to storage
+                if not inOfficeHours and npc.LastInteractionTimestamp < tick() - 5 * 60 and 
+                    not npc.Instance:GetAttribute("npcservice_summoned") then
+                    local npcStorageFolder = ReplicatedStorage:FindFirstChild("NPCs")
+                    if npcStorageFolder then
+                        npc.Instance.Parent = npcStorageFolder
+                        inWorkspace = false
+                    end
+                end
+
+                if not inWorkspace then continue end
                 if npc.Instance.PrimaryPart == nil then continue end
                 
+                -- Don't sit around thinking too much without human input
+                if npc.LastInteractionTimestamp < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
+                    continue
+                end
+
+                ----- take the step ----
                 npc:Timestep(startup)
+                ------------------------
+
                 startup = false
 
                 stepCount += 1
@@ -1357,10 +1417,12 @@ function NPCService.Start()
                 
     -- Keep updated observations of boards in a way that NPCs can read them
     -- In order to avoid frequently OCRing boards that are far away from any
-    -- NPC, we only OCR boards within NPCService.GetsDetailedObservationsRadius
-
+    -- NPC, we only OCR boards within GetsDetailedObservationsRadius
+    
     task.spawn(function() 
-        while task.wait(10) do
+        while true do
+            task.wait(10)
+
             local function observationFolder(board)
                 local obPart = board:FindFirstChild("NPCObservationPart")
                 if obPart then return obPart.Observations end
@@ -1435,6 +1497,8 @@ function NPCService.HandleTranscription(sourcePlayer, message)
 
             npc.Instance:SetAttribute("npcservice_hearing", true)
             npc.TimestepDelay = npc:GetPersonality("TimestepDelayVoiceChat")
+
+            npc.LastInteractionTimestamp = tick()
 		else
             npc.Instance:SetAttribute("npcservice_hearing", false)
             npc.TimestepDelay = npc:GetPersonality("TimestepDelayNormal")
@@ -1532,6 +1596,10 @@ function NPCService.HandleChat(speaker, message, target)
             -- some special behaviour to prepare the agent to respond
             if string.match(message, npc.Instance.Name) then
                 npc:RespondToMessage(message)
+            end
+
+            if speakerIsPlayer then
+                npc.LastInteractionTimestamp = tick()
             end
 		end
 	end
