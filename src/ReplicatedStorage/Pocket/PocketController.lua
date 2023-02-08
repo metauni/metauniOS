@@ -1,6 +1,7 @@
 local TeleportService = game:GetService("TeleportService")
 local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local VRService = game:GetService("VRService")
 local StarterGui = game:GetService("StarterGui")
@@ -11,8 +12,6 @@ local Pocket = script.Parent
 local Remotes = script.Parent.Remotes
 local Config = require(script.Parent.Config)
 
-local ArriveRemoteEvent = Remotes.Arrive
-local BookmarkEvent = Remotes.Bookmark
 local GotoEvent = Remotes.Goto
 local AddGhostEvent = Remotes.AddGhost
 local FirePortalEvent = Remotes.FirePortal
@@ -22,6 +21,51 @@ local SetTeleportGuiRemoteEvent = Remotes.SetTeleportGui
 
 local localPlayer = Players.LocalPlayer
 
+local GetLaunchDataRemoteFunction = ReplicatedStorage:WaitForChild("Pocket"):WaitForChild("Remotes"):WaitForChild("GetLaunchData")
+
+local function getInstancePosition(x)
+	if x:IsA("Part") then return x.Position end
+	if x:IsA("Model") and x.PrimaryPart ~= nil then
+		return x.PrimaryPart.Position
+	end
+	
+	return nil
+end
+
+local function teleportToNPC(persistId)
+    local npcs = CollectionService:GetTagged("npcservice_npc")
+    local targetNPC = nil
+    for _, npc in npcs do
+        if npc.PersistId.Value == persistId then
+            targetNPC = npc
+            break
+        end
+    end
+
+    if not targetNPC then return end
+
+    -- Find the nearest tagged spawn location to this NPC
+    local spawnLocations = CollectionService:GetTagged("spawnlocation")
+    local minDistance = math.huge
+    local minSpawnLoc = nil
+    for _, spawnLoc in spawnLocations do
+        local distance = (spawnLoc.Position - targetNPC.HumanoidRootPart.Position).Magnitude
+        if distance < minDistance then
+            minDistance = distance
+            minSpawnLoc = spawnLoc
+        end
+    end
+
+    if minSpawnLoc ~= nil then
+        print("[Pocket] Found spawn location near NPC, pivoting")
+        local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+        character:WaitForChild("HumanoidRootPart")
+        task.wait(0.1)
+        character.HumanoidRootPart:PivotTo(CFrame.new(minSpawnLoc.Position))
+        print(minSpawnLoc:GetFullName())
+    end
+end
+
 return {
 
 	Start = function()
@@ -29,7 +73,6 @@ return {
 		local localCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 		
 		local gotoPortalGui = localPlayer.PlayerGui:WaitForChild("GotoPortalGui")
-		local newPocketGui = localPlayer.PlayerGui:WaitForChild("NewPocketGui")	
 		local teleportScreenGui = script.Parent.TeleportScreenGui:Clone()
 		
 		local portalTouchedConnections = {}
@@ -88,7 +131,7 @@ return {
 						parentPortal = portal
 						break
 					elseif portal.PrimaryPart == nil then
-						wait(1)
+						task.wait(1)
 						if portal.PrimaryPart == portalPart then
 							parentPortal = portal
 							break
@@ -167,65 +210,69 @@ return {
 				portalTouchedConnections[portalPart] = nil
 			end
 		end)
-		
-		if localCharacter then
-			local teleportData = TeleportService:GetLocalPlayerTeleportData()
-			if teleportData then
-				if teleportData.TargetPersistId then
-					-- Look for the pocket with this PersistId
-					local pockets = CollectionService:GetTagged("metapocket")
-		
-					for _, pocket in ipairs(pockets) do
-						if pocket:FindFirstChild("PersistId") then
-							if pocket.PersistId.Value == teleportData.TargetPersistId then
-								local newCFrame = pocket:GetPivot() * CFrame.new(0, 0, -10)
-								localCharacter:WaitForChild("HumanoidRootPart")
-								localCharacter.HumanoidRootPart:PivotTo(newCFrame)
-							end
-						end
-					end
-				end
-		
-						if teleportData.TargetBoardPersistId then
-								print("[MetaPortal] Arrived with TargetBoardPersistId " .. teleportData.TargetBoardPersistId)
-								-- Look for the board with this PersistId
-					local boards = CollectionService:GetTagged("metaboard")
-		
-					for _, board in boards do
-						if board:FindFirstChild("PersistId") then
-							if board.PersistId.Value == tonumber(teleportData.TargetBoardPersistId) then
-		
-								local offsetCFrame = board.CFrame * CFrame.new(0, 0, -10)
-														local newCFrame = CFrame.lookAt(offsetCFrame.Position, board.Position)
-														localCharacter:WaitForChild("HumanoidRootPart")
-								localCharacter.HumanoidRootPart:PivotTo(newCFrame)
-							end
-						end
-					end
-						end
-			
-				local start = game.Workspace:FindFirstChild("Start")
-				
-				if start and start:FindFirstChild("Label") then
-					local pocketName = nil
-					for key, value in pairs(Config.PlaceIdOfPockets) do
-						if value == game.PlaceId then
-							pocketName = key
-						end
-					end
-		
-					local labelText = ""
-		
-					if pocketName ~= nil then
-						labelText = labelText .. pocketName
-					end
-		
-					labelText = labelText .. " " .. tostring(teleportData.PocketCounter)
-		
-					start.Label.SurfaceGui.TextLabel.Text = labelText
-				end
-			end
-		end
+
+        -- Handle loading into the game with a target NPC
+		local launchData = GetLaunchDataRemoteFunction:InvokeServer()
+        if launchData and launchData["npc"] ~= nil then
+            teleportToNPC(tonumber(launchData["npc"]))
+        end
+
+        local teleportData = TeleportService:GetLocalPlayerTeleportData()
+        if teleportData then
+            if teleportData.TargetPersistId then
+                -- Look for the pocket with this PersistId
+                local pockets = CollectionService:GetTagged("metapocket")
+    
+                for _, pocket in ipairs(pockets) do
+                    if pocket:FindFirstChild("PersistId") then
+                        if pocket.PersistId.Value == teleportData.TargetPersistId then
+                            local newCFrame = pocket:GetPivot() * CFrame.new(0, 0, -10)
+                            localCharacter:WaitForChild("HumanoidRootPart")
+                            localCharacter.HumanoidRootPart:PivotTo(newCFrame)
+                        end
+                    end
+                end
+            end
+    
+            if teleportData.TargetBoardPersistId then
+                print("[MetaPortal] Arrived with TargetBoardPersistId " .. teleportData.TargetBoardPersistId)
+                -- Look for the board with this PersistId
+                local boards = CollectionService:GetTagged("metaboard")
+    
+                for _, board in boards do
+                    if board:FindFirstChild("PersistId") then
+                        if board.PersistId.Value == tonumber(teleportData.TargetBoardPersistId) then
+    
+                            local offsetCFrame = board.CFrame * CFrame.new(0, 0, -10)
+                                                    local newCFrame = CFrame.lookAt(offsetCFrame.Position, board.Position)
+                                                    localCharacter:WaitForChild("HumanoidRootPart")
+                            localCharacter.HumanoidRootPart:PivotTo(newCFrame)
+                        end
+                    end
+                end
+            end
+        
+            local start = game.Workspace:FindFirstChild("Start")
+            
+            if start and start:FindFirstChild("Label") then
+                local pocketName = nil
+                for key, value in pairs(Config.PlaceIdOfPockets) do
+                    if value == game.PlaceId then
+                        pocketName = key
+                    end
+                end
+    
+                local labelText = ""
+    
+                if pocketName ~= nil then
+                    labelText = labelText .. pocketName
+                end
+    
+                labelText = labelText .. " " .. tostring(teleportData.PocketCounter)
+    
+                start.Label.SurfaceGui.TextLabel.Text = labelText
+            end
+        end
 		
 		local function canUnlinkPortal(portal)
 			local isPocket = Pocket:GetAttribute("IsPocket")
