@@ -37,10 +37,23 @@ local PocketsForPlayerRemoteFunction = Remotes.PocketsForPlayer
 local SetTeleportGuiRemoteEvent = Remotes.SetTeleportGui
 local GetLaunchDataRemoteFunction = Remotes.GetLaunchData
 
+-- Utils
 local function waitForBudget(requestType: Enum.DataStoreRequestType)
 	while DataStoreService:GetRequestBudgetForRequestType(requestType) <= 0 do
 		task.wait()
 	end
+end
+
+local function processQuery(queryString)
+    local q = {}
+    -- The strings are "-"-separated "key:value" pairs
+    for _, pair in string.split(queryString, "-") do
+        local s = string.split(pair, ":")
+        if s ~= nil and #s == 2 then
+            q[s[1]] = s[2]
+        end
+    end
+    return q
 end
 
 local ghosts = game.Workspace:FindFirstChild("MetaPortalGhostsFolder")
@@ -120,7 +133,7 @@ function MetaPortal.GetLaunchData(plr)
 	end
 
 	if joinData.LaunchData and joinData.LaunchData ~= "" and not ignoreLaunchData then
-		return joinData.LaunchData
+        return processQuery(joinData.LaunchData)
 	end
 
 	return nil
@@ -1089,7 +1102,7 @@ function MetaPortal.InitPocketPortal(portal)
 		return DataStore:GetAsync(portalKey)
 	end)
 	if not success then
-		earn("[MetaPortal] GetAsync fail for pocket portal" .. portalKey .. " " .. pocketJSON)
+		warn("[MetaPortal] GetAsync fail for pocket portal" .. portalKey .. " " .. pocketJSON)
 		return
 	end
 	
@@ -1204,18 +1217,6 @@ function MetaPortal.PlayerArrive(plr)
 	end
 
 	if joinData.LaunchData and joinData.LaunchData ~= "" and not ignoreLaunchData then
-        local function processQuery(queryString)
-            local q = {}
-            -- The strings are "-"-separated "key:value" pairs
-            for _, pair in string.split(queryString, "-") do
-                local s = string.split(pair, ":")
-                if s ~= nil and #s == 2 then
-                    q[s[1]] = s[2]
-                end
-            end
-            return q
-        end
-
         local queryDict = processQuery(joinData.LaunchData)
 
         -- TODO: Currently if you spawn into TRS with a target board we won't help you
@@ -1230,10 +1231,13 @@ function MetaPortal.PlayerArrive(plr)
                     -- print("[MetaPortal] User arrived with target board "..targetBoard)
                     MetaPortal.GotoPocketHandler(plr, pocketName, passThrough, targetBoard)
                 else
-				    MetaPortal.GotoPocketHandler(plr, pocketName, passThrough)		
+				    MetaPortal.GotoPocketHandler(plr, pocketName, passThrough)	
                 end
 			end
+            return
 		end
+
+        -- NOTE: teleporting to an NPC is handled on the client
 	end
 end
 
