@@ -722,7 +722,7 @@ function Gui.RefreshPrompts(orb)
 
     if Gui.Orb ~= orb then
         if normalPrompt ~= nil then normalPrompt.Enabled = true end
-        if askPrompt ~= nil then askPrompt.Enabled = false end
+        --if askPrompt ~= nil then askPrompt.Enabled = false end
         if speakerPrompt ~= nil then
             speakerPrompt.Enabled = Gui.HasSpeakerPermission and orb.Speaker.Value == nil
         end
@@ -736,7 +736,7 @@ function Gui.RefreshPrompts(orb)
         if luggagePrompt ~= nil then luggagePrompt.Enabled = true end
     else
         if normalPrompt ~= nil then normalPrompt.Enabled = false end
-        if askPrompt ~= nil then askPrompt.Enabled = true end
+        --if askPrompt ~= nil then askPrompt.Enabled = true end
         if speakerPrompt ~= nil then speakerPrompt.Enabled = false end
         if specialMovePrompt ~= nil then
             local waypoint = Gui.NearestWaypoint(orb:GetPivot().Position)
