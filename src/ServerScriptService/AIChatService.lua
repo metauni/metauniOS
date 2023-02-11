@@ -253,7 +253,7 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
 	-- 1000 tokens is about 750 words
 	local maxTokens = 60
     questionSubText = questionSubText .. " Answer in 60 words or less."
-	local responseText = AIService.GPTPrompt(questionSubText, maxTokens, plr)
+	local responseText, _ = AIService.GPTPrompt(questionSubText, maxTokens, plr)
 	if responseText == nil then return end
 	
 	responseText = AIService.CleanGPTResponse(responseText)

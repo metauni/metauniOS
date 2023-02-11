@@ -12,15 +12,15 @@ local SecretService = require(ServerScriptService.SecretService)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Figure = metaboard.Figure
 local Sift = require(ReplicatedStorage.Packages.Sift)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
+local Dictionary = Sift.Dictionary
 
--- Config
 local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
 local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
 local VISION_API_URL = "https://www.metauniservice.com"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
+-- Utils
 local function serialiseBoard(board)
     -- Commit all of the drawing task changes (like masks) to the figures
 	local figures = board:CommitAllDrawingTasks()
@@ -104,8 +104,18 @@ local function safePostAsync(apiUrl, encodedRequest, authDict)
     return responseData
 end
 
+--
+-- AIService
+--
+
 local AIService = {}
 AIService.__index = AIService
+
+function AIService.Init()
+end
+
+function AIService.Start()
+end
 
 function AIService.CleanGPTResponse(text, extraPrefixes)
 	local matched
@@ -245,6 +255,8 @@ function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalt
 
     if responseData == nil then return end
 
+    local tokenCount = responseData["usage"]["total_tokens"]
+
 	local responseText = responseData["choices"][1]["text"]
     if responseText == nil then
         warn("[AIService] GPTPrompt got malformed response:")
@@ -252,7 +264,7 @@ function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalt
         return
     end
 
-	return responseText
+	return responseText, tokenCount
 end
 
 function AIService.ObjectLocalizationForBoard(board)
