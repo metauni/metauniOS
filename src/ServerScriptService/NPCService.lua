@@ -30,6 +30,7 @@ NPCService.NPCTag = "npcservice_npc"
 NPCService.ObjectTag = "npcservice_object"
 NPCService.TranscriptionTopic = "transcription"
 NPCService.NPCs = {}
+NPCService.NPCFromInstance = {}
 
 local REFERENCE_PROPER_NAMES = {
     --["euclid"] = "Euclid",
@@ -41,15 +42,16 @@ local REFERENCE_PROPER_NAMES = {
     ["how_buildings_learn"] = "Stewart Brand's book 'How Building's Learn'",
     ["diamond_age"] = "Neal Stephenson's 'Diamond Age'",
     ["star_trek_philosophy"] = "the book 'Star Trek and Philosophy'",
-    --["music_harmony_china"] = "Erica Brindley's 'Music, Cosmology and the Politics of Harmony in China'",
+    ["music_harmony_china"] = "Erica Brindley's 'Music, Cosmology and the Politics of Harmony in China'",
     --["sacred_geometry"] = "Hidetoshi and Rothman's 'Sacred Geometry'",
-    --["who_owns_future"] = "Jaron Lanier's 'Who Owns the Future'",
-    --["innovators_dilemma"] = "Clayton Christensen's 'Innovator's Dilemma'",
-    --["great_stagnation"] = "Tyler Cowen's 'Great Stagnation'",
-    --["brief_history_university"] = "John Moore's 'A Brief History of Universities'",
+    ["lanier_owns_future"] = "Jaron Lanier's 'Who Owns the Future'",
+    ["innovators_dilemma"] = "Clayton Christensen's 'Innovator's Dilemma'",
+    ["great_stagnation"] = "Tyler Cowen's 'Great Stagnation'",
+    ["brief_history_university"] = "John Moore's 'A Brief History of Universities'",
     ["russell_western_philosophy"] = "Bertrand Russell's 'History of Western Philosophy'",
     ["russell_basic_writings"] = "Bertrand Russell's 'Basic Writings'",
-    ["russell_autobiography"] = "Bertrand Russell's autobiography"
+    ["russell_autobiography"] = "Bertrand Russell's autobiography",
+    ["utopian_universities"] = "Taylor and Pellew's 'Utopian Universities'"
 }
 
 -- Utils
@@ -211,6 +213,7 @@ function NPC.DefaultPersonalityProfiles()
         SearchLongTermMemoryProbability = 0.1,
         SearchReferencesProbability = 0.07,
         SearchTranscriptsProbability = 0.05,
+        SomethingDifferentProbability = 0.05,
         MaxConsecutivePlan = 2,
         TimestepDelayNormal = 15,
         TimestepDelayVoiceChat = 8,
@@ -224,6 +227,7 @@ function NPC.DefaultPersonalityProfiles()
         HearingRadius = 40,
         GetsDetailedObservationsRadius = 60,
         SecondsWithoutInteractionBeforeSleep = 2 * 60,
+        WalkingDistanceRadius = 200,
         PromptPrefix = SecretService.NPCSERVICE_PROMPT,
         PersonalityLines = {}, -- configured per NPC
         Seminars = {}, -- configured per NPC
@@ -247,6 +251,22 @@ function NPC.DefaultPersonalityProfiles()
         PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
     })
 
+    personalityProfiles.Storm = updateWith(personalityProfiles.Normal, {
+        Name = "Storm",
+        SearchReferencesProbability = 0.15,
+        SearchTranscriptsProbability = 0.08,
+        SearchShortTermMemoryProbability = 0.08,
+        SearchLongTermMemoryProbability = 0.08,
+        TimestepDelayNormal = 8,
+        TimestepDelayVoiceChat = 5,
+        ReferenceRelevanceScoreCutoff = 0.8,
+        TranscriptRelevanceScoreCutoff = 0.8,
+        MemoryRelevanceScoreCutoff = 0.71,
+        ModelTemperature = 0.9,
+	    ModelFrequencyPenalty = 1.8,
+	    ModelPresencePenalty = 1.6,
+    })
+
     personalityProfiles.OfficeHours = {}
 
     return personalityProfiles
@@ -268,9 +288,10 @@ function NPC.new(instance: Model)
     npc.Summaries = {}
     npc.PlanningCounter = 0
     npc.PersonalityProfiles = NPC.DefaultPersonalityProfiles()
-    npc.CurrentPersonalityProfile = "Normal"
+    npc.CurrentProfile = "Normal"
     npc.LastInteractionTimestamp = -math.huge -- last time the agent saw a chat or voice message from a player
     npc.OrbOffset = nil
+    npc.TokenCount = 0
     
     -- Personalisation
     local configScript = npc.Instance:FindFirstChild("NPCConfig")
@@ -299,9 +320,16 @@ function NPC.new(instance: Model)
     return npc
 end
 
+function NPC:SetCurrentProfile(name)
+    self.CurrentProfile = name
+    self.TimestepDelay = self:GetPersonality("TimestepDelayNormal")
+    print(`[NPCService] NPC {self.Instance.Name} switching to profile {name}`)
+end
+
 function NPC:UpdatePersonalityProfile()
-    -- Currently there are only two profiles: Normal and Seminar
-    -- and the latter is only possible for NPCs with TargetOrb set
+    -- This automated change is only for Seminar/Normal
+    if self.CurrentProfile ~= "Seminar" and self.CurrentProfile ~= "Normal" then return end
+
     local targetOrbValue = self.Instance:FindFirstChild("TargetOrb")
     if targetOrbValue == nil then return end
     if targetOrbValue.Value == nil then return end
@@ -309,16 +337,14 @@ function NPC:UpdatePersonalityProfile()
     if orb:FindFirstChild("Speaker") == nil then return end
     
     if orb.Speaker.Value ~= nil then
-        self.CurrentPersonalityProfile = "Seminar"
+        self:SetCurrentProfile("Seminar")
     else
-        self.CurrentPersonalityProfile = "Normal"
+        self:SetCurrentProfile("Normal")
     end
-
-    self.TimestepDelay = self:GetPersonality("TimestepDelayNormal")
 end
 
 function NPC:GetPersonality(attribute)
-    return self.PersonalityProfiles[self.CurrentPersonalityProfile][attribute]
+    return self.PersonalityProfiles[self.CurrentProfile][attribute]
 end
 
 function NPC:Timestep(forceSearch)
@@ -361,7 +387,7 @@ function NPC:Timestep(forceSearch)
     self:Prompt()
     
     -- Walk an NPC targetting an orb to maintain a fixed offset from the orb
-    if self.CurrentPersonalityProfile == "Seminar" then
+    if self.CurrentProfile == "Seminar" then
         local targetOrb = self.Instance.TargetOrb.Value
         local orbPos = getInstancePosition(targetOrb)
 
@@ -658,6 +684,7 @@ end
 
 function NPC:Prompt()
 	local prompt = self:GetPersonality("PromptPrefix") .. "\n"
+    prompt = prompt .. `{self.Instance.Name} is an Agent\n`
 	prompt = prompt .. `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.\n`
 	
 	-- Sample one of the other personality thoughts
@@ -684,19 +711,18 @@ function NPC:Prompt()
 	local temperature = self:GetPersonality("ModelTemperature")
 	local freqPenalty = self:GetPersonality("ModelFrequencyPenalty")
 	local presPenalty = self:GetPersonality("ModelPresencePenalty")
-	
-    -- DEBUG
-    if self.Instance:GetAttribute("debug") then
-        print(middle)
-    end
 
     local model = self:GetPersonality("ModelName")
+    
+    local responseText, tokenCount = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty, model)
 
-	local responseText = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty, model)
 	if responseText == nil then
 		warn("[NPC] Got nil response from GPT3")
 		return
 	end
+
+    self.TokenCount += tokenCount
+    self.Instance:SetAttribute("npcservice_tokencount", self.TokenCount)
 	
     if forcedToAct then
         responseText = "Action:" .. forcedActionText .. responseText
@@ -705,20 +731,20 @@ function NPC:Prompt()
 	    responseText = "Action:" .. responseText
     end
 
-    self.Instance:SetAttribute("gpt_prompt", prompt)
-    self.Instance:SetAttribute("gpt_response", responseText)
+    if self.Instance:GetAttribute("debug") then
+        self.Instance:SetAttribute("gpt_prompt", prompt)
+        self.Instance:SetAttribute("gpt_response", responseText)
+        print(middle)
+    end
 
 	local actions = {}
 	local thoughts = {}
-	local itemType = ""
 	
 	for _, l in string.split(responseText, "\n") do
 		local lineType = nil
 		if string.match(l, "^Action:") then
-			itemType = "Action"
 			lineType = actions
 		elseif string.match(l, "^Thought:") then
-			itemType = "Thought"
 			lineType = thoughts
 		end
 		
@@ -729,9 +755,6 @@ function NPC:Prompt()
 				table.remove(parts, 1)
                 local s = cleanstring(table.concat(parts, " "))
                 table.insert(lineType, s)
-
-                -- Splitting into sentenes here is not a good idea,
-                -- because of sentences like Say "This is good."
 			end
 		end
 	end
@@ -915,11 +938,14 @@ function NPC:GenerateSummary(type)
 	local freqPenalty = 0
 	local presPenalty = 0
 
-	local responseText = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty)
+	local responseText, tokenCount = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty)
 	if responseText == nil then
 		warn("[NPC] Got nil response from GPT3")
 		return
 	end
+
+    self.TokenCount += tokenCount
+    self.Instance:SetAttribute("npcservice_tokencount", self.TokenCount)
 	
     return cleanstring(responseText)
 end
@@ -982,9 +1008,9 @@ function NPC:Observe()
 	
 	local observations = {}
 	
-	local NextToMeRadius = 25
+	local NextToMeRadius = self:GetPersonality("HearingRadius")
 	local NearbyRadius = 80
-	local WalkingDistanceRadius = 200
+	local WalkingDistanceRadius = self:GetPersonality("WalkingDistanceRadius")
 	local observedBoardPhrases = {}
 
     local nextToMeObservationsCount = 0
@@ -1282,6 +1308,7 @@ function NPCService.Init()
 	for _, npcInstance in npcInstances do
         local npc = NPC.new(npcInstance)
         table.insert(NPCService.NPCs, npc)
+        NPCService.NPCFromInstance[npcInstance] = npc
 	end
 
     CollectionService:GetInstanceAddedSignal(NPCService.NPCTag):Connect(function(npcInstance)

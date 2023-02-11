@@ -7,7 +7,6 @@ local Fusion = require(ReplicatedStorage.Fusion)
 
 local New = Fusion.New
 local Children = Fusion.Children
-local State = Fusion.State
 local OnEvent = Fusion.OnEvent
 
 local localPlayer = Players.LocalPlayer
@@ -30,7 +29,7 @@ local NPCService = {
     NPCTag = "npcservice_npc"
 }
 
-local Perms = {}
+local NPCState = {}
 
 local function updateNPCPerms()
     local myPerms = GetNPCPrivacySettings:InvokeServer()
@@ -41,8 +40,8 @@ local function updateNPCPerms()
 
     local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
     for _, npcInstance in npcInstances do
-        Perms[npcInstance]["Read"]:set(myPerms[tostring(npcInstance.PersistId.Value)]["Read"])
-        Perms[npcInstance]["Remember"]:set(myPerms[tostring(npcInstance.PersistId.Value)]["Remember"])
+        NPCState[npcInstance]["Read"]:set(myPerms[tostring(npcInstance.PersistId.Value)]["Read"])
+        NPCState[npcInstance]["Remember"]:set(myPerms[tostring(npcInstance.PersistId.Value)]["Remember"])
     end
 end
 
@@ -69,43 +68,55 @@ local function SetupAIMenu()
                     Text = "",
 
                     [Children] = New "UISizeConstraint" {
-                        MinSize = Vector2.new(40, 0)
+                        MinSize = Vector2.new(55, 0)
                     }
                 },
                 New "TextLabel" {
                     Size = UDim2.new(0, 0, 0, 40),
                     TextColor3 = Color3.new(1, 1, 1),
-                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextXAlignment = Enum.TextXAlignment.Center,
                     BackgroundTransparency = 1,
                     TextSize = 20,
                     Text = "Hear",
 
                     [Children] = New "UISizeConstraint" {
-                        MinSize = Vector2.new(40, 0)
+                        MinSize = Vector2.new(55, 0)
                     }
                 },
                 New "TextLabel" {
                     Size = UDim2.new(0, 0, 0, 40),
                     TextColor3 = Color3.new(1, 1, 1),
-                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextXAlignment = Enum.TextXAlignment.Center,
                     BackgroundTransparency = 1,
                     TextSize = 20,
                     Text = "Read",
 
                     [Children] = New "UISizeConstraint" {
-                        MinSize = Vector2.new(40, 0)
+                        MinSize = Vector2.new(55, 0)
                     }
                 },
                 New "TextLabel" {
                     Size = UDim2.new(0, 0, 0, 40),
                     TextColor3 = Color3.new(1, 1, 1),
-                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextXAlignment = Enum.TextXAlignment.Center,
                     BackgroundTransparency = 1,
                     TextSize = 20,
-                    Text = "Remember",
+                    Text = "Store",
 
                     [Children] = New "UISizeConstraint" {
-                        MinSize = Vector2.new(40, 0)
+                        MinSize = Vector2.new(55, 0)
+                    }
+                },
+                New "TextLabel" {
+                    Size = UDim2.new(0, 0, 0, 40),
+                    TextColor3 = Color3.new(1, 1, 1),
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    BackgroundTransparency = 1,
+                    TextSize = 20,
+                    Text = "Tokens",
+
+                    [Children] = New "UISizeConstraint" {
+                        MinSize = Vector2.new(80, 0)
                     }
                 }
             }
@@ -118,14 +129,19 @@ local function SetupAIMenu()
 	end)
 
     for _, npc in sortedNPCs do
-        Perms[npc] = {}
-        Perms[npc]["Hear"] = Fusion.State(false)
-        Perms[npc]["Read"] = Fusion.State(false)
-        Perms[npc]["Remember"] = Fusion.State(false)
+        NPCState[npc] = {}
+        NPCState[npc]["Hear"] = Fusion.State(false)
+        NPCState[npc]["Read"] = Fusion.State(false)
+        NPCState[npc]["Remember"] = Fusion.State(false)
+        NPCState[npc]["Visible"] = Fusion.State(false)
+        NPCState[npc]["TokenCount"] = Fusion.State(0)
 
         table.insert(NPCentries, 
             New "Frame" {
                 BackgroundTransparency = 1,
+                Visible = Fusion.Computed(function()
+                    return NPCState[npc]["Visible"]:get()
+                end),
 
                 [Children] = {
                     New "TextLabel" {
@@ -144,13 +160,13 @@ local function SetupAIMenu()
                     New "ImageButton" {
                         Size = UDim2.new(0, 40, 0, 40),
                         BackgroundTransparency = Fusion.Computed(function()
-                            if Perms[npc]["Hear"]:get() then
+                            if NPCState[npc]["Hear"]:get() then
                                 return 0
                             else
                                 return 1
                             end
                         end),
-                        
+                        ScaleType = Enum.ScaleType.Fit,
                         Image = "rbxassetid://12296137475",
                         BackgroundColor3 = selectedColor,
                         [Children] = New "UICorner" {
@@ -161,17 +177,18 @@ local function SetupAIMenu()
                     New "ImageButton" {
                         Size = UDim2.new(0, 40, 0, 40),
                         BackgroundTransparency = Fusion.Computed(function()
-                            if Perms[npc]["Read"]:get() then
+                            if NPCState[npc]["Read"]:get() then
                                 return 0
                             else
                                 return 1
                             end
                         end),
                         Image = "rbxassetid://12296137041",
+                        ScaleType = Enum.ScaleType.Fit,
                         BackgroundColor3 = selectedColor,
                         [OnEvent "Activated"] = function()
-                            local perm = Perms[npc]["Read"]:get()
-                            Perms[npc]["Read"]:set(not perm)
+                            local perm = NPCState[npc]["Read"]:get()
+                            NPCState[npc]["Read"]:set(not perm)
                             SetNPCPrivacySettings:FireServer(npc.PersistId.Value, "Read", not perm)
                         end,
                         [Children] = New "UICorner" {
@@ -182,19 +199,36 @@ local function SetupAIMenu()
                     New "ImageButton" {
                         Size = UDim2.new(0, 40, 0, 40),
                         BackgroundTransparency = Fusion.Computed(function()
-                            if Perms[npc]["Remember"]:get() then
+                            if NPCState[npc]["Remember"]:get() then
                                 return 0
                             else
                                 return 1
                             end
                         end),
                         Image = "rbxassetid://12296137280",
+                        ScaleType = Enum.ScaleType.Fit,
                         BackgroundColor3 = selectedColor,
                         [OnEvent "Activated"] = function()
-                            local perm = Perms[npc]["Remember"]:get()
-                            Perms[npc]["Remember"]:set(not perm)
+                            local perm = NPCState[npc]["Remember"]:get()
+                            NPCState[npc]["Remember"]:set(not perm)
                             SetNPCPrivacySettings:FireServer(npc.PersistId.Value, "Remember", not perm)
                         end,
+                        [Children] = New "UICorner" {
+                            CornerRadius = UDim.new(0, 3)
+                        }
+                    },
+                    -- Token count
+                    New "TextLabel" {
+                        Size = UDim2.new(0, 40, 0, 40),
+                        BackgroundTransparency = 1,
+                        TextColor3 = Color3.new(0.807843137254902, 0.8352941176470589, 0.027450980392156862),
+                        TextXAlignment = Enum.TextXAlignment.Center,
+                        TextSize = 20,
+                        Text = Fusion.Computed(function()
+                            local numTokens = NPCState[npc]["TokenCount"]:get()
+                            if numTokens < 1000 then return tostring(numTokens) end
+                            return math.floor(numTokens / 100) / 10 .. "K"
+                        end),
                         [Children] = New "UICorner" {
                             CornerRadius = UDim.new(0, 3)
                         }
@@ -256,14 +290,14 @@ local function SetupAIMenu()
                 NPCFrame,
 
                 New "TextLabel" {
-                    Position = UDim2.fromScale(.5, .85),
+                    Position = UDim2.fromScale(.5, .9),
                     AnchorPoint = Vector2.new(.5, .5),
                     Size = UDim2.fromScale(0.9, 0.2),
                     TextColor3 = Color3.new(171, 171, 171),
                     BackgroundTransparency = 1,
                     TextSize = 15,
                     TextWrapped = true,
-                    Text = "Hear shows if the NPC can hear you via transcription of voice chat. Read shows if the NPC can read your text messages. Remember shows if the NPC remembers summaries of its interactions with you for later reference. Note queries are sent to OpenAI for processing."
+                    Text = "Hear shows if the NPC can hear you via transcription of voice chat. Read shows if the NPC can read your text messages. Store shows if the NPC remembers summaries of its interactions with you for later reference. Note queries are sent to OpenAI for processing."
                 },
 
                 New "UICorner" {
@@ -305,22 +339,31 @@ local function SetupAIMenu()
 
             local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
             for _, npcInstance in npcInstances do
-                if not npcInstance:IsDescendantOf(game.Workspace) then continue end
+                if not npcInstance:IsDescendantOf(game.Workspace) then
+                    NPCState[npcInstance]["Visible"]:set(false)
+                    continue
+                end
+
+                NPCState[npcInstance]["Visible"]:set(true)
+                local tokenCount = npcInstance:GetAttribute("npcservice_tokencount")
+                if tokenCount then
+                    NPCState[npcInstance]["TokenCount"]:set(tokenCount)
+                end
                 activeAIs = true
 
                 local npcPos = getInstancePosition(npcInstance)
 
                 if npcInstance:GetAttribute("npcservice_hearing") then
-                    Perms[npcInstance]["Hear"]:set(true)
+                    NPCState[npcInstance]["Hear"]:set(true)
                 else
-                    Perms[npcInstance]["Hear"]:set(false)
+                    NPCState[npcInstance]["Hear"]:set(false)
                 end
                 
                 if (getInstancePosition(localPlayer.Character) - npcPos).Magnitude < CUTOFF then
                     if npcInstance:GetAttribute("npcservice_hearing") then
-                        Perms[npcInstance]["Hear"]:set(true)
+                        NPCState[npcInstance]["Hear"]:set(true)
                     else
-                        Perms[npcInstance]["Hear"]:set(false)
+                        NPCState[npcInstance]["Hear"]:set(false)
                     end
 
                     break
