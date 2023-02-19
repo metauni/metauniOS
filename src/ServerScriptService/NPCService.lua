@@ -51,7 +51,10 @@ local REFERENCE_PROPER_NAMES = {
     ["russell_western_philosophy"] = "Bertrand Russell's 'History of Western Philosophy'",
     ["russell_basic_writings"] = "Bertrand Russell's 'Basic Writings'",
     ["russell_autobiography"] = "Bertrand Russell's autobiography",
-    ["utopian_universities"] = "Taylor and Pellew's 'Utopian Universities'"
+    ["utopian_universities"] = "Taylor and Pellew's 'Utopian Universities'",
+    ["haiku_anthology"] = "the book 'Haiku - An Anthology of Japanese Poems'",
+    ["haiku_mountain_tasting"] = "the collection 'Mountain Tasting' of haiku by Taneda",
+    ["bashos_haiku"] = "the book 'Bashos Haiku'"
 }
 
 -- Utils
@@ -220,8 +223,8 @@ function NPC.DefaultPersonalityProfiles()
         ReferenceRelevanceScoreCutoff = 0.83,
         TranscriptRelevanceScoreCutoff = 0.83,
         MemoryRelevanceScoreCutoff = 0.7,
-        ModelTemperature = 0.85,
-	    ModelFrequencyPenalty = 1.4,
+        ModelTemperature = 0.9, -- was 0.85
+	    ModelFrequencyPenalty = 1.8, -- was 1.6
 	    ModelPresencePenalty = 1.6,
         ModelName = "text-davinci-003",
         HearingRadius = 40,
@@ -245,7 +248,6 @@ function NPC.DefaultPersonalityProfiles()
         ReferenceRelevanceScoreCutoff = 0.8,
         TranscriptRelevanceScoreCutoff = 0.8,
         MemoryRelevanceScoreCutoff = 0.8,
-        ModelTemperature = 0.9,
         HearingRadius = 60,
         GetsDetailedObservationsRadius = 60,
         PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
@@ -323,7 +325,6 @@ end
 function NPC:SetCurrentProfile(name)
     self.CurrentProfile = name
     self.TimestepDelay = self:GetPersonality("TimestepDelayNormal")
-    print(`[NPCService] NPC {self.Instance.Name} switching to profile {name}`)
 end
 
 function NPC:UpdatePersonalityProfile()
@@ -399,7 +400,7 @@ function NPC:Timestep(forceSearch)
         local targetPos = getInstancePosition(targetOrb) + self.OrbOffset
         local distance = (targetPos - self.Instance.PrimaryPart.Position).Magnitude
         
-        if (not self.Instance:GetAttribute("walking")) and distance > 5 then  
+        if (not self.Instance:GetAttribute("walking")) and distance > 5 then
             self:WalkToPos(targetPos)
         end
     end
@@ -934,7 +935,7 @@ function NPC:GenerateSummary(type)
 	prompt = prompt .. "\n"
 	prompt = prompt .. "Summary:"
 	
-	local temperature = 0.7
+	local temperature = 0.5
 	local freqPenalty = 0
 	local presPenalty = 0
 
@@ -943,6 +944,12 @@ function NPC:GenerateSummary(type)
 		warn("[NPC] Got nil response from GPT3")
 		return
 	end
+
+    --local responseTextCurie, _ = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty, "text-curie-001")
+    --print("Davinci summary ----")
+    --print(responseText)
+    --print("Curie summary-----")
+    --print(responseTextCurie)
 
     self.TokenCount += tokenCount
     self.Instance:SetAttribute("npcservice_tokencount", self.TokenCount)
@@ -1490,7 +1497,7 @@ function NPCService.Start()
                 local board = BoardService.Boards[boardInstance]
 
                 local boardText = AIService.OCRBoard(board)
-                if boardText then
+                if boardText and boardText ~= "" then
                     boardText = cleanstring(boardText)
                     boardText = string.gsub(boardText, "\n", " ")
 
