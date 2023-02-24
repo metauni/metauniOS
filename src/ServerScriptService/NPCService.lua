@@ -1364,8 +1364,19 @@ function NPCService.NPCByPersistId(persistId)
     end
 end
 
+local sceneProps = {}
+
 function NPCService.StartScene(scene)
-    for _, npcData in scene.NPCs do
+    local Config = require(scene.Config)
+
+    if Config.Name then
+        print(`[NPCService] Starting scene {Config.Name}`)
+    else
+        print("[NPCService] Starting scene")
+    end
+
+    -- Move NPCs into position
+    for _, npcData in Config.NPCs do
         local npc = NPCService.NPCByPersistId(npcData.PersistId)
         if npc == nil then continue end
 
@@ -1376,10 +1387,28 @@ function NPCService.StartScene(scene)
         npc.Instance:PivotTo(CFrame.new(npcData.Position))
         npc.Instance:SetAttribute("npcservice_inactivescene", true)
     end
+
+    -- Move props into position
+    if scene:FindFirstChild("Props") then
+        local sceneFolder = scene.Props:Clone()
+        sceneFolder.Parent = npcWorkspaceFolder
+        sceneProps[scene] = sceneFolder
+    end
+
+    if Config.Start then task.spawn(Config.Start) end
 end
 
 function NPCService.EndScene(scene)
-    for _, npcData in scene.NPCs do
+    local Config = require(scene.Config)
+
+    if Config.Name then
+        print(`[NPCService] Ending scene {Config.Name}`)
+    else
+        print("[NPCService] Ending scene")
+    end
+
+    -- Move NPCs into storage
+    for _, npcData in Config.NPCs do
         local npc = NPCService.NPCByPersistId(npcData.PersistId)
         if npc == nil then continue end
 
@@ -1389,6 +1418,13 @@ function NPCService.EndScene(scene)
 
         npc.Instance:SetAttribute("npcservice_inactivescene", false)
     end
+
+    if sceneProps[scene] then
+        sceneProps[scene]:Destroy()
+        sceneProps[scene] = nil
+    end
+
+    if Config.Stop then task.spawn(Config.Stop) end
 end
 
 function NPCService.CheckScenes()
@@ -1403,13 +1439,13 @@ function NPCService.CheckScenes()
 
             if not scene:FindFirstChild("Config") then continue end
             local Config = require(scene.Config)
-            local active = inTimePeriods(Config.Times)
+            local active = inTimePeriods(Config.Times) or scene:GetAttribute("npcservice_scene_debugon")
             
             if active and sceneStatus[scene] == "inactive" then
-                NPCService.StartScene(Config)
+                NPCService.StartScene(scene)
                 sceneStatus[scene] = "active"
             elseif not active and sceneStatus[scene] == "active" then
-                NPCService.EndScene(Config)
+                NPCService.EndScene(scene)
                 sceneStatus[scene] = "inactive"
             end
         end
