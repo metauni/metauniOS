@@ -1,15 +1,18 @@
+-- Roblox services
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ChatService = game:GetService("Chat")
-local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
-local Fusion = require(ReplicatedStorage.Fusion)
 
+-- Other services
+local Fusion = require(ReplicatedStorage.Fusion)
 local New = Fusion.New
 local Children = Fusion.Children
 local OnEvent = Fusion.OnEvent
 
 local localPlayer = Players.LocalPlayer
+
+-- Utils
 local GetNPCPrivacySettings = ReplicatedStorage:WaitForChild("GetNPCPrivacySettings")
 local SetNPCPrivacySettings = ReplicatedStorage:WaitForChild("SetNPCPrivacySettings")
 
@@ -259,7 +262,7 @@ local function SetupAIMenu()
         }
 
     -- Create the Privacy settings GUI
-    local privacyGui = New "ScreenGui" {
+    New "ScreenGui" {
         Parent = Players.LocalPlayer.PlayerGui,
     
         Name = "AIPrivacyGui",
@@ -341,15 +344,15 @@ local function SetupAIMenu()
             for _, npcInstance in npcInstances do
                 if not npcInstance:IsDescendantOf(game.Workspace) then
                     NPCState[npcInstance]["Visible"]:set(false)
-                    continue
+                else
+                    activeAIs = true
+                    NPCState[npcInstance]["Visible"]:set(true)
                 end
 
-                NPCState[npcInstance]["Visible"]:set(true)
                 local tokenCount = npcInstance:GetAttribute("npcservice_tokencount")
                 if tokenCount then
                     NPCState[npcInstance]["TokenCount"]:set(tokenCount)
                 end
-                activeAIs = true
 
                 local npcPos = getInstancePosition(npcInstance)
 
@@ -365,8 +368,6 @@ local function SetupAIMenu()
                     else
                         NPCState[npcInstance]["Hear"]:set(false)
                     end
-
-                    break
                 end
             end
 

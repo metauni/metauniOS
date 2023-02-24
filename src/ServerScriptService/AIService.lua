@@ -72,7 +72,8 @@ local function safePostAsync(apiUrl, encodedRequest, authDict)
     end
 
     if not success then
-        warn("[AIService] PostAsync failed: " .. response)
+        warn(`[AIService] PostAsync to {apiUrl} failed.`)
+        warn("            " .. response)
         return
     end	
 

@@ -33,7 +33,8 @@ NPCService.NPCs = {}
 NPCService.NPCFromInstance = {}
 
 local REFERENCE_PROPER_NAMES = {
-    --["euclid"] = "Euclid",
+    ["euclid"] = "Euclid's Elements",
+    ["heath_greek_history"] = "Heath's 'History of Greek Mathematics'",
     ["brighter"] = "Adam Dorr's book 'Brighter'",
     ["darwin_machines"] = "George Dyson's book 'Darwin among the Machines'",
     ["harbison"] = "Harbison's book 'Travels in the History of Architecture'",
@@ -542,10 +543,7 @@ function NPC:LongTermMemory(relevanceCutoff)
     local topk = 3
     local matches = AIService.QueryEmbeddings(embedding, filter, topk, "npc")
     if matches == nil then return end
-    if #matches == 0 then
-        warn("[AIService] No matches for query of long term memory")
-        return
-    end
+    if #matches == 0 then return end
 
     local goodMatches = {}
     for _, match in matches do
@@ -1500,6 +1498,7 @@ function NPCService.Start()
                 if boardText and boardText ~= "" then
                     boardText = cleanstring(boardText)
                     boardText = string.gsub(boardText, "\n", " ")
+                    boardText = string.gsub(boardText, "\"", "'")
 
                     local obFolder = observationFolder(boardInstance)
                     obFolder:ClearAllChildren()

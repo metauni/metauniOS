@@ -59,7 +59,7 @@ function NotificationService.GetNumberOfSubscribers()
 
 		return responseData
 	else
-		print("[NotificationService] HTTPService PostAsync failed ".. response)
+		print("[NotificationService] PostAsync failed. ".. response)
 		return {}
 	end
 end
