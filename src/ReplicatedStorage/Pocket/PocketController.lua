@@ -32,40 +32,6 @@ local function getInstancePosition(x)
 	return nil
 end
 
-local function teleportToNPC(persistId)
-    local npcs = CollectionService:GetTagged("npcservice_npc")
-    local targetNPC = nil
-    for _, npc in npcs do
-        if npc.PersistId.Value == persistId then
-            targetNPC = npc
-            break
-        end
-    end
-
-    if not targetNPC then return end
-
-    -- Find the nearest tagged spawn location to this NPC
-    local spawnLocations = CollectionService:GetTagged("spawnlocation")
-    local minDistance = math.huge
-    local minSpawnLoc = nil
-    for _, spawnLoc in spawnLocations do
-        local distance = (spawnLoc.Position - targetNPC.HumanoidRootPart.Position).Magnitude
-        if distance < minDistance then
-            minDistance = distance
-            minSpawnLoc = spawnLoc
-        end
-    end
-
-    if minSpawnLoc ~= nil then
-        print("[Pocket] Found spawn location near NPC, pivoting")
-        local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-        character:WaitForChild("HumanoidRootPart")
-        task.wait(0.1)
-        character.HumanoidRootPart:PivotTo(CFrame.new(minSpawnLoc.Position))
-        print(minSpawnLoc:GetFullName())
-    end
-end
-
 return {
 
 	Start = function()
@@ -211,10 +177,29 @@ return {
 			end
 		end)
 
-        -- Handle loading into the game with a target NPC
+        local function teleportToBoard(boardPersistId)
+            local boards = CollectionService:GetTagged("metaboard")
+    
+            for _, board in boards do
+                if board:FindFirstChild("PersistId") then
+                    if board.PersistId.Value == boardPersistId then
+                        local offsetCFrame = board.CFrame * CFrame.new(0, 0, -10)
+                        local newCFrame = CFrame.lookAt(offsetCFrame.Position, board.Position)
+                        localCharacter:WaitForChild("HumanoidRootPart")
+                        task.wait(1)
+                        localCharacter.HumanoidRootPart:PivotTo(newCFrame)
+                        return
+                    end
+                end
+            end
+        end
+
+        -- Handle loading into the game with a target board when
+        -- we are not in a pocket
 		local launchData = GetLaunchDataRemoteFunction:InvokeServer()
-        if launchData and launchData["npc"] ~= nil then
-            teleportToNPC(tonumber(launchData["npc"]))
+        if launchData and launchData["targetBoardPersistId"] ~= nil then
+            print("[MetaPortal] Arrived with TargetBoardPersistId")
+            teleportToBoard(tonumber(launchData["targetBoardPersistId"]))
         end
 
         local teleportData = TeleportService:GetLocalPlayerTeleportData()
@@ -236,20 +221,7 @@ return {
     
             if teleportData.TargetBoardPersistId then
                 print("[MetaPortal] Arrived with TargetBoardPersistId " .. teleportData.TargetBoardPersistId)
-                -- Look for the board with this PersistId
-                local boards = CollectionService:GetTagged("metaboard")
-    
-                for _, board in boards do
-                    if board:FindFirstChild("PersistId") then
-                        if board.PersistId.Value == tonumber(teleportData.TargetBoardPersistId) then
-    
-                            local offsetCFrame = board.CFrame * CFrame.new(0, 0, -10)
-                                                    local newCFrame = CFrame.lookAt(offsetCFrame.Position, board.Position)
-                                                    localCharacter:WaitForChild("HumanoidRootPart")
-                            localCharacter.HumanoidRootPart:PivotTo(newCFrame)
-                        end
-                    end
-                end
+                teleportToBoard(tonumber(teleportData.TargetBoardPersistId))
             end
         
             local start = game.Workspace:FindFirstChild("Start")

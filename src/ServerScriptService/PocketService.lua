@@ -1231,13 +1231,11 @@ function MetaPortal.PlayerArrive(plr)
                     -- print("[MetaPortal] User arrived with target board "..targetBoard)
                     MetaPortal.GotoPocketHandler(plr, pocketName, passThrough, targetBoard)
                 else
-				    MetaPortal.GotoPocketHandler(plr, pocketName, passThrough)	
+				    MetaPortal.GotoPocketHandler(plr, pocketName, passThrough)
                 end
 			end
             return
 		end
-
-        -- NOTE: teleporting to an NPC is handled on the client
 	end
 end
 
