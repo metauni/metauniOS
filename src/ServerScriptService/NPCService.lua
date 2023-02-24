@@ -10,13 +10,13 @@ local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local ChatService = game:GetService("Chat")
-local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 local PathfindingService = game:GetService("PathfindingService")
 local TextService = game:GetService("TextService")
 local MessagingService = game:GetService("MessagingService")
 local DataStoreService = game:GetService("DataStoreService")
 
+-- Services
 local AIService = require(script.Parent.AIService)
 local SecretService = require(ServerScriptService.SecretService)
 local BoardService = require(script.Parent.BoardService)
@@ -31,6 +31,12 @@ NPCService.ObjectTag = "npcservice_object"
 NPCService.TranscriptionTopic = "transcription"
 NPCService.NPCs = {}
 NPCService.NPCFromInstance = {}
+
+local npcStorageFolder = ReplicatedStorage:FindFirstChild("NPCs")
+assert(npcStorageFolder, "[NPCService] Missing NPC storage folder")
+
+local npcWorkspaceFolder = game.Workspace:FindFirstChild("NPCs")
+assert(npcWorkspaceFolder, "[NPCService] Missing NPC workspace folder")
 
 local REFERENCE_PROPER_NAMES = {
     ["euclid"] = "Euclid's Elements",
@@ -270,8 +276,6 @@ function NPC.DefaultPersonalityProfiles()
 	    ModelPresencePenalty = 1.6,
     })
 
-    personalityProfiles.OfficeHours = {}
-
     return personalityProfiles
 end
 
@@ -468,25 +472,6 @@ function NPC:AddSummary(text, type)
         local vectorId = HttpService:GenerateGUID(false)
         AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
     end
-end
-
-function NPC:InOfficeHours()
-    local function minutesSinceBeginningOfWeek()
-        local dayOfWeek = tonumber(os.date("!%w"))
-        local secondsSinceMidnight = os.date("!%H") * 3600 + os.date("!%M") * 60 + os.date("!%S")
-        local secondsToLastSunday = dayOfWeek * 24 * 3600
-        return (secondsSinceMidnight + secondsToLastSunday) / 60
-    end
-
-    local minutesNow = minutesSinceBeginningOfWeek()
-    local officeHours = self.PersonalityProfiles.OfficeHours
-    for _, hours in officeHours do
-        if minutesNow >= hours.StartTime and minutesNow <= hours.StartTime + hours.Duration then
-            return true
-        end
-    end
-
-    return false
 end
 
 function NPC:ShortTermMemory()
@@ -1355,6 +1340,82 @@ function NPCService.Init()
     end)
 end
 
+local function inTimePeriods(periodList)
+    local function minutesSinceBeginningOfWeek()
+        local dayOfWeek = tonumber(os.date("!%w"))
+        local secondsSinceMidnight = os.date("!%H") * 3600 + os.date("!%M") * 60 + os.date("!%S")
+        local secondsToLastSunday = dayOfWeek * 24 * 3600
+        return (secondsSinceMidnight + secondsToLastSunday) / 60
+    end
+
+    local minutesNow = minutesSinceBeginningOfWeek()
+    for _, hours in periodList do
+        if minutesNow >= hours.StartTime and minutesNow <= hours.StartTime + hours.Duration then
+            return true
+        end
+    end
+
+    return false
+end
+
+function NPCService.NPCByPersistId(persistId)
+    for _, npc in NPCService.NPCs do
+        if npc.PersistId == persistId then return npc end
+    end
+end
+
+function NPCService.StartScene(scene)
+    for _, npcData in scene.NPCs do
+        local npc = NPCService.NPCByPersistId(npcData.PersistId)
+        if npc == nil then continue end
+
+        if npc.Instance.Parent == npcStorageFolder then
+            npc.Instance.Parent = npcWorkspaceFolder
+        end
+        
+        npc.Instance:PivotTo(CFrame.new(npcData.Position))
+        npc.Instance:SetAttribute("npcservice_inactivescene", true)
+    end
+end
+
+function NPCService.EndScene(scene)
+    for _, npcData in scene.NPCs do
+        local npc = NPCService.NPCByPersistId(npcData.PersistId)
+        if npc == nil then continue end
+
+        if npc.Instance.Parent == npcWorkspaceFolder then
+            npc.Instance.Parent = npcStorageFolder
+        end
+
+        npc.Instance:SetAttribute("npcservice_inactivescene", false)
+    end
+end
+
+function NPCService.CheckScenes()
+    local DELAY = 10
+    local sceneStatus = {} -- active or inactive
+
+    while true do
+        task.wait(DELAY)
+
+        for _, scene in CollectionService:GetTagged("npcservice_scene") do
+            if sceneStatus[scene] == nil then sceneStatus[scene] = "inactive" end
+
+            if not scene:FindFirstChild("Config") then continue end
+            local Config = require(scene.Config)
+            local active = inTimePeriods(Config.Times)
+            
+            if active and sceneStatus[scene] == "inactive" then
+                NPCService.StartScene(Config)
+                sceneStatus[scene] = "active"
+            elseif not active and sceneStatus[scene] == "active" then
+                NPCService.EndScene(Config)
+                sceneStatus[scene] = "inactive"
+            end
+        end
+    end
+end
+
 function NPCService.Start()
     -- Subscribe to messages of voice transcriptions
     local subscribeSuccess, subscribeConnection = pcall(function()
@@ -1397,22 +1458,14 @@ function NPCService.Start()
                 task.wait(timestepDelay)
 
                 -- Check to see if we are in office hours
-                local inOfficeHours = npc:InOfficeHours()
+                local inActiveScene = npc.Instance:GetAttribute("npcservice_inactivescene")
                 local inWorkspace = npc.Instance:IsDescendantOf(game.Workspace)
-
-                if inOfficeHours and not inWorkspace then
-                    local npcFolder = game.Workspace:FindFirstChild("NPCs")
-                    if npcFolder then
-                        npc.Instance.Parent = npcFolder
-                        inWorkspace = true
-                    end
-                end
 
                 -- If the agent has not been interacted with recently, and is not
                 -- in office hours, and has not been summoned, move it to storage
-                if not inOfficeHours and npc.LastInteractionTimestamp < tick() - 5 * 60 and 
+                if not inActiveScene and npc.LastInteractionTimestamp < tick() - 5 * 60 and 
                     not npc.Instance:GetAttribute("npcservice_summoned") then
-                    local npcStorageFolder = ReplicatedStorage:FindFirstChild("NPCs")
+                    
                     if npcStorageFolder then
                         npc.Instance.Parent = npcStorageFolder
                         inWorkspace = false
@@ -1446,6 +1499,8 @@ function NPCService.Start()
             end
         end)
     end
+
+    task.spawn(NPCService.CheckScenes)
                 
     -- Keep updated observations of boards in a way that NPCs can read them
     -- In order to avoid frequently OCRing boards that are far away from any
