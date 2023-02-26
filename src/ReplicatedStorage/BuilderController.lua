@@ -1,8 +1,8 @@
 -- Roblox services
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 -- Other services
 local Fusion = require(ReplicatedStorage.Fusion)
@@ -11,8 +11,10 @@ local Children = Fusion.Children
 local OnEvent = Fusion.OnEvent
 
 -- Globals
+local BLOCKTAG = "builderservice_block"
 local localPlayer = Players.LocalPlayer
 local placeBlockEvent = ReplicatedStorage:WaitForChild("BuilderPlaceBlock")
+local destroyBlockEvent = ReplicatedStorage:WaitForChild("DestroyBlockEvent")
 local buildingFolder = game.Workspace:WaitForChild("BuildingFolder")
 local virtualBlock = nil
 
@@ -27,9 +29,12 @@ local blockTypes = { ["Concrete"] = { Color = Color3.fromRGB(159, 161, 172),
                                          Transparency = 0 },
                      ["Glass"] = { Color = Color3.fromRGB(163, 162, 165),
                                          Material = Enum.Material.Glass,
-                                         Transparency = 0.9} }
+                                         Transparency = 0.9},
+                     ["Destroy"] = { Color = Color3.fromRGB(210, 25, 25),
+                                         Material = Enum.Material.SmoothPlastic,
+                                         Transparency = 0.5}, }
 
-local availableBlockTypes = { "Concrete", "Redwood", "Glass" }
+local availableBlockTypes = { "Concrete", "Redwood", "Glass", "Destroy" }
 
 local GRID_SIZE = 3
 local PLACE_DISTANCE = 30
@@ -57,7 +62,14 @@ local function handleInputChanged(input)
     local raycastResult = workspace:Raycast(ray.Origin, PLACE_DISTANCE * ray.Direction, raycastParams)
     if not raycastResult then return end
 
-    local hitPosition = placePosFromHitPos(raycastResult.Position, ray, raycastResult.Normal)
+    local btype = CurrentBlock:get()
+        
+    local hitPosition
+    if btype ~= "Destroy" then
+        hitPosition = placePosFromHitPos(raycastResult.Position, ray, raycastResult.Normal)
+    else
+        hitPosition = raycastResult.Position
+    end
 
     -- Place a virtual block
     if not virtualBlock then
@@ -89,24 +101,35 @@ local function handleInput(input, gameProcessedEvent)
 
     local hitPosition = placePosFromHitPos(raycastResult.Position, ray, raycastResult.Normal)
 
-    local color = blockTypes[CurrentBlock:get()].Color
-    local material = blockTypes[CurrentBlock:get()].Material
-    local transparency = blockTypes[CurrentBlock:get()].Transparency
+    local btype = CurrentBlock:get()
+    local color = blockTypes[btype].Color
+    local material = blockTypes[btype].Material
+    local transparency = blockTypes[btype].Transparency
 
-    placeBlockEvent:FireServer(hitPosition, blockTypes[CurrentBlock:get()])
+    if btype ~= "Destroy" then
+        placeBlockEvent:FireServer(hitPosition, blockTypes[btype])
 
-    local block = Instance.new("Part")
-    block.Size = Vector3.new(GRID_SIZE,GRID_SIZE,GRID_SIZE)
-    block.Anchored = true
-    block.Color = color
-    block.Material = material
-    block.Transparency = transparency
-    block.Parent = buildingFolder
-    block.Position = hitPosition
+        local block = Instance.new("Part")
+        block.Size = Vector3.new(GRID_SIZE,GRID_SIZE,GRID_SIZE)
+        block.Anchored = true
+        block.Color = color
+        block.Material = material
+        block.Transparency = transparency
+        block.Parent = buildingFolder
+        block.Position = hitPosition
+        CollectionService:AddTag(block, BLOCKTAG)
 
-    task.delay(5, function()
-        block:Destroy()
-    end)
+        -- Destroy the local block once the server copy replicates
+        task.delay(5, function()
+            block:Destroy()
+        end)
+    else
+        local hitPart = raycastResult.Instance
+        if hitPart and CollectionService:HasTag(hitPart, BLOCKTAG) then
+            hitPart:Destroy()
+            destroyBlockEvent:FireServer(hitPart, hitPart.Position)
+        end
+    end
 end
 
 local function Setup()
@@ -129,7 +152,7 @@ local function Setup()
         BuilderUIEnabled:set(true)
     end)
 
-    tool.Unequipped:Connect(function()
+    local function tearDown()
         BuilderUIEnabled:set(false)
 
         if inputConnection then
@@ -146,6 +169,10 @@ local function Setup()
             virtualBlock:Destroy()
             virtualBlock = nil
         end
+    end
+
+    tool.Unequipped:Connect(function()
+        tearDown()
     end)
 
     -- The block choosing UI
@@ -162,11 +189,9 @@ local function Setup()
                     [OnEvent "Activated"] = function()
                         CurrentBlock:set(t)
 
-                        local color = blockTypes[CurrentBlock:get()].Color
-                        local material = blockTypes[CurrentBlock:get()].Material
                         if virtualBlock then
-                            virtualBlock.Color = color
-                            virtualBlock.Material = material
+                            virtualBlock.Color = blockTypes[CurrentBlock:get()].Color
+                            virtualBlock.Material = blockTypes[CurrentBlock:get()].Material
                         end
                     end,
                     [Children] = New "UIStroke" {
@@ -184,7 +209,7 @@ local function Setup()
         Parent = Players.LocalPlayer.PlayerGui,
     
         Name = "BuilderGui",
-        ResetOnSpawn = false,
+        ResetOnSpawn = true,
         ZIndexBehavior = "Sibling",
         Enabled = Fusion.Computed(function()
             return BuilderUIEnabled:get()
@@ -201,6 +226,10 @@ local function Setup()
         }
     }
 end
+
+Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    Setup()
+end)
 
 return {
     Start = Setup
