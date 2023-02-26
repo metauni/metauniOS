@@ -186,7 +186,7 @@ return {
                         local offsetCFrame = board.CFrame * CFrame.new(0, 0, -10)
                         local newCFrame = CFrame.lookAt(offsetCFrame.Position, board.Position)
                         localCharacter:WaitForChild("HumanoidRootPart")
-                        task.wait(1)
+                        task.wait(1.5)
                         localCharacter.HumanoidRootPart:PivotTo(newCFrame)
                         return
                     end
