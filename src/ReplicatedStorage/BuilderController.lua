@@ -17,6 +17,9 @@ local placeBlockEvent = ReplicatedStorage:WaitForChild("BuilderPlaceBlock")
 local destroyBlockEvent = ReplicatedStorage:WaitForChild("DestroyBlockEvent")
 local buildingFolder = game.Workspace:WaitForChild("BuildingFolder")
 local virtualBlock = nil
+local inputConnection = nil
+local inputChangedConnection = nil
+local inputEndedConnection = nil
 
 local BuilderUIEnabled = Fusion.State(false)
 local CurrentBlock = Fusion.State("Concrete")
@@ -46,60 +49,78 @@ local function projectToGrid(v)
     return Vector3.new(x,y,z)
 end
 
-local function placePosFromHitPos(pos, ray, normal)
-    --return projectToGrid(pos - 0.05 * ray.Direction)
+local function makeVirtualBlock()
+    virtualBlock = Instance.new("Part")
+    virtualBlock.Name = "VirtualBlock"
+    virtualBlock.Size = Vector3.new(GRID_SIZE,GRID_SIZE,GRID_SIZE)
+    virtualBlock.Anchored = true
+    virtualBlock.CanCollide = false
+    virtualBlock.CastShadow = false
+    virtualBlock.Color = blockTypes[CurrentBlock:get()].Color
+    virtualBlock.Material = blockTypes[CurrentBlock:get()].Material
+    virtualBlock.Parent = buildingFolder
+    virtualBlock.Transparency = 0.5
+end
+
+local function placePosFromHitPos(pos, normal)
     return projectToGrid(pos + 0.05 * normal)
 end
 
-local function handleInputChanged(input)
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-
-    local mouseLocation = UserInputService:GetMouseLocation()
-    local ray = game.Workspace.CurrentCamera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
+local function raycastToPos(pos)
+    local ray = game.Workspace.CurrentCamera:ScreenPointToRay(pos.X, pos.Y)
     local raycastParams = RaycastParams.new()
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
     raycastParams.FilterDescendantsInstances = {virtualBlock, localPlayer.Character}
-    local raycastResult = workspace:Raycast(ray.Origin, PLACE_DISTANCE * ray.Direction, raycastParams)
+    return workspace:Raycast(ray.Origin, PLACE_DISTANCE * ray.Direction, raycastParams)
+end
+
+local function handleInputChanged(input, gameProcessedEvent)
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    if gameProcessedEvent then return end
+    if not virtualBlock then return end
+
+    local pos = if UserInputService.TouchEnabled then input.Position else UserInputService:GetMouseLocation()
+    local raycastResult = raycastToPos(pos)
     if not raycastResult then return end
 
     local btype = CurrentBlock:get()
-        
-    local hitPosition
-    if btype ~= "Destroy" then
-        hitPosition = placePosFromHitPos(raycastResult.Position, ray, raycastResult.Normal)
-    else
-        hitPosition = raycastResult.Position
-    end
-
-    -- Place a virtual block
-    if not virtualBlock then
-        virtualBlock = Instance.new("Part")
-        virtualBlock.Size = Vector3.new(GRID_SIZE,GRID_SIZE,GRID_SIZE)
-        virtualBlock.Anchored = true
-        virtualBlock.CanCollide = false
-        virtualBlock.CastShadow = false
-        virtualBlock.Color = blockTypes[CurrentBlock:get()].Color
-        virtualBlock.Material = blockTypes[CurrentBlock:get()].Material
-        virtualBlock.Parent = buildingFolder
-        virtualBlock.Transparency = 0.5
-    end
-
+    local hitPosition = if btype == "Destroy" then raycastResult.Position else placePosFromHitPos(raycastResult.Position, raycastResult.Normal)
     virtualBlock.Position = hitPosition
 end
 
-local function handleInput(input, gameProcessedEvent)
-    if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+local function handleInputBegan(input, gameProcessedEvent)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
     if gameProcessedEvent then return end
 
-    local mouseLocation = UserInputService:GetMouseLocation()
-    local ray = game.Workspace.CurrentCamera:ScreenPointToRay(mouseLocation.X, mouseLocation.Y)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {virtualBlock, localPlayer.Character}
-    local raycastResult = workspace:Raycast(ray.Origin, PLACE_DISTANCE * ray.Direction, raycastParams)
+    if not virtualBlock then makeVirtualBlock() end
+
+    -- On mobile we only show the virtual block once you start moving, to avoid
+    -- the virtual block showing up when you use the thumbstick control
+    if input.UserInputType == Enum.UserInputType.Touch then return end
+
+    local pos = if UserInputService.TouchEnabled then input.Position else UserInputService:GetMouseLocation()
+
+    local raycastResult = raycastToPos(pos)
     if not raycastResult then return end
 
-    local hitPosition = placePosFromHitPos(raycastResult.Position, ray, raycastResult.Normal)
+    local btype = CurrentBlock:get()
+    local hitPosition = if btype == "Destroy" then raycastResult.Position else placePosFromHitPos(raycastResult.Position, raycastResult.Normal)
+    virtualBlock.Position = hitPosition
+end
+
+local function handleInputEnded(input, gameProcessedEvent)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    if gameProcessedEvent then return end
+    if not virtualBlock then return end
+
+    virtualBlock:Destroy()
+    virtualBlock = nil
+
+    local pos = if UserInputService.TouchEnabled then input.Position else UserInputService:GetMouseLocation()
+    local raycastResult = raycastToPos(pos)
+    if not raycastResult then return end
+
+    local hitPosition = placePosFromHitPos(raycastResult.Position, raycastResult.Normal)
 
     local btype = CurrentBlock:get()
     local color = blockTypes[btype].Color
@@ -120,7 +141,7 @@ local function handleInput(input, gameProcessedEvent)
         CollectionService:AddTag(block, BLOCKTAG)
 
         -- Destroy the local block once the server copy replicates
-        task.delay(5, function()
+        task.delay(2, function()
             block:Destroy()
         end)
     else
@@ -132,9 +153,31 @@ local function handleInput(input, gameProcessedEvent)
     end
 end
 
+local function tearDown()
+    BuilderUIEnabled:set(false)
+
+    if inputConnection then
+        inputConnection:Disconnect()
+        inputConnection = nil
+    end
+
+    if inputChangedConnection then
+        inputChangedConnection:Disconnect()
+        inputChangedConnection = nil
+    end
+
+    if inputEndedConnection then
+        inputEndedConnection:Disconnect()
+        inputEndedConnection = nil
+    end
+
+    if virtualBlock then
+        virtualBlock:Destroy()
+        virtualBlock = nil
+    end
+end
+
 local function Setup()
-    local inputConnection = nil
-    local inputChangedConnection = nil
     local tool = localPlayer.Backpack:WaitForChild("Builder Tools")
     tool.Enabled = false
 
@@ -147,29 +190,21 @@ local function Setup()
     end)
 
     tool.Equipped:Connect(function()
-        inputConnection = UserInputService.InputBegan:Connect(handleInput)
-        inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
+        -- Do not setup if already connected
+        if inputConnection then return end
+
+        if not UserInputService.TouchEnabled then
+            inputConnection = UserInputService.InputBegan:Connect(handleInputBegan)
+            inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
+            inputEndedConnection = UserInputService.InputEnded:Connect(handleInputEnded)
+        else
+            inputConnection = UserInputService.TouchStarted:Connect(handleInputBegan)
+            inputChangedConnection = UserInputService.TouchMoved:Connect(handleInputChanged)
+            inputEndedConnection = UserInputService.TouchEnded:Connect(handleInputEnded)
+        end
+
         BuilderUIEnabled:set(true)
     end)
-
-    local function tearDown()
-        BuilderUIEnabled:set(false)
-
-        if inputConnection then
-            inputConnection:Disconnect()
-            inputConnection = nil
-        end
-
-        if inputChangedConnection then
-            inputChangedConnection:Disconnect()
-            inputChangedConnection = nil
-        end
-
-        if virtualBlock then
-            virtualBlock:Destroy()
-            virtualBlock = nil
-        end
-    end
 
     tool.Unequipped:Connect(function()
         tearDown()
@@ -228,6 +263,7 @@ local function Setup()
 end
 
 Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    tearDown()
     Setup()
 end)
 
