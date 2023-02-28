@@ -26,16 +26,13 @@ function NotificationService.GetNumberOfSubscribers()
         pocketId = ReplicatedStorage.Pocket:GetAttribute("PocketId")
     end
 	
-	local json = HttpService:JSONEncode({RequestType = "GetBoardNotificationSubscriberNumbers", 
-		Content = pocketId})
-
 	local success, response = pcall(function()
 		return HttpService:PostAsync(
-			metauniServiceAddress,
-			json,
+			metauniServiceAddress .. "/subscriber_count",
+			HttpService:JSONEncode({PocketId = pocketId}),
 			Enum.HttpContentType.ApplicationJson,
 			false)
-	end)	
+	end)
 	
 	if success then
 		if response == nil then
@@ -65,13 +62,10 @@ function NotificationService.GetNumberOfSubscribers()
 end
 
 function NotificationService.SendNotification(note)
-	local json = HttpService:JSONEncode({RequestType = "Notification", 
-		Content = note})
-
 	local success, response = pcall(function()
 		return HttpService:PostAsync(
-			metauniServiceAddress,
-			json,
+			metauniServiceAddress .. "/notification",
+			HttpService:JSONEncode(note),
 			Enum.HttpContentType.ApplicationJson,
 			false)
 	end)

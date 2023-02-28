@@ -16,7 +16,8 @@ local Dictionary = Sift.Dictionary
 
 local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
 local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
-local VISION_API_URL = "https://www.metauniservice.com"
+local OCR_API_URL = "https://www.metauniservice.com/ocr"
+local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
@@ -269,12 +270,9 @@ function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalt
 end
 
 function AIService.ObjectLocalizationForBoard(board)
-
     local serialisedBoardData = serialiseBoard(board)
-	local encodedRequest = HttpService:JSONEncode({RequestType = "ObjectLocalization", 
-			Content = serialisedBoardData})
-	
-    local responseData = safePostAsync(VISION_API_URL, encodedRequest)
+	local encodedRequest = HttpService:JSONEncode({ BoardData = serialisedBoardData })
+    local responseData = safePostAsync(OBJECTLOC_API_URL, encodedRequest)
     if responseData == nil then return end
 
     local responseDict = responseData["objects"]
@@ -287,12 +285,9 @@ function AIService.ObjectLocalizationForBoard(board)
 end
 
 function AIService.OCRBoard(board)
-
 	local serialisedBoardData = serialiseBoard(board)
-	local encodedRequest = HttpService:JSONEncode({RequestType = "OCR", 
-			Content = serialisedBoardData})
-	
-    local responseData = safePostAsync(VISION_API_URL, encodedRequest)
+	local encodedRequest = HttpService:JSONEncode({ BoardData = serialisedBoardData })
+    local responseData = safePostAsync(OCR_API_URL, encodedRequest)
     if responseData == nil then return end
 
     local responseText = responseData["text"]
