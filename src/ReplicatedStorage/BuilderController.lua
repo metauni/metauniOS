@@ -179,16 +179,7 @@ end
 
 local function Setup()
     local tool = localPlayer.Backpack:WaitForChild("Builder Tools")
-    tool.Enabled = false
-
-    if localPlayer:GetAttribute("metaadmin_isscribe") then
-        tool.Enabled = true
-    end
-
-    localPlayer:GetAttributeChangedSignal("metaadmin_isscribe"):Connect(function()
-        tool.Enabled = localPlayer:GetAttribute("metaadmin_isscribe")
-    end)
-
+    
     tool.Equipped:Connect(function()
         -- Do not setup if already connected
         if inputConnection then return end
