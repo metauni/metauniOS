@@ -19,6 +19,7 @@ local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io
 local OCR_API_URL = "https://www.metauniservice.com/ocr"
 local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
+local CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
 -- Utils
@@ -233,33 +234,49 @@ function AIService.QueryEmbeddings(vector, filter, topk, namespace)
     return matches
 end
 
-function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty, model)
+function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, presPenalty, model)
     temperature = temperature or 0
     freqPenalty = freqPenalty or 0.0
     presPenalty = presPenalty or 0.0
     model = model or "text-davinci-003"
+    local isChatGPT = (model == "gpt-3.5-turbo")
 
-	local request = { ["model"] = model,
-		["prompt"] = promptText,
+    local request = { ["model"] = model,
 		["temperature"] = temperature,
 		["max_tokens"] = maxTokens,
 		["top_p"] = 1.0,
 		["frequency_penalty"] = freqPenalty,
 		["presence_penalty"] = presPenalty}
-	
+
+    -- For ChatGPT the prompt is a list of messages, as in
+    -- "messages": [{"role": "user", "content": "What is the OpenAI mission?"}]
+    if isChatGPT then
+        request["messages"] = prompt
+    else
+        request["prompt"] = prompt
+    end
+
 	if plr ~= nil then
 		request["user"] = tostring(plr.UserId)
 	end
 
     local encodedRequest = HttpService:JSONEncode(request)
-    local responseData = safePostAsync(GPT_API_URL, encodedRequest, 
+
+    local API_URL = if isChatGPT then CHATGPT_API_URL else GPT_API_URL
+    local responseData = safePostAsync(API_URL, encodedRequest,
         {["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
 
     if responseData == nil then return end
 
     local tokenCount = responseData["usage"]["total_tokens"]
 
-	local responseText = responseData["choices"][1]["text"]
+	local responseText
+    if isChatGPT then
+        responseText = responseData["choices"][1]["message"]["content"]
+    else
+        responseText = responseData["choices"][1]["text"]
+    end
+
     if responseText == nil then
         warn("[AIService] GPTPrompt got malformed response:")
         print(responseData)

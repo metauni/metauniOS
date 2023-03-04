@@ -355,6 +355,7 @@ local function SetupAIMenu()
                 end
 
                 local npcPos = getInstancePosition(npcInstance)
+                if not npcPos then continue end
 
                 if npcInstance:GetAttribute("npcservice_hearing") then
                     NPCState[npcInstance]["Hear"]:set(true)
@@ -362,7 +363,9 @@ local function SetupAIMenu()
                     NPCState[npcInstance]["Hear"]:set(false)
                 end
                 
-                if (getInstancePosition(localPlayer.Character) - npcPos).Magnitude < CUTOFF then
+                local chrPos = getInstancePosition(localPlayer.Character)
+                if not chrPos then continue end
+                if (chrPos - npcPos).Magnitude < CUTOFF then
                     if npcInstance:GetAttribute("npcservice_hearing") then
                         NPCState[npcInstance]["Hear"]:set(true)
                     else

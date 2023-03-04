@@ -293,6 +293,7 @@ function NPC.new(instance: Model)
     npc.RecentReferences = {}
     npc.RecentTranscripts = {}
     npc.Summaries = {}
+    npc.SummaryCache = {}
     npc.PlanningCounter = 0
     npc.PersonalityProfiles = NPC.DefaultPersonalityProfiles()
     npc.CurrentProfile = "Normal"
@@ -383,7 +384,7 @@ function NPC:Timestep(forceSearch)
     end
 
     -- Search transcripts
-    if math.random() < self:GetPersonality("SearchTranscriptsProbability") then
+    if forceSearch or math.random() < self:GetPersonality("SearchTranscriptsProbability") then
         local ref = self:SearchTranscripts()
         if ref ~= nil then
             self:AddThought(ref, "transcript")
@@ -484,15 +485,8 @@ function NPC:ShortTermMemory()
             return true
         end
     end
-
-    -- Short term memory roughly covers this many seconds
-    local timestepDelay = self.TimestepDelay
-    local interval = self:GetPersonality("IntervalBetweenSummaries")
-    local max = self:GetPersonality("MaxSummaries")
-
-    local shortTermMemoryInterval = timestepDelay * interval * max
     
-    local summary = self:GenerateSummary()
+    local summary = self:GenerateSummaryUsingCache()
     if summary == nil then return end
 
     local relevantSummary = self:MostSimilarSummary(summary, filterForSummaries)
@@ -505,7 +499,7 @@ function NPC:ShortTermMemory()
 end
 
 function NPC:LongTermMemory(relevanceCutoff)
-    local summary = self:GenerateSummary()
+    local summary = self:GenerateSummaryUsingCache()
     if summary == nil then return end
 
     local embedding = AIService.Embedding(summary)
@@ -553,7 +547,7 @@ function NPC:LongTermMemory(relevanceCutoff)
 end
 
 function NPC:SearchTranscripts()
-    local summary = self:GenerateSummary("ideas")
+    local summary = self:GenerateSummaryUsingCache("ideas")
     if summary == nil then return end
 
     local embedding = AIService.Embedding(summary)
@@ -609,7 +603,7 @@ function NPC:SearchTranscripts()
 end
 
 function NPC:SearchReferences()
-    local summary = self:GenerateSummary("ideas")
+    local summary = self:GenerateSummaryUsingCache("ideas")
     if summary == nil then return end
 
     local embedding = AIService.Embedding(summary)
@@ -667,20 +661,31 @@ function NPC:RespondToMessage(message)
 end
 
 function NPC:Prompt()
-	local prompt = self:GetPersonality("PromptPrefix") .. "\n"
-    prompt = prompt .. `{self.Instance.Name} is an Agent\n`
-	prompt = prompt .. `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.\n`
-	
-	-- Sample one of the other personality thoughts
+    local model = self:GetPersonality("ModelName")
+    local usingChatGPT = (model == "gpt-3.5-turbo")
+
+    -- Sample one of the other personality thoughts
 	local personalityLines = self:GetPersonality("PersonalityLines")
+    local pText
     if #personalityLines > 0 then
-        local pText = personalityLines[math.random(1,#personalityLines)]
-        prompt = prompt .. `Thought: {pText}\n`
+        pText = personalityLines[math.random(1,#personalityLines)]
     end
-	
+
+    local prompt
+    if usingChatGPT then
+        prompt = { {["role"] = "user", ["content"] = self:GetPersonality("PromptPrefix") } }
+        table.insert(prompt, {["role"] = "user", ["content"] = `{self.Instance.Name} is an Agent`} )
+        table.insert(prompt, {["role"] = "assistant", ["content"] = `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.`} )
+        if pText then table.insert(prompt, {["role"] = "assistant", ["content"] = `Thought: {pText}`} ) end
+    else
+	    prompt = self:GetPersonality("PromptPrefix") .. "\n"
+        prompt = prompt .. `{self.Instance.Name} is an Agent\n`
+        prompt = prompt .. `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.\n`
+        if pText then prompt = prompt .. `Thought: {pText}\n` end
+    end
+
 	local middle = self:PromptContent()
-	prompt = prompt .. middle .. "Action:"
-	
+
     -- If the agent has been talking to themself too much (i.e. planning)
     -- then force them to speak by giving Say as the prompt
     local forcedToAct = false
@@ -690,14 +695,28 @@ function NPC:Prompt()
         forcedActionText = " Say \""
     end
 
-    if forcedToAct then prompt = prompt .. forcedActionText end
-    
+    if usingChatGPT then
+        for _, s in string.split(middle, "\n") do
+            if s ~= "" then
+                table.insert(prompt, {["role"] = "assistant", ["content"] = s} )
+            end
+        end
+
+        if not forcedToAct then
+            table.insert(prompt, {["role"] = "user", ["content"] = "Format your response starting with Action:"})
+        else
+            table.insert(prompt, {["role"] = "user", ["content"] = "Format your response starting with Action:" .. forcedActionText})
+        end
+    else
+        prompt = prompt .. middle .. "Action:"
+
+        if forcedToAct then prompt = prompt .. forcedActionText end
+    end
+	
 	local temperature = self:GetPersonality("ModelTemperature")
 	local freqPenalty = self:GetPersonality("ModelFrequencyPenalty")
 	local presPenalty = self:GetPersonality("ModelPresencePenalty")
 
-    local model = self:GetPersonality("ModelName")
-    
     local responseText, tokenCount = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty, model)
 
 	if responseText == nil then
@@ -708,17 +727,22 @@ function NPC:Prompt()
     self.TokenCount += tokenCount
     self.Instance:SetAttribute("npcservice_tokencount", self.TokenCount)
 	
-    if forcedToAct then
-        responseText = "Action:" .. forcedActionText .. responseText
-        self.PlanningCounter = 0
-    else
-	    responseText = "Action:" .. responseText
+    if not usingChatGPT then
+        if forcedToAct then
+            responseText = "Action:" .. forcedActionText .. responseText
+            self.PlanningCounter = 0
+        else
+            responseText = "Action:" .. responseText
+        end
     end
 
     if self.Instance:GetAttribute("debug") then
-        self.Instance:SetAttribute("gpt_prompt", prompt)
-        self.Instance:SetAttribute("gpt_response", responseText)
-        print(middle)
+        --self.Instance:SetAttribute("gpt_prompt", prompt)
+        --self.Instance:SetAttribute("gpt_response", responseText)
+        --print(middle)
+        --print(prompt)
+        --print("------")
+        --print(responseText)
     end
 
 	local actions = {}
@@ -888,8 +912,25 @@ function NPC:MostSimilarSummary(text, filter)
     return mostSimilarSummary
 end
 
+function NPC:GenerateSummaryUsingCache(type)
+    type = type or "normal"
+
+    local cache = self.SummaryCache[type]
+    if not cache or cache.Timestamp < tick() - 60 then
+        local summary = self:GenerateSummary(type)
+        self.SummaryCache[type] = { Timestamp = tick(), Content = summary }
+
+        return summary
+    else
+        return cache.Content
+    end
+end
+
 function NPC:GenerateSummary(type)
+    type = type or "normal"
     local name = self.Instance.Name
+    local model = self:GetPersonality("ModelName")
+    local usingChatGPT = (model == "gpt-3.5-turbo")
 
     -- If we are forming a memory, then do not include messages
     -- from players that have declined permission for this NPC
@@ -915,29 +956,38 @@ function NPC:GenerateSummary(type)
         prompt = prompt .. "The summary contains the details like names that will be useful for the agent to recall in future conversations.\n"
     end
 
-	prompt = prompt .. "\n"
-	prompt = prompt .. "Summary:"
+    if usingChatGPT then
+        prompt = { {["role"] = "user", ["content"] = prompt } }
+        table.insert(prompt, {["role"] = "user", ["content"] = "Please respond with the summary."} )
+    else
+        prompt = prompt .. "\n"
+        prompt = prompt .. "Summary:" 
+    end
 	
 	local temperature = 0.5
 	local freqPenalty = 0
 	local presPenalty = 0
 
-	local responseText, tokenCount = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty)
+	local responseText, tokenCount = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty, model)
 	if responseText == nil then
 		warn("[NPC] Got nil response from GPT3")
 		return
 	end
 
-    --local responseTextCurie, _ = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty, "text-curie-001")
-    --print("Davinci summary ----")
-    --print(responseText)
-    --print("Curie summary-----")
-    --print(responseTextCurie)
+    responseText = cleanstring(responseText)
 
+    --local responseTextDavinci, _ = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty, "text-davinci-003")
+    --if usingChatGPT then
+    --    print("ChatGPT summary ----")
+    --    print(responseText)
+        --print("Davinci summary-----")
+        --print(responseTextDavinci)
+    --end
+    
     self.TokenCount += tokenCount
     self.Instance:SetAttribute("npcservice_tokencount", self.TokenCount)
 	
-    return cleanstring(responseText)
+    return responseText
 end
 
 function NPC:Observe()
@@ -1385,7 +1435,7 @@ function NPCService.StartScene(scene)
         end
         
         npc.Instance:PivotTo(CFrame.new(npcData.Position))
-        npc.Instance:SetAttribute("npcservice_inactivescene", true)
+        -- npc.Instance:SetAttribute("npcservice_inactivescene", true)
     end
 
     -- Move props into position
@@ -1416,7 +1466,7 @@ function NPCService.EndScene(scene)
             npc.Instance.Parent = npcStorageFolder
         end
 
-        npc.Instance:SetAttribute("npcservice_inactivescene", false)
+        -- npc.Instance:SetAttribute("npcservice_inactivescene", false)
     end
 
     if sceneProps[scene] then
@@ -1494,22 +1544,21 @@ function NPCService.Start()
                 task.wait(timestepDelay)
 
                 -- Check to see if we are in office hours
-                local inActiveScene = npc.Instance:GetAttribute("npcservice_inactivescene")
+                --local inActiveScene = npc.Instance:GetAttribute("npcservice_inactivescene")
                 local inWorkspace = npc.Instance:IsDescendantOf(game.Workspace)
+                if not inWorkspace then continue end
+                if npc.Instance.PrimaryPart == nil then continue end
 
                 -- If the agent has not been interacted with recently, and is not
                 -- in office hours, and has not been summoned, move it to storage
-                if not inActiveScene and npc.LastInteractionTimestamp < tick() - 5 * 60 and 
-                    not npc.Instance:GetAttribute("npcservice_summoned") then
-                    
-                    if npcStorageFolder then
-                        npc.Instance.Parent = npcStorageFolder
-                        inWorkspace = false
-                    end
-                end
-
-                if not inWorkspace then continue end
-                if npc.Instance.PrimaryPart == nil then continue end
+                -- if not inActiveScene and npc.LastInteractionTimestamp < tick() - 5 * 60 and 
+                --    not npc.Instance:GetAttribute("npcservice_summoned") then
+                --    
+                --    if npcStorageFolder then
+                --        npc.Instance.Parent = npcStorageFolder
+                --        inWorkspace = false
+                --    end
+                --end
                 
                 -- Don't sit around thinking too much without human input
                 if npc.LastInteractionTimestamp < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
@@ -1578,12 +1627,13 @@ function NPCService.Start()
             local boards = CollectionService:GetTagged("metaboard")
             for _, boardInstance in boards do
                 if not boardInstance:IsDescendantOf(game.Workspace) then continue end
-                local distToNPC, npc = NPCService.DistanceToNearestNPC(getInstancePosition(boardInstance))
+                local distToNPC, npc = NPCService.DistanceToNearestAwakeNPC(getInstancePosition(boardInstance))
                 if npc == nil then continue end -- no NPCs
 
                 if distToNPC > npc:GetPersonality("GetsDetailedObservationsRadius") then continue end
 
                 local board = BoardService.Boards[boardInstance]
+                if not board then continue end
 
                 local boardText = AIService.OCRBoard(board)
                 if boardText and boardText ~= "" then
@@ -1716,14 +1766,14 @@ function NPCService.HandleChat(speaker, message, target)
 
 			npc:AddThought(ob)
 
-            -- If the message contains the name of this NPC, then we have
-            -- some special behaviour to prepare the agent to respond
-            if string.match(message, npc.Instance.Name) then
-                npc:RespondToMessage(message)
-            end
-
             if speakerIsPlayer then
                 npc.LastInteractionTimestamp = tick()
+
+                -- If the message contains the name of this NPC, then we have
+                -- some special behaviour to prepare the agent to respond
+                if string.match(message, npc.Instance.Name) or string.match(message, "?") then
+                    npc:RespondToMessage(message)
+                end
             end
 		end
 	end
@@ -2107,6 +2157,27 @@ function NPCService.ParseActions(actionText:string)
     local actionDict = {}
 	actionDict.Type = NPC.ActionType.Unhandled
 	return {actionDict}
+end
+
+function NPCService.DistanceToNearestAwakeNPC(pos)
+    local distance = math.huge
+    local closestNPC = nil
+
+    for _, npc in NPCService.NPCs do
+        if not npc.Instance:IsDescendantOf(game.Workspace) then continue end
+        if npc.Instance.PrimaryPart == nil then continue end
+        if npc.LastInteractionTimestamp < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
+            continue
+        end
+
+        local d = (getInstancePosition(npc.Instance) - pos).Magnitude
+        if d < distance then
+            distance = d
+            closestNPC = npc
+        end
+    end
+
+    return distance, closestNPC
 end
 
 function NPCService.DistanceToNearestNPC(pos)
