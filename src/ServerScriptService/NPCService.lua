@@ -61,7 +61,12 @@ local REFERENCE_PROPER_NAMES = {
     ["utopian_universities"] = "Taylor and Pellew's 'Utopian Universities'",
     ["haiku_anthology"] = "the book 'Haiku - An Anthology of Japanese Poems'",
     ["haiku_mountain_tasting"] = "the collection 'Mountain Tasting' of haiku by Taneda",
-    ["bashos_haiku"] = "the book 'Bashos Haiku'"
+    ["bashos_haiku"] = "the book 'Bashos Haiku'",
+    ["dyson_analogia"] = "George Dyson's book 'Analogia'",
+    ["dyson_bombs_poetry"] = "Freeman Dyson's book 'Bombs and Poetry'",
+    ["yang_war_normalpeople"] = "Andrew Yang's book 'The War on Normal People'",
+    ["nietzsche_gay_science"] = "Nietzsche's 'Gay Science'",
+    ["hart_new_testament"] = "David Bentley Hart's translation of the New Testament"
 }
 
 -- Utils
@@ -227,8 +232,8 @@ function NPC.DefaultPersonalityProfiles()
         MaxConsecutivePlan = 2,
         TimestepDelayNormal = 15,
         TimestepDelayVoiceChat = 8,
-        ReferenceRelevanceScoreCutoff = 0.83,
-        TranscriptRelevanceScoreCutoff = 0.83,
+        ReferenceRelevanceScoreCutoff = 0.81,
+        TranscriptRelevanceScoreCutoff = 0.78, -- even highly relevant transcript refs only score 0.8
         MemoryRelevanceScoreCutoff = 0.7,
         ModelTemperature = 0.9, -- was 0.85
 	    ModelFrequencyPenalty = 1.8, -- was 1.6
@@ -252,8 +257,8 @@ function NPC.DefaultPersonalityProfiles()
         SearchTranscriptsProbability = 0.2,
         TimestepDelayNormal = 30,
         TimestepDelayVoiceChat = 15,
-        ReferenceRelevanceScoreCutoff = 0.8,
-        TranscriptRelevanceScoreCutoff = 0.8,
+        ReferenceRelevanceScoreCutoff = 0.78,
+        TranscriptRelevanceScoreCutoff = 0.78,
         MemoryRelevanceScoreCutoff = 0.8,
         HearingRadius = 60,
         GetsDetailedObservationsRadius = 60,
@@ -300,6 +305,7 @@ function NPC.new(instance: Model)
     npc.LastInteractionTimestamp = -math.huge -- last time the agent saw a chat or voice message from a player
     npc.OrbOffset = nil
     npc.TokenCount = 0
+    npc.SearchQuery = nil -- if a player prompts us with a question
     
     -- Personalisation
     local configScript = npc.Instance:FindFirstChild("NPCConfig")
@@ -355,6 +361,10 @@ function NPC:GetPersonality(attribute)
 end
 
 function NPC:Timestep(forceSearch)
+    -- We force additional searches of our databases (e.g. on startup)
+    -- including when a player asked a question (which is set in self.SearchQuery)
+    forceSearch = forceSearch or self.SearchQuery
+
     self:UpdatePersonalityProfile()
 
     if math.random() < self:GetPersonality("SearchShortTermMemoryProbability") then
@@ -410,6 +420,8 @@ function NPC:Timestep(forceSearch)
             self:WalkToPos(targetPos)
         end
     end
+
+    self.SearchQuery = nil
 end
 
 function NPC:IsRepeatAction(action)
@@ -488,6 +500,9 @@ function NPC:ShortTermMemory()
     
     local summary = self:GenerateSummaryUsingCache()
     if summary == nil then return end
+    if self.SearchQuery then
+        summary = summary .. "\n" .. self.SearchQuery
+    end
 
     local relevantSummary = self:MostSimilarSummary(summary, filterForSummaries)
     if relevantSummary == nil then return end
@@ -501,7 +516,10 @@ end
 function NPC:LongTermMemory(relevanceCutoff)
     local summary = self:GenerateSummaryUsingCache()
     if summary == nil then return end
-
+    if self.SearchQuery then
+        summary = summary .. "\n" .. self.SearchQuery
+    end
+    
     local embedding = AIService.Embedding(summary)
     if embedding == nil then
         warn("[NPCService] Got nil embedding for summary")
@@ -549,6 +567,9 @@ end
 function NPC:SearchTranscripts()
     local summary = self:GenerateSummaryUsingCache("ideas")
     if summary == nil then return end
+    if self.SearchQuery then
+        summary = summary .. "\n" .. self.SearchQuery
+    end
 
     local embedding = AIService.Embedding(summary)
     if embedding == nil then return end
@@ -605,7 +626,10 @@ end
 function NPC:SearchReferences()
     local summary = self:GenerateSummaryUsingCache("ideas")
     if summary == nil then return end
-
+    if self.SearchQuery then
+        summary = summary .. "\n" .. self.SearchQuery
+    end
+    
     local embedding = AIService.Embedding(summary)
     if embedding == nil then return end
 
@@ -654,10 +678,6 @@ function NPC:SearchReferences()
         print("----------")
     end
     return refContent
-end
-
-function NPC:RespondToMessage(message)
-    self:Timestep(true)
 end
 
 function NPC:Prompt()
@@ -1415,6 +1435,8 @@ function NPCService.NPCByPersistId(persistId)
 end
 
 local sceneProps = {}
+local npcOriginalPos = {}
+local npcOriginalStorage = {}
 
 function NPCService.StartScene(scene)
     local Config = require(scene.Config)
@@ -1430,12 +1452,14 @@ function NPCService.StartScene(scene)
         local npc = NPCService.NPCByPersistId(npcData.PersistId)
         if npc == nil then continue end
 
+        npcOriginalStorage[npc] = (npc.Instance.Parent == npcStorageFolder)
+
         if npc.Instance.Parent == npcStorageFolder then
             npc.Instance.Parent = npcWorkspaceFolder
         end
         
+        npcOriginalPos[npc] = npc.Instance.PrimaryPart.CFrame
         npc.Instance:PivotTo(CFrame.new(npcData.Position))
-        -- npc.Instance:SetAttribute("npcservice_inactivescene", true)
     end
 
     -- Move props into position
@@ -1462,11 +1486,14 @@ function NPCService.EndScene(scene)
         local npc = NPCService.NPCByPersistId(npcData.PersistId)
         if npc == nil then continue end
 
-        if npc.Instance.Parent == npcWorkspaceFolder then
-            npc.Instance.Parent = npcStorageFolder
+        if npcOriginalPos[npc] then
+            npc.Instance:PivotTo(npcOriginalPos[npc])
+            npcOriginalPos[npc] = nil
         end
 
-        -- npc.Instance:SetAttribute("npcservice_inactivescene", false)
+        if npcOriginalStorage[npc] and npc.Instance.Parent == npcWorkspaceFolder then
+            npc.Instance.Parent = npcStorageFolder
+        end
     end
 
     if sceneProps[scene] then
@@ -1769,10 +1796,8 @@ function NPCService.HandleChat(speaker, message, target)
             if speakerIsPlayer then
                 npc.LastInteractionTimestamp = tick()
 
-                -- If the message contains the name of this NPC, then we have
-                -- some special behaviour to prepare the agent to respond
-                if string.match(message, npc.Instance.Name) or string.match(message, "?") then
-                    npc:RespondToMessage(message)
+                if string.match(message, "?") then
+                    npc.SearchQuery = message
                 end
             end
 		end
