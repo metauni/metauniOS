@@ -23,6 +23,10 @@ local CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
 -- Utils
+local function usingChat(model)
+    return model == "gpt-3.5-turbo" or model == "gpt-4"
+end
+
 local function serialiseBoard(board)
     -- Commit all of the drawing task changes (like masks) to the figures
 	local figures = board:CommitAllDrawingTasks()
@@ -239,7 +243,7 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
     freqPenalty = freqPenalty or 0.0
     presPenalty = presPenalty or 0.0
     model = model or "text-davinci-003"
-    local isChatGPT = (model == "gpt-3.5-turbo")
+    local isChatGPT = usingChat(model)
 
     local request = { ["model"] = model,
 		["temperature"] = temperature,

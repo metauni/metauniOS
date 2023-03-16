@@ -38,6 +38,10 @@ assert(npcStorageFolder, "[NPCService] Missing NPC storage folder")
 local npcWorkspaceFolder = game.Workspace:FindFirstChild("NPCs")
 assert(npcWorkspaceFolder, "[NPCService] Missing NPC workspace folder")
 
+local function usingChat(model)
+    return model == "gpt-3.5-turbo" or model == "gpt-4"
+end
+
 local REFERENCE_PROPER_NAMES = {
     ["euclid"] = "Euclid's Elements",
     ["heath_greek_history"] = "Heath's 'History of Greek Mathematics'",
@@ -66,7 +70,8 @@ local REFERENCE_PROPER_NAMES = {
     ["dyson_bombs_poetry"] = "Freeman Dyson's book 'Bombs and Poetry'",
     ["yang_war_normalpeople"] = "Andrew Yang's book 'The War on Normal People'",
     ["nietzsche_gay_science"] = "Nietzsche's 'Gay Science'",
-    ["hart_new_testament"] = "David Bentley Hart's translation of the New Testament"
+    ["hart_new_testament"] = "David Bentley Hart's translation of the New Testament",
+    ["cowen_average_is_over"] = "Tyler Cowen's book 'Average is Over'"
 }
 
 -- Utils
@@ -616,7 +621,7 @@ function NPC:SearchTranscripts()
     if self.Instance:GetAttribute("debug") then
         print("----------")
         print("[NPC] Found transcript reference")
-        print(string.sub(refContent,1,30) .. "...")
+        print(string.sub(refContent,1,90) .. "...")
         print("score = " .. match["score"])
         print("----------")
     end
@@ -682,7 +687,7 @@ end
 
 function NPC:Prompt()
     local model = self:GetPersonality("ModelName")
-    local usingChatGPT = (model == "gpt-3.5-turbo")
+    local usingChatGPT = usingChat(model)
 
     -- Sample one of the other personality thoughts
 	local personalityLines = self:GetPersonality("PersonalityLines")
@@ -740,7 +745,7 @@ function NPC:Prompt()
     local responseText, tokenCount = AIService.GPTPrompt(prompt, 100, nil, temperature, freqPenalty, presPenalty, model)
 
 	if responseText == nil then
-		warn("[NPC] Got nil response from GPT3")
+        warn("[NPC] Got nil response from GPT, model = " .. model)
 		return
 	end
 
@@ -949,8 +954,8 @@ end
 function NPC:GenerateSummary(type)
     type = type or "normal"
     local name = self.Instance.Name
-    local model = self:GetPersonality("ModelName")
-    local usingChatGPT = (model == "gpt-3.5-turbo")
+    local model = "gpt-3.5-turbo"
+    local usingChatGPT = true
 
     -- If we are forming a memory, then do not include messages
     -- from players that have declined permission for this NPC
@@ -990,7 +995,7 @@ function NPC:GenerateSummary(type)
 
 	local responseText, tokenCount = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty, model)
 	if responseText == nil then
-		warn("[NPC] Got nil response from GPT3")
+		warn("[NPC] Got nil response from GPT")
 		return
 	end
 
