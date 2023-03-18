@@ -17,6 +17,7 @@ local Dictionary = Sift.Dictionary
 local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
 local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
 local OCR_API_URL = "https://www.metauniservice.com/ocr"
+local REFERENCE_LIST_URL = "https://www.metauniservice.com/reference_list"
 local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
 local CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
@@ -56,6 +57,7 @@ end
 
 -- authString is optional
 local function safePostAsync(apiUrl, encodedRequest, authDict)
+    encodedRequest = encodedRequest or ""
     local success, response
 
     if authDict ~= nil then
@@ -319,6 +321,10 @@ function AIService.OCRBoard(board)
     end
 
     return responseText
+end
+
+function AIService.ReferenceList()
+    return safePostAsync(REFERENCE_LIST_URL)
 end
 
 return AIService

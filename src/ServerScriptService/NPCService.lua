@@ -31,6 +31,7 @@ NPCService.ObjectTag = "npcservice_object"
 NPCService.TranscriptionTopic = "transcription"
 NPCService.NPCs = {}
 NPCService.NPCFromInstance = {}
+NPCService.ReferenceList = {}
 
 local npcStorageFolder = ReplicatedStorage:FindFirstChild("NPCs")
 assert(npcStorageFolder, "[NPCService] Missing NPC storage folder")
@@ -41,38 +42,6 @@ assert(npcWorkspaceFolder, "[NPCService] Missing NPC workspace folder")
 local function usingChat(model)
     return model == "gpt-3.5-turbo" or model == "gpt-4"
 end
-
-local REFERENCE_PROPER_NAMES = {
-    ["euclid"] = "Euclid's Elements",
-    ["heath_greek_history"] = "Heath's 'History of Greek Mathematics'",
-    ["brighter"] = "Adam Dorr's book 'Brighter'",
-    ["darwin_machines"] = "George Dyson's book 'Darwin among the Machines'",
-    ["harbison"] = "Harbison's book 'Travels in the History of Architecture'",
-    ["scientist_as_rebel"] = "Freeman Dyson's book 'The Scientist As Rebel'",
-    ["turings_cathedral"] = "George Dyson's book 'Turing's Cathedral'",
-    ["how_buildings_learn"] = "Stewart Brand's book 'How Building's Learn'",
-    ["diamond_age"] = "Neal Stephenson's 'Diamond Age'",
-    ["star_trek_philosophy"] = "the book 'Star Trek and Philosophy'",
-    ["music_harmony_china"] = "Erica Brindley's 'Music, Cosmology and the Politics of Harmony in China'",
-    --["sacred_geometry"] = "Hidetoshi and Rothman's 'Sacred Geometry'",
-    ["lanier_owns_future"] = "Jaron Lanier's 'Who Owns the Future'",
-    ["innovators_dilemma"] = "Clayton Christensen's 'Innovator's Dilemma'",
-    ["great_stagnation"] = "Tyler Cowen's 'Great Stagnation'",
-    ["brief_history_university"] = "John Moore's 'A Brief History of Universities'",
-    ["russell_western_philosophy"] = "Bertrand Russell's 'History of Western Philosophy'",
-    ["russell_basic_writings"] = "Bertrand Russell's 'Basic Writings'",
-    ["russell_autobiography"] = "Bertrand Russell's autobiography",
-    ["utopian_universities"] = "Taylor and Pellew's 'Utopian Universities'",
-    ["haiku_anthology"] = "the book 'Haiku - An Anthology of Japanese Poems'",
-    ["haiku_mountain_tasting"] = "the collection 'Mountain Tasting' of haiku by Taneda",
-    ["bashos_haiku"] = "the book 'Bashos Haiku'",
-    ["dyson_analogia"] = "George Dyson's book 'Analogia'",
-    ["dyson_bombs_poetry"] = "Freeman Dyson's book 'Bombs and Poetry'",
-    ["yang_war_normalpeople"] = "Andrew Yang's book 'The War on Normal People'",
-    ["nietzsche_gay_science"] = "Nietzsche's 'Gay Science'",
-    ["hart_new_testament"] = "David Bentley Hart's translation of the New Testament",
-    ["cowen_average_is_over"] = "Tyler Cowen's book 'Average is Over'"
-}
 
 -- Utils
 local function newRemoteFunction(name)
@@ -243,7 +212,7 @@ function NPC.DefaultPersonalityProfiles()
         ModelTemperature = 0.9, -- was 0.85
 	    ModelFrequencyPenalty = 1.8, -- was 1.6
 	    ModelPresencePenalty = 1.6,
-        ModelName = "text-davinci-003",
+        ModelName = "gpt-3.5-turbo",
         HearingRadius = 40,
         GetsDetailedObservationsRadius = 60,
         SecondsWithoutInteractionBeforeSleep = 2 * 60,
@@ -673,12 +642,21 @@ function NPC:SearchReferences()
     local content = string.gsub(content, ":", " ") -- don't confuse the AI
     local content = string.gsub(content, "\"", "'") -- so we can wrap in " quotes
 
-    local refName = REFERENCE_PROPER_NAMES[metadata["name"]]
+    local refName = "a book"
+    local refData = NPCService.ReferenceWithKey(metadata["name"])
+    if refData then
+        if refData["author"] ~= "" then
+            refName = `{refData["author"]}'s '{refData["title"]}'`
+        else
+            refName = refData["title"]
+        end
+    end
+
     local refContent = `I remember that page {metadata["page"]} of {refName} has written on it \"{content}\"`
     if self.Instance:GetAttribute("debug") then
         print("----------")
         print("[NPC] Found content reference")
-        print(string.sub(refContent,1,30) .. "...")
+        print(string.sub(refContent,1,90) .. "...")
         print("score = " .. match["score"])
         print("----------")
     end
@@ -1001,14 +979,6 @@ function NPC:GenerateSummary(type)
 
     responseText = cleanstring(responseText)
 
-    --local responseTextDavinci, _ = AIService.GPTPrompt(prompt, 120, nil, temperature, freqPenalty, presPenalty, "text-davinci-003")
-    --if usingChatGPT then
-    --    print("ChatGPT summary ----")
-    --    print(responseText)
-        --print("Davinci summary-----")
-        --print(responseTextDavinci)
-    --end
-    
     self.TokenCount += tokenCount
     self.Instance:SetAttribute("npcservice_tokencount", self.TokenCount)
 	
@@ -1561,13 +1531,14 @@ function NPCService.Start()
         end)
     end)
     
+    NPCService.ReferenceList = AIService.ReferenceList()
+
     if not subscribeSuccess then
         warn("[NPCService] Failed to subscribe to transcription topic")
     end
 
     for _, npc in NPCService.NPCs do
         task.spawn(function()
-            local startup = true
             local stepCount = 0
 
             while true do
@@ -1598,10 +1569,8 @@ function NPCService.Start()
                 end
 
                 ----- take the step ----
-                npc:Timestep(startup)
+                npc:Timestep()
                 ------------------------
-
-                startup = false
 
                 stepCount += 1
                 if stepCount == npc:GetPersonality("IntervalBetweenSummaries") then
@@ -1704,6 +1673,11 @@ function NPCService.HandleTranscription(sourcePlayer, message)
             npc.Instance:SetAttribute("npcservice_hearing", true)
             npc.TimestepDelay = npc:GetPersonality("TimestepDelayVoiceChat")
 
+            -- If the agent has been dormant for some time, then force searches
+            if npc.LastInteractionTimestamp < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
+                npc:Timestep(true)
+            end
+
             npc.LastInteractionTimestamp = tick()
 		else
             npc.Instance:SetAttribute("npcservice_hearing", false)
@@ -1783,8 +1757,8 @@ function NPCService.HandleChat(speaker, message, target)
 
 		local npcPos = getInstancePosition(npc.Instance)
 		local distance = (npcPos - pos).Magnitude
-		
-		if distance < npc:GetPersonality("HearingRadius") then
+
+        if distance < npc:GetPersonality("HearingRadius") then
             -- This NPC heard the chat message
 			local ob = ""
             if target == nil then
@@ -1799,11 +1773,18 @@ function NPCService.HandleChat(speaker, message, target)
 			npc:AddThought(ob)
 
             if speakerIsPlayer then
-                npc.LastInteractionTimestamp = tick()
-
                 if string.match(message, "?") then
                     npc.SearchQuery = message
                 end
+
+                -- If the agent has been dormant for some time, then force searches
+                if npc.LastInteractionTimestamp < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
+                    task.spawn(function()
+                        npc:Timestep(true)
+                    end)
+                end
+
+                npc.LastInteractionTimestamp = tick()
             end
 		end
 	end
@@ -2225,6 +2206,14 @@ function NPCService.DistanceToNearestNPC(pos)
     end
 
     return distance, closestNPC
+end
+
+function NPCService.ReferenceWithKey(keyword)
+    for _, ref in NPCService.ReferenceList do
+        if ref["key"] == keyword then
+            return ref
+        end
+    end
 end
 
 return NPCService
