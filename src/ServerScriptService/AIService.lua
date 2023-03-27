@@ -24,10 +24,6 @@ local CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
 -- Utils
-local function usingChat(model)
-    return model == "gpt-3.5-turbo" or model == "gpt-4"
-end
-
 local function serialiseBoard(board)
     -- Commit all of the drawing task changes (like masks) to the figures
 	local figures = board:CommitAllDrawingTasks()
@@ -245,7 +241,6 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
     freqPenalty = freqPenalty or 0.0
     presPenalty = presPenalty or 0.0
     model = model or "text-davinci-003"
-    local isChatGPT = usingChat(model)
 
     local request = { ["model"] = model,
 		["temperature"] = temperature,
@@ -256,19 +251,15 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
 
     -- For ChatGPT the prompt is a list of messages, as in
     -- "messages": [{"role": "user", "content": "What is the OpenAI mission?"}]
-    if isChatGPT then
-        request["messages"] = prompt
-    else
-        request["prompt"] = prompt
-    end
-
+    request["messages"] = prompt
+    
 	if plr ~= nil then
 		request["user"] = tostring(plr.UserId)
 	end
 
     local encodedRequest = HttpService:JSONEncode(request)
 
-    local API_URL = if isChatGPT then CHATGPT_API_URL else GPT_API_URL
+    local API_URL = CHATGPT_API_URL
     local responseData = safePostAsync(API_URL, encodedRequest,
         {["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
 
@@ -277,12 +268,8 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
     local tokenCount = responseData["usage"]["total_tokens"]
 
 	local responseText
-    if isChatGPT then
-        responseText = responseData["choices"][1]["message"]["content"]
-    else
-        responseText = responseData["choices"][1]["text"]
-    end
-
+    responseText = responseData["choices"][1]["message"]["content"]
+    
     if responseText == nil then
         warn("[AIService] GPTPrompt got malformed response:")
         print(responseData)

@@ -65,20 +65,42 @@ local function initPlayer(player)
 	}
 end
 
+function BuilderService.DestroyBlock(pos)
+    local size = 1/10 * GRID_SIZE
+    local boxSize = Vector3.new(size, size, size)
+    local params = OverlapParams.new()
+    params.CollisionGroup = "Default"
+    params.FilterDescendantsInstances = { WorkspaceFolder }
+    params.FilterType = Enum.RaycastFilterType.Include
+    params.MaxParts = 50
+
+    local nearbyParts = game.Workspace:GetPartBoundsInBox(CFrame.new(pos), boxSize)
+    for _, part in nearbyParts do
+        part:Destroy()
+        break
+    end
+
+    return
+end
+
+function BuilderService.PlaceBlock(pos, blockData)
+    local block = Instance.new("Part")
+    block.Size = Vector3.new(GRID_SIZE,GRID_SIZE,GRID_SIZE)
+    block.Anchored = true
+    block.Color = blockData.Color
+    block.Material = blockData.Material
+    block.Transparency = blockData.Transparency
+    block.Parent = WorkspaceFolder
+    block.Position = pos
+    CollectionService:AddTag(block, BLOCKTAG)
+end
+
 function BuilderService.Init()
     local buildEvent = newRemoteEvent("BuilderPlaceBlock")
     local destroyEvent = newRemoteEvent("DestroyBlockEvent")
 
     buildEvent.OnServerEvent:Connect(function(plr, pos, blockData)
-        local block = Instance.new("Part")
-        block.Size = Vector3.new(GRID_SIZE,GRID_SIZE,GRID_SIZE)
-        block.Anchored = true
-        block.Color = blockData.Color
-        block.Material = blockData.Material
-        block.Transparency = blockData.Transparency
-        block.Parent = game.Workspace
-        block.Position = pos
-        CollectionService:AddTag(block, BLOCKTAG)
+        BuilderService.PlaceBlock(pos, blockData)
     end)
 
     destroyEvent.OnServerEvent:Connect(function(plr, part, pos)
