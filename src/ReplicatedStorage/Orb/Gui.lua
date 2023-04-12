@@ -772,7 +772,10 @@ function Gui.PointOfInterest(orbPos)
 
     for _, family in ipairs(families) do
         for _, p in ipairs(family) do
-			if CollectionService:HasTag(p, "metaboard_personal") then continue end
+			if CollectionService:HasTag(p, "metaboard_personal_board") then continue end
+            if p:IsA("Model") and CollectionService:HasTag(p.PrimaryPart, "metaboard_personal_board") then continue end
+            if p:IsA("BasePart") and CollectionService:HasTag(p.Parent, "metaboard_personal_board") then continue end
+            if not p:IsDescendantOf(game.Workspace) then continue end
 
             local pos = p:GetPivot().Position
 
