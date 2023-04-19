@@ -1,8 +1,6 @@
 --
 -- AIService
 --
--- Interfaces with OpenAI APIs and other AI services
--- via HttpService
 
 -- Roblox Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,24 +12,18 @@ local SecretService = require(ServerScriptService.SecretService)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Figure = metaboard.Figure
 local Sift = require(ReplicatedStorage.Packages.Sift)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
+local Dictionary = Sift.Dictionary
 
--- Config
-local PINECONE_UPSERT_URLS = {
-    ["npc"] = "https://npc-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert",
-    ["boards"] = "https://boards-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
-}
-
-local PINECONE_QUERY_URLS = {
-    ["npc"] = "https://npc-d08c033.svc.us-west1-gcp.pinecone.io/query",
-    ["boards"] = "https://boards-d08c033.svc.us-west1-gcp.pinecone.io/query",
-    ["refs"] = "https://refs-d08c033.svc.us-west1-gcp.pinecone.io/query"
-}
-
-local VISION_API_URL = "http://34.116.106.66:8080"
+local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
+local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
+local OCR_API_URL = "https://www.metauniservice.com/ocr"
+local REFERENCE_LIST_URL = "https://www.metauniservice.com/reference_list"
+local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
 local GPT_API_URL = "https://api.openai.com/v1/completions"
+local CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
+-- Utils
 local function serialiseBoard(board)
     -- Commit all of the drawing task changes (like masks) to the figures
 	local figures = board:CommitAllDrawingTasks()
@@ -61,6 +53,7 @@ end
 
 -- authString is optional
 local function safePostAsync(apiUrl, encodedRequest, authDict)
+    encodedRequest = encodedRequest or ""
     local success, response
 
     if authDict ~= nil then
@@ -83,7 +76,8 @@ local function safePostAsync(apiUrl, encodedRequest, authDict)
     end
 
     if not success then
-        warn("[AIService] PostAsync failed: " .. response)
+        warn(`[AIService] PostAsync to {apiUrl} failed.`)
+        warn("            " .. response)
         return
     end	
 
@@ -115,8 +109,18 @@ local function safePostAsync(apiUrl, encodedRequest, authDict)
     return responseData
 end
 
+--
+-- AIService
+--
+
 local AIService = {}
 AIService.__index = AIService
+
+function AIService.Init()
+end
+
+function AIService.Start()
+end
 
 function AIService.CleanGPTResponse(text, extraPrefixes)
 	local matched
@@ -189,32 +193,21 @@ function AIService.Embedding(text, plr)
     return responseVector
 end
 
-function AIService.StoreEmbedding(embeddingType, vector, metadata)
-    local API_URL = PINECONE_UPSERT_URLS[embeddingType]
-    if API_URL == nil then
-        warn("[AIService] Invalid embedding type")
-        return
-    end
+function AIService.StoreEmbedding(vectorId, vector, metadata, namespace)
+    assert(vector ~= nil, "[AIService] nil vector")
+    assert(metadata ~= nil, "[AIService] nil metadata")
+    assert(namespace ~= nil, "[AIService] nil namespace")
 
-    if vector == nil then
-        warn("[AIService] Invalid vector for embedding")
-        return
-    end
-
-    if metadata == nil then
-        warn("[AIService] Invalid metadata for embedding")
-        return
-    end
-
-    local request = { ["vectors"] = {
+    local request = { ["namespace"] = namespace,
+        ["vectors"] = {
         {
-          ["id"] = HttpService:GenerateGUID(false),
+          ["id"] = vectorId,
           ["metadata"] = metadata,
           ["values"] = vector
         }} }
 
     local encodedRequest = HttpService:JSONEncode(request)
-    local responseData = safePostAsync(API_URL, encodedRequest, 
+    local responseData = safePostAsync(PINECONE_UPSERT_URL, encodedRequest, 
         {["Api-Key"] = SecretService.PINECONE_API_KEY})
 
     if responseData == nil then
@@ -222,19 +215,16 @@ function AIService.StoreEmbedding(embeddingType, vector, metadata)
     end
 end
 
-function AIService.QueryEmbeddings(embeddingType, vector, filter, topk)
-    local API_URL = PINECONE_QUERY_URLS[embeddingType]
-    if API_URL == nil then
-        warn("[AIService] Invalid embedding type")
-        return
-    end
+function AIService.QueryEmbeddings(vector, filter, topk, namespace)
+    namespace = namespace or ""
     local request = { ["vector"] = vector,
                       ["filter"] = filter,
                       ["topK"] = topk,
-                      ["includeMetadata"] = true }
+                      ["includeMetadata"] = true,
+                      ["namespace"] = namespace }
         
     local encodedRequest = HttpService:JSONEncode(request)
-    local responseData = safePostAsync(API_URL, encodedRequest, 
+    local responseData = safePostAsync(PINECONE_QUERY_URL, encodedRequest, 
         {["Api-Key"] = SecretService.PINECONE_API_KEY})
 
     if responseData == nil then
@@ -246,46 +236,53 @@ function AIService.QueryEmbeddings(embeddingType, vector, filter, topk)
     return matches
 end
 
-function AIService.GPTPrompt(promptText, maxTokens, plr, temperature, freqPenalty, presPenalty)
+function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, presPenalty, model)
     temperature = temperature or 0
     freqPenalty = freqPenalty or 0.0
     presPenalty = presPenalty or 0.0
+    model = model or "text-davinci-003"
 
-	local request = { ["model"] = "text-davinci-003",
-		["prompt"] = promptText,
+    local request = { ["model"] = model,
 		["temperature"] = temperature,
 		["max_tokens"] = maxTokens,
 		["top_p"] = 1.0,
 		["frequency_penalty"] = freqPenalty,
 		["presence_penalty"] = presPenalty}
-	
+
+    -- For ChatGPT the prompt is a list of messages, as in
+    -- "messages": [{"role": "user", "content": "What is the OpenAI mission?"}]
+    request["messages"] = prompt
+    
 	if plr ~= nil then
 		request["user"] = tostring(plr.UserId)
 	end
 
     local encodedRequest = HttpService:JSONEncode(request)
-    local responseData = safePostAsync(GPT_API_URL, encodedRequest, 
+
+    local API_URL = CHATGPT_API_URL
+    local responseData = safePostAsync(API_URL, encodedRequest,
         {["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
 
     if responseData == nil then return end
 
-	local responseText = responseData["choices"][1]["text"]
+    local tokenCount = responseData["usage"]["total_tokens"]
+
+	local responseText
+    responseText = responseData["choices"][1]["message"]["content"]
+    
     if responseText == nil then
         warn("[AIService] GPTPrompt got malformed response:")
         print(responseData)
         return
     end
 
-	return responseText
+	return responseText, tokenCount
 end
 
 function AIService.ObjectLocalizationForBoard(board)
-
     local serialisedBoardData = serialiseBoard(board)
-	local encodedRequest = HttpService:JSONEncode({RequestType = "ObjectLocalization", 
-			Content = serialisedBoardData})
-	
-    local responseData = safePostAsync(VISION_API_URL, encodedRequest)
+	local encodedRequest = HttpService:JSONEncode({ BoardData = serialisedBoardData })
+    local responseData = safePostAsync(OBJECTLOC_API_URL, encodedRequest)
     if responseData == nil then return end
 
     local responseDict = responseData["objects"]
@@ -298,12 +295,9 @@ function AIService.ObjectLocalizationForBoard(board)
 end
 
 function AIService.OCRBoard(board)
-
 	local serialisedBoardData = serialiseBoard(board)
-	local encodedRequest = HttpService:JSONEncode({RequestType = "OCR", 
-			Content = serialisedBoardData})
-	
-    local responseData = safePostAsync(VISION_API_URL, encodedRequest)
+	local encodedRequest = HttpService:JSONEncode({ BoardData = serialisedBoardData })
+    local responseData = safePostAsync(OCR_API_URL, encodedRequest)
     if responseData == nil then return end
 
     local responseText = responseData["text"]
@@ -314,6 +308,10 @@ function AIService.OCRBoard(board)
     end
 
     return responseText
+end
+
+function AIService.ReferenceList()
+    return safePostAsync(REFERENCE_LIST_URL)
 end
 
 return AIService

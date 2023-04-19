@@ -12,19 +12,7 @@ Over the 2020s AI will move from a narrowly deployed technology we experience th
 
 * **Ask metauni**: the place itself will be grounded in a layer of intelligence that is aware of what is going on (which seminars are on, what they are about) what has happened in the past, what it is for, the values of the place, and can engage appropriately and informatively with people who attend.
 
-All of these systems have initial versions running now, details below.
-
-## Privacy
-
-Some of our seminars are recorded and posted publicly to YouTube. The policy is that this is announced at the beginning of seminars and we are working on explicit UI that says **Recording in Progress** to make clear when recording has started and stopped. Whether or not recordings take place at all is up to the discretion of individual seminar organisers.
-
-Going forward it is likely that we will adopt a policy that whenever seminars are recorded, the records will be available to the AI infrastructure at metauni to enable the features discussed above. Further discussion on this point and refinement of the policy will have to happen before the AI infrastructure moves out of testing into general use.
-
-Some general principles:
-
-* **No surprises**: Speech or chat messages will not be stored unless it is clearly communicated and you are in a situation where there is a reasonable expectation that this is taking place: for example, you're in a seminar with a **Recording in Progress** sigil, or you are interacting with a chatbot that you have personally authorised to make memories of your interactions (e.g. a personal assistant). Those memories would not be used beyond processing the responses of the chatbot in situations you have authorised (you turn it on or off, nobody would be able to query it without you present, etc).
-
-* **Warnings**: At the end of the day, your interactions with a GPT-based chatbot are going off to OpenAI's servers for processing and we have no control over what happens there, so one should probably be sensible and view these interactions as fundamentally public. However, the chatbots will soon be so good that people may be tempted to overshare. There should be reminders not to do this.
+All of these systems have initial versions running now, details below. For our privacy policy see [here](https://www.metauni.org/privacy).
 
 ## Services used
 

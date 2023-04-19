@@ -10,7 +10,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
-local metauniServiceAddress = "http://34.116.106.66:8080"
+-- IP 34.116.106.66
+local metauniServiceAddress = "https://www.metauniservice.com"
 
 local function isPocket()
 	return (game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0)
@@ -25,16 +26,13 @@ function NotificationService.GetNumberOfSubscribers()
         pocketId = ReplicatedStorage.Pocket:GetAttribute("PocketId")
     end
 	
-	local json = HttpService:JSONEncode({RequestType = "GetBoardNotificationSubscriberNumbers", 
-		Content = pocketId})
-
 	local success, response = pcall(function()
 		return HttpService:PostAsync(
-			metauniServiceAddress,
-			json,
+			metauniServiceAddress .. "/subscriber_count",
+			HttpService:JSONEncode({PocketId = pocketId}),
 			Enum.HttpContentType.ApplicationJson,
 			false)
-	end)	
+	end)
 	
 	if success then
 		if response == nil then
@@ -58,19 +56,16 @@ function NotificationService.GetNumberOfSubscribers()
 
 		return responseData
 	else
-		print("[NotificationService] HTTPService PostAsync failed ".. response)
+		print("[NotificationService] PostAsync failed. ".. response)
 		return {}
 	end
 end
 
 function NotificationService.SendNotification(note)
-	local json = HttpService:JSONEncode({RequestType = "Notification", 
-		Content = note})
-
 	local success, response = pcall(function()
 		return HttpService:PostAsync(
-			metauniServiceAddress,
-			json,
+			metauniServiceAddress .. "/notification",
+			HttpService:JSONEncode(note),
 			Enum.HttpContentType.ApplicationJson,
 			false)
 	end)

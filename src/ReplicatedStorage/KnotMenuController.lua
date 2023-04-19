@@ -139,7 +139,8 @@ local function StartDisplay(board, displayType)
             dataString = dataString .. "&launchData=pocket%3A" .. pocketName
             dataString = dataString .. "-targetBoardPersistId%3A" .. boardPersistId
         else
-            dataString = "No URL available"
+            dataString = "https://www.roblox.com/games/start?placeId=" .. Config.RootPlaceId
+            dataString = dataString .. "&launchData=targetBoardPersistId%3A" .. boardPersistId
         end
     end
 

@@ -100,15 +100,15 @@ local function fadeIn(fadeTime)
 	end)
 end
 
--- If there is no launch data, and the game is loaded, just spawn in
-if launchData == nil and game:IsLoaded() then
+-- If there is no pocket launch data, and the game is loaded, just spawn in
+if game:IsLoaded() and (launchData == nil or launchData["pocket"] == nil) then
 	fadeIn(2)
 	return
 end
 	
--- If we have launch data, do not fade into seeing the world, just
+-- If we have pocket launch data, do not fade into seeing the world, just
 -- hold on for the teleport (but with a long delay in case it fails)
-if launchData ~= nil then
+if launchData and launchData["pocket"] ~= nil then
 	fadeIn(30)
 	return
 end
