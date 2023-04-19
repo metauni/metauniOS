@@ -135,6 +135,7 @@ function export.findFirstChild(name: string)
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
 		Rx.switchMap(function(instance)
+			if not instance then return nilobs() end
 			return Rx.observable(function(sub)
 				local maid = Maid.new()
 				local current = UNSET
@@ -173,7 +174,8 @@ end
 function export.findFirstChildWithClass(className: string, name: string)
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
-		switch = Rx.switchMap(function(instance)
+		Rx.switchMap(function(instance)
+			if not instance then return nilobs() end
 			return Rx.observable(function(sub)
 				local maid = Maid.new()
 				local current = UNSET
@@ -221,7 +223,8 @@ end
 function export.findFirstChildWithClassOf(className: string, name: string)
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
-		switch = Rx.switchMap(function(instance)
+		Rx.switchMap(function(instance)
+			if not instance then return nilobs() end
 			return Rx.observable(function(sub)
 				local maid = Maid.new()
 				local current = UNSET
@@ -352,6 +355,10 @@ function export.tagged(tag: string): Rx.Observable
 		Rx.from(CollectionService:GetTagged(tag)),
 		Rx.fromSignal(CollectionService:GetInstanceAddedSignal(tag))
 	})
+end
+
+function export.untagged(tag: string): Rx.Observable
+	return Rx.fromSignal(CollectionService:GetInstanceRemovedSignal(tag))
 end
 
 function export.players(): Rx.Observable

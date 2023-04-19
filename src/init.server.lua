@@ -23,7 +23,7 @@ end
 -- Distribute scripts across containers
 
 migrate(script.ReplicatedFirst, ReplicatedFirst)
-script.Packages.Parent = ReplicatedStorage
+-- script.Packages.Parent = ReplicatedStorage
 migrate(script.ReplicatedStorage, ReplicatedStorage)
 migrate(script.ServerScriptService, ServerScriptService)
 migrate(script.StarterGui, StarterGui)

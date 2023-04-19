@@ -1,0 +1,25 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "SetSpeaker",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetListener",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "DetachPlayer",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetViewMode",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "AskQuestion",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}
