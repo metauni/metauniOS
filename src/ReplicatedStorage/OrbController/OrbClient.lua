@@ -146,28 +146,28 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 		Parent = orbPart,
 	}
 
-	local eyeIconAssetId = "rbxassetid://11877012219"
+	-- local eyeIconAssetId = "rbxassetid://11877012219"
 	-- local returnIconAssetId = "rbxassetid://11877012097"
 
-	local orbcamIcon = destructor:Add(
-		Icon.new()
-			:setImage(eyeIconAssetId)
-			:setLabel("Orbcam")
-			:setOrder(3)
-			:setEnabled(false)
-			:bindEvent("toggled", function(_self, isSelected)
-				print("Setting Orbcam", isSelected)
-				OrbcamActive:set(isSelected)
-			end)
-	)
-	orbcamIcon.deselectWhenOtherIconSelected = false
+	-- local orbcamIcon = destructor:Add(
+	-- 	Icon.new()
+	-- 		:setImage(eyeIconAssetId)
+	-- 		:setLabel("Orbcam")
+	-- 		:setOrder(3)
+	-- 		:setEnabled(false)
+	-- 		:bindEvent("toggled", function(_self, isSelected)
+	-- 			print("Setting Orbcam", isSelected)
+	-- 			OrbcamActive:set(isSelected)
+	-- 		end)
+	-- )
+	-- orbcamIcon.deselectWhenOtherIconSelected = false
 
 	-- Show icon when speaker attached
-	destructor:Add(
-		observeAttached:Subscribe(function(attached: boolean)
-			orbcamIcon:setEnabled(attached)
-		end)
-	)
+	-- destructor:Add(
+	-- 	observeAttached:Subscribe(function(attached: boolean)
+	-- 		orbcamIcon:setEnabled(attached)
+	-- 	end)
+	-- )
 
 	local DAMPING = 1
 	local SPEED = 1/3 * 2 * math.pi -- speed = frequency * 2π
@@ -421,6 +421,8 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 	PoiHighlight(observePoi1)
 	PoiHighlight(observePoi2)
 
+	local Audience = Value(false)
+
 	-- UI in bottom right when orbcam is active
 	destructor:Add(
 		OrbMenu {
@@ -441,6 +443,14 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 					return speaker == Players.LocalPlayer
 				end)
 			}),
+			Audience = Audience,
+			SetAudience = function(audience)
+				Audience:set(audience)
+			end,
+			OrbcamActive = OrbcamActive,
+			SetOrbcamActive = function(active)
+				OrbcamActive:set(active)
+			end,
 		}
 	)
 
