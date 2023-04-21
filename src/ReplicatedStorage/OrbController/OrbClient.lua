@@ -146,29 +146,6 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 		Parent = orbPart,
 	}
 
-	-- local eyeIconAssetId = "rbxassetid://11877012219"
-	-- local returnIconAssetId = "rbxassetid://11877012097"
-
-	-- local orbcamIcon = destructor:Add(
-	-- 	Icon.new()
-	-- 		:setImage(eyeIconAssetId)
-	-- 		:setLabel("Orbcam")
-	-- 		:setOrder(3)
-	-- 		:setEnabled(false)
-	-- 		:bindEvent("toggled", function(_self, isSelected)
-	-- 			print("Setting Orbcam", isSelected)
-	-- 			OrbcamActive:set(isSelected)
-	-- 		end)
-	-- )
-	-- orbcamIcon.deselectWhenOtherIconSelected = false
-
-	-- Show icon when speaker attached
-	-- destructor:Add(
-	-- 	observeAttached:Subscribe(function(attached: boolean)
-	-- 		orbcamIcon:setEnabled(attached)
-	-- 	end)
-	-- )
-
 	local DAMPING = 1
 	local SPEED = 1/3 * 2 * math.pi -- speed = frequency * 2π
 	local CamPositionGoal = Value(workspace.CurrentCamera.CFrame.Position)
