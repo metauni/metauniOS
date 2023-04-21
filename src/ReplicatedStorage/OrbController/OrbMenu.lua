@@ -10,6 +10,10 @@ local Computed = Fusion.Computed
 local Children = Fusion.Children
 local Observer = Fusion.Observer
 local Spring = Fusion.Spring
+local Tween = Fusion.Tween
+
+local Sift = require(ReplicatedStorage.Packages.Sift)
+
 
 local UI = require(script.Parent.UI)
 local EmojiList = require(script.Parent.EmojiList)
@@ -29,6 +33,11 @@ local function orbcamButton(props)
 		end,
 
 		[Children] = {
+
+			UI.Div {
+				[Children] = props.FlyingEmojis
+			},
+
 			New "UICorner" {
 				CornerRadius = UDim.new(0.5,0)
 			},
@@ -155,8 +164,8 @@ end
 
 return function(props)
 
-	-- local ActiveMenu = Value(nil)
-	local ActiveMenu = Value("Emoji")
+	local ActiveMenu = Value(nil)
+	-- local ActiveMenu = Value("Emoji")
 
 	local controlsMenu = UI.RoundedFrame {
 
@@ -349,6 +358,44 @@ return function(props)
 						Text = EmojiList[name],
 						BackgroundTransparency = 0.6,
 						TextSize = 20,
+
+						[OnEvent "Activated"] = function()
+							
+							local Position = Value(UDim2.fromScale(0.5,0.5))
+							local Transparency = Value(0)
+
+							local tweenInfo = TweenInfo.new(
+									1.4, -- Time
+									Enum.EasingStyle.Linear, -- EasingStyle
+									Enum.EasingDirection.Out, -- EasingDirection
+									0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+									false, -- Reverses (tween will reverse once reaching it's goal)
+									0 -- DelayTime
+							)
+
+							local flying = FlyingEmojis:get()
+							table.insert(flying, UI.TextLabel {
+								Text = EmojiList[name],
+								Size = UDim2.fromOffset(50,50),
+								TextScaled = true,
+								Position = Tween(Position, tweenInfo),
+								TextTransparency = Tween(Transparency, tweenInfo)
+							})
+
+							Position:set(UDim2.new(0.5, 0, 0.5, -800))
+							Transparency:set(1)
+
+							FlyingEmojis:set(flying)
+
+							task.delay(1.4, function()
+								local item = flying[1]
+								if item then
+									item:Destroy()
+									table.remove(flying, 1)
+									FlyingEmojis:set(flying)
+								end
+							end)
+						end
 					}
 				})
 		end
@@ -368,8 +415,8 @@ return function(props)
 
 			 [Children] = {
 				 UI.Div {
-						Size = UDim2.new(1,-10,1,-10),
-						[Children] = buttons,
+					Size = UDim2.new(1,-10,1,-10),
+					[Children] = buttons,
 				}
 			 },
 		 }
@@ -424,7 +471,7 @@ return function(props)
 
 		[Children] = {
 
-			orbcamButton(props),
+			orbcamButton(Sift.Dictionary.set(props, "FlyingEmojis", FlyingEmojis)),
 
 			UI.ImageButton {
 				Name = "Close",
@@ -473,6 +520,9 @@ return function(props)
 						Image = "rbxassetid://13193313621",
 						LayoutOrder = 2,
 						BackgroundTransparency = 0.8,
+						OnClick = function()
+							ActiveMenu:set("Emoji")
+						end,
 					},
 					menuButton {
 						Text = "Teleport",
