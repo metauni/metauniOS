@@ -43,7 +43,10 @@ return function (target)
 			IsSpeaker = Value(true),
 			Detach = function()
 				menu:Destroy()
-			end
+			end,
+			Teleport = function()
+				print("teleport!")
+			end,
 		}
 	}
 

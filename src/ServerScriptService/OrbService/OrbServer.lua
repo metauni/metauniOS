@@ -104,6 +104,16 @@ function OrbServer.new(orbPart: Part)
 		end)
 	)
 
+	destructor:Add(
+		Remotes.TeleportToOrb.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
+			if triggeredOrb == orbPart then
+				if player.Character then
+					player.Character:PivotTo(orbPart.CFrame + Vector3.new(0,5 * orbPart.Size.Y,0))
+				end
+			end
+		end)
+	)
+
 	Rx.of(Players):Pipe {
 		Rxi.children(),
 		Rx.switchMap(function(players: {Players})

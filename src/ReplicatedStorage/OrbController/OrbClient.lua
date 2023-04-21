@@ -463,6 +463,9 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				SetOrbcamActive = function(active)
 					OrbcamActive:set(active)
 				end,
+				Teleport = function()
+					Remotes.TeleportToOrb:FireServer(orbPart)
+				end,
 			}
 		}
 	}

@@ -20,6 +20,10 @@
 		{
 			"Name": "AskQuestion",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "TeleportToOrb",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }

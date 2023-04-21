@@ -1,6 +1,4 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
@@ -22,7 +20,8 @@ local function orbcamButton(props)
 
 	local Cam = Value()
 	
-	return UI.Button {
+	return New "TextButton" {
+		AnchorPoint = Vector2.new(0.5,0.5),
 		Position = UDim2.new(0, 60, 1, -60),
 		Size = UDim2.fromOffset(130, 130),
 
@@ -50,33 +49,45 @@ local function orbcamButton(props)
 				
 				Visible = props.OrbcamActive,
 				
-				ZIndex = 1,
 				BackgroundColor3 = Color3.new(0,0,0),
-				BackgroundTransparency = 0.2,
+				BackgroundTransparency = 1,
 				
-				[Children] = New "UICorner" {
-					CornerRadius = UDim.new(0.5,0)
-				},
+				[Children] = {
+					New "UICorner" {
+						CornerRadius = UDim.new(0.5,0),
+					},
+					New "UIStroke" {
+						Thickness = 10,
+						Transparency = 0.2,
+					}
+				}
 			}, 
 			
 			New "Frame" {
 				Name = "WhiteRing",
 				AnchorPoint = Vector2.new(0.5,0.5),
 				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.7,0.7),
+				Size = UDim2.fromScale(0.65,0.65),
 
 				ZIndex = 2,
 
 				BackgroundColor3 = Color3.new(1,1,1),
-				BackgroundTransparency = 0.2,
+				BackgroundTransparency = 1,
 				
-				[Children] = New "UICorner" {
-					CornerRadius = UDim.new(0.5,0)
-				},
+				[Children] = {
+					New "UICorner" {
+						CornerRadius = UDim.new(0.5,0),
+					},
+					New "UIStroke" {
+						Thickness = 10,
+						Color = Color3.new(1,1,1),
+						Transparency = 0.2,
+					}
+				}
 			},
 
 			New "Frame" {
-				Name = "AntiAliasRing",
+				Name = "AntiAlias",
 				AnchorPoint = Vector2.new(0.5,0.5),
 				Position = UDim2.fromScale(0.5,0.5),
 				Size = UDim2.fromScale(0.577,0.577),
@@ -165,7 +176,7 @@ end
 return function(props)
 
 	-- local ActiveMenu = Value(nil)
-	local ActiveMenu = Value("Emoji")
+	local ActiveMenu = Value(nil)
 
 	local controlsMenu = UI.RoundedFrame {
 
@@ -480,7 +491,6 @@ return function(props)
 		}
 	end
 
-	-- local LookSpring = Spring(CamLook, 0.4, 1)	
 	return UI.Div {
 
 		Parent = props.Parent,
@@ -496,7 +506,7 @@ return function(props)
 					props.Detach()
 					ActiveMenu:set(nil)
 				end,
-				Position = UDim2.fromOffset(110,35),
+				Position = UDim2.fromOffset(115,30),
 				Size = UDim2.fromOffset(30,30)
 			},
 
@@ -546,63 +556,12 @@ return function(props)
 						Image = "rbxassetid://11877012097",
 						LayoutOrder = 3,
 						BackgroundTransparency = 0.8,
+						OnClick = function()
+							props.Teleport()
+						end,
 					},
 				}
 			}
 		},
-
-		-- [Children] = New "Frame" {
-
-		-- 	AnchorPoint = Vector2.new(0,1),
-		-- 	Position = UDim2.new(0, 36, 1, -36),
-		-- 	Size = UDim2.fromOffset(200, 70),
-
-		-- 	BackgroundTransparency = 0,
-
-		-- 	[Children] = {
-		-- 		-- New "UIListLayout" {
-		-- 		-- 	FillDirection = Enum.FillDirection.Horizontal,
-		-- 		-- 	Padding = UDim.new(0, 10),
-		-- 		-- 	SortOrder = Enum.SortOrder.LayoutOrder,
-		-- 		-- 	VerticalAlignment = Enum.VerticalAlignment.Center,
-		-- 		-- },
-		-- 		-- button {
-		-- 		-- 	LayoutOrder = 2,
-		-- 		-- 	Text = "Detach",
-		-- 		-- 	Selected = Value(false),
-		-- 		-- 	OnClick = function()
-		-- 		-- 		props.Detach()
-		-- 		-- 	end,
-		-- 		-- },
-		-- 		-- Computed(function()
-		-- 		-- 	if props.IsSpeaker:get() then
-		-- 		-- 		return button {
-		-- 		-- 			LayoutOrder = 3,
-		-- 		-- 			Text = "Single\nBoard",
-		-- 		-- 			Selected = Computed(function()
-		-- 		-- 				return props.ViewMode:get() == "single"
-		-- 		-- 			end),
-		-- 		-- 			OnClick = function()
-		-- 		-- 				props.SetViewMode("single")
-		-- 		-- 			end,
-		-- 		-- 		}
-		-- 		-- 	end
-		-- 		-- end, Fusion.cleanup),
-		-- 		-- Computed(function()
-		-- 		-- 	if props.IsSpeaker:get() then
-		-- 		-- 		return button {
-		-- 		-- 			LayoutOrder = 3,
-		-- 		-- 			Text = "Double\nBoard",
-		-- 		-- 			Selected = Computed(function()
-		-- 		-- 				return props.ViewMode:get() == "double"
-		-- 		-- 			end),
-		-- 		-- 			OnClick = function()
-		-- 		-- 				props.SetViewMode("double")
-		-- 		-- 			end,
-		-- 		-- 		}
-		-- 		-- 	end
-		-- 		-- end, Fusion.cleanup),
-		-- 	}
-		-- },
 	}
 end
