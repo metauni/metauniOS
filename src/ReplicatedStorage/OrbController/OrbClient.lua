@@ -440,7 +440,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 			Position = UDim2.new(0, 30, 1, -30),
 			Size = UDim2.fromOffset(300, 150),
 
-			BackgroundTransparency = 0,
+			BackgroundTransparency = 1,
 
 			[Children] = OrbMenu {
 				ViewMode = observedValue(observeViewMode),
