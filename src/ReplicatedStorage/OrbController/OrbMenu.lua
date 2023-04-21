@@ -16,163 +16,6 @@ local Sift = require(ReplicatedStorage.Packages.Sift)
 local UI = require(script.Parent.UI)
 local EmojiList = require(script.Parent.EmojiList)
 
-local function orbcamButton(props)
-
-	local Cam = Value()
-	
-	return New "TextButton" {
-		AnchorPoint = Vector2.new(0.5,0.5),
-		Position = UDim2.new(0, 60, 1, -60),
-		Size = UDim2.fromOffset(130, 130),
-
-		BackgroundTransparency = 1,
-
-		[OnEvent "Activated"] = function()
-			props.SetOrbcamActive(not props.OrbcamActive:get())
-		end,
-
-		[Children] = {
-
-			UI.Div {
-				[Children] = props.FlyingEmojis
-			},
-
-			New "UICorner" {
-				CornerRadius = UDim.new(0.5,0)
-			},
-			
-			New "Frame" {
-				Name = "BlackRing",
-				AnchorPoint = Vector2.new(0.5,0.5),
-				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.84,0.84),
-				
-				Visible = props.OrbcamActive,
-				
-				BackgroundColor3 = Color3.new(0,0,0),
-				BackgroundTransparency = 1,
-				
-				[Children] = {
-					New "UICorner" {
-						CornerRadius = UDim.new(0.5,0),
-					},
-					New "UIStroke" {
-						Thickness = 10,
-						Transparency = 0.2,
-					}
-				}
-			}, 
-			
-			New "Frame" {
-				Name = "WhiteRing",
-				AnchorPoint = Vector2.new(0.5,0.5),
-				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.65,0.65),
-
-				ZIndex = 2,
-
-				BackgroundColor3 = Color3.new(1,1,1),
-				BackgroundTransparency = 1,
-				
-				[Children] = {
-					New "UICorner" {
-						CornerRadius = UDim.new(0.5,0),
-					},
-					New "UIStroke" {
-						Thickness = 10,
-						Color = Color3.new(1,1,1),
-						Transparency = 0.2,
-					}
-				}
-			},
-
-			New "Frame" {
-				Name = "AntiAlias",
-				AnchorPoint = Vector2.new(0.5,0.5),
-				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.577,0.577),
-
-				ZIndex = 2,
-
-				BackgroundColor3 = Color3.new(0.2, 0.184313, 0.176470),
-				BackgroundTransparency = 0,
-				
-				[Children] = New "UICorner" {
-					CornerRadius = UDim.new(0.5,0)
-				},
-			},
-			
-			New "ViewportFrame" {
-				Name = "Orb",
-				AnchorPoint = Vector2.new(0.5,0.5),
-				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(1,1),
-
-				ZIndex = 3,
-
-				CurrentCamera = Cam,
-				LayoutOrder = 1,
-				BackgroundTransparency = 1,
-				Ambient = Color3.new(0.6,0.6,0.6),
-				LightDirection = Vector3.new(-1,0,0),
-	
-				[Children] = {
-	
-					New "Camera" {
-						CFrame = CFrame.lookAt(Vector3.xAxis * 4, Vector3.new(0,0,0)),
-						-- CFrame = Computed(function()
-						-- 	return CFrame.lookAt(-LookSpring:get().Unit * 2.8, Vector3.new(0,0,0))
-						-- end),
-						[Fusion.Ref] = Cam,
-					},
-	
-					New "Part" {
-						Material = Enum.Material.CrackedLava,
-						BrickColor = BrickColor.new("CGA brown"),
-						Shape = Enum.PartType.Ball,
-						Size = Vector3.new(3,3,3),
-						Position = Vector3.new(0,0,0),
-					},
-	
-					UI.ImageLabel {
-						Position = UDim2.new(0.5,0,0.5,-10),
-						Size = UDim2.fromOffset(35,35),
-	
-						Image = "rbxassetid://13185764466",
-						ImageTransparency = Computed(function()
-							if props.OrbcamActive:get() then
-								return 0
-							else
-								return 0.4
-							end
-						end),
-						ImageColor3 = Computed(function()
-							if props.OrbcamActive:get() then
-								return BrickColor.new("Crimson").Color
-							else
-								return BrickColor.White().Color
-							end
-						end),
-					},
-					UI.TextLabel {
-						Name = "Orbcam",
-						Position = UDim2.new(0.5,0,0.5,15),
-						Size = UDim2.fromOffset(50,50),
-	
-						Text = `<b>Orbcam</b>`,
-						RichText = true,
-						TextStrokeTransparency = 0,
-						TextColor3 = Color3.fromHex("#F0F0F0"),
-						Font = Enum.Font.SciFi,
-						TextSize = 14,
-					}
-				}
-			},
-
-		}
-	}
-end
-
 return function(props)
 
 	-- local ActiveMenu = Value(nil)
@@ -491,13 +334,168 @@ return function(props)
 		}
 	end
 
+	local Cam = Value()
+	
+	local orbcamButton =  New "TextButton" {
+		AnchorPoint = Vector2.new(0.5,0.5),
+		Position = UDim2.new(0, 60, 1, -60),
+		Size = UDim2.fromOffset(130, 130),
+
+		BackgroundTransparency = 1,
+
+		[OnEvent "Activated"] = function()
+			ActiveMenu:set(nil)
+			props.SetOrbcamActive(not props.OrbcamActive:get())
+		end,
+
+		[Children] = {
+
+			UI.Div {
+				[Children] = FlyingEmojis,
+			},
+
+			New "UICorner" {
+				CornerRadius = UDim.new(0.5,0)
+			},
+			
+			New "Frame" {
+				Name = "BlackRing",
+				AnchorPoint = Vector2.new(0.5,0.5),
+				Position = UDim2.fromScale(0.5,0.5),
+				Size = UDim2.fromScale(0.84,0.84),
+				
+				Visible = props.OrbcamActive,
+				
+				BackgroundColor3 = Color3.new(0,0,0),
+				BackgroundTransparency = 1,
+				
+				[Children] = {
+					New "UICorner" {
+						CornerRadius = UDim.new(0.5,0),
+					},
+					New "UIStroke" {
+						Thickness = 10,
+						Transparency = 0.2,
+					}
+				}
+			}, 
+			
+			New "Frame" {
+				Name = "WhiteRing",
+				AnchorPoint = Vector2.new(0.5,0.5),
+				Position = UDim2.fromScale(0.5,0.5),
+				Size = UDim2.fromScale(0.65,0.65),
+
+				ZIndex = 2,
+
+				BackgroundColor3 = Color3.new(1,1,1),
+				BackgroundTransparency = 1,
+				
+				[Children] = {
+					New "UICorner" {
+						CornerRadius = UDim.new(0.5,0),
+					},
+					New "UIStroke" {
+						Thickness = 10,
+						Color = Color3.new(1,1,1),
+						Transparency = 0.2,
+					}
+				}
+			},
+
+			New "Frame" {
+				Name = "AntiAlias",
+				AnchorPoint = Vector2.new(0.5,0.5),
+				Position = UDim2.fromScale(0.5,0.5),
+				Size = UDim2.fromScale(0.577,0.577),
+
+				ZIndex = 2,
+
+				BackgroundColor3 = Color3.new(0.2, 0.184313, 0.176470),
+				BackgroundTransparency = 0,
+				
+				[Children] = New "UICorner" {
+					CornerRadius = UDim.new(0.5,0)
+				},
+			},
+			
+			New "ViewportFrame" {
+				Name = "Orb",
+				AnchorPoint = Vector2.new(0.5,0.5),
+				Position = UDim2.fromScale(0.5,0.5),
+				Size = UDim2.fromScale(1,1),
+
+				ZIndex = 3,
+
+				CurrentCamera = Cam,
+				LayoutOrder = 1,
+				BackgroundTransparency = 1,
+				Ambient = Color3.new(0.6,0.6,0.6),
+				LightDirection = Vector3.new(-1,0,0),
+	
+				[Children] = {
+	
+					New "Camera" {
+						CFrame = CFrame.lookAt(Vector3.xAxis * 4, Vector3.new(0,0,0)),
+						-- CFrame = Computed(function()
+						-- 	return CFrame.lookAt(-LookSpring:get().Unit * 2.8, Vector3.new(0,0,0))
+						-- end),
+						[Fusion.Ref] = Cam,
+					},
+	
+					New "Part" {
+						Material = Enum.Material.CrackedLava,
+						BrickColor = BrickColor.new("CGA brown"),
+						Shape = Enum.PartType.Ball,
+						Size = Vector3.new(3,3,3),
+						Position = Vector3.new(0,0,0),
+					},
+	
+					UI.ImageLabel {
+						Position = UDim2.new(0.5,0,0.5,-10),
+						Size = UDim2.fromOffset(35,35),
+	
+						Image = "rbxassetid://13185764466",
+						ImageTransparency = Computed(function()
+							if props.OrbcamActive:get() then
+								return 0
+							else
+								return 0.4
+							end
+						end),
+						ImageColor3 = Computed(function()
+							if props.OrbcamActive:get() then
+								return BrickColor.new("Crimson").Color
+							else
+								return BrickColor.White().Color
+							end
+						end),
+					},
+					UI.TextLabel {
+						Name = "Orbcam",
+						Position = UDim2.new(0.5,0,0.5,15),
+						Size = UDim2.fromOffset(50,50),
+	
+						Text = `<b>Orbcam</b>`,
+						RichText = true,
+						TextStrokeTransparency = 0,
+						TextColor3 = Color3.fromHex("#F0F0F0"),
+						Font = Enum.Font.SciFi,
+						TextSize = 14,
+					}
+				}
+			},
+
+		}
+	}
+
 	return UI.Div {
 
 		Parent = props.Parent,
 
 		[Children] = {
 
-			orbcamButton(Sift.Dictionary.set(props, "FlyingEmojis", FlyingEmojis)),
+			orbcamButton,
 
 			UI.ImageButton {
 				Name = "Close",
