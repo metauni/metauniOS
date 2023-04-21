@@ -164,8 +164,8 @@ end
 
 return function(props)
 
-	local ActiveMenu = Value(nil)
-	-- local ActiveMenu = Value("Emoji")
+	-- local ActiveMenu = Value(nil)
+	local ActiveMenu = Value("Emoji")
 
 	local controlsMenu = UI.RoundedFrame {
 
@@ -331,7 +331,7 @@ return function(props)
 		local buttons = {
 			New "UIGridLayout" {
 				SortOrder = Enum.SortOrder.LayoutOrder,
-				CellSize = UDim2.fromOffset(30,30),
+				CellSize = UDim2.fromOffset(25,25),
 				CellPadding = UDim2.fromOffset(10,10),
 			}
 		}
@@ -408,16 +408,28 @@ return function(props)
 	 
 			 AnchorPoint = Vector2.new(0,0.5),
 			 Position = UDim2.new(0,130,0.5,0),
-			 Size = UDim2.fromOffset(200,140),
+			 Size = UDim2.fromOffset(170,140),
 	 
 			 BackgroundColor3 = BrickColor.new("Gray").Color,
 			 BackgroundTransparency = 0.6,
 
 			 [Children] = {
 				 UI.Div {
-					Size = UDim2.new(1,-10,1,-10),
+					AnchorPoint = Vector2.new(0, 0.5),
+					Size = UDim2.new(1,-40,1,-10),
+					Position = UDim2.new(0, 10, 0.5, 0),
 					[Children] = buttons,
-				}
+				},
+
+				UI.ImageButton {
+					Name = "Close",
+					Image = "rbxassetid://13193094571",
+					[OnEvent "Activated"] = function()
+						ActiveMenu:set(nil)
+					end,
+					Position = UDim2.new(1, -15, 0, 15),
+					Size = UDim2.fromOffset(25,25)
+				},
 			 },
 		 }
 	end
@@ -478,6 +490,7 @@ return function(props)
 				Image = "rbxassetid://13193094571",
 				[OnEvent "Activated"] = function()
 					props.Detach()
+					ActiveMenu:set(nil)
 				end,
 				Position = UDim2.fromOffset(110,35),
 				Size = UDim2.fromOffset(30,30)
