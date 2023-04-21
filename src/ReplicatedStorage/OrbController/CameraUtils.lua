@@ -72,4 +72,46 @@ function CameraUtils.ViewTargetSurfacesAtFOV(targets: {Part}, surfaceCFrames: {V
 	return centre * CFrame.new(0, 0, -maxZDistanceToCentre) * CFrame.Angles(0, math.pi, 0), centre.Position
 end
 
+function CameraUtils.FitTargetsAlongCFrameRay(cframeRay: CFrame, targets: {Part}, verticalFOV: number, aspectRatio: number, buffer: number)
+	assert(#targets > 0, "Expected at least one target")
+
+	-- The positions of the part vertices
+	local extremities = {}
+	for _, target in ipairs(targets) do
+		local halfSize = 0.5 * target.Size
+		local cframe = target.CFrame
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1, 1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1,-1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1, 1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1,-1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1, 1,-1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1,-1,-1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1, 1,-1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1,-1,-1))).Position)
+	end
+
+	-- Project extremities onto the plane perpendicular to centre.LookVector
+	-- Then calculate correct camera zDistance along centre.LookVector to fit extremity
+	-- Take maximum such value, relative to centre.Position
+	local maxZDistanceToCentre = 0
+	
+	for _, point in ipairs(extremities) do
+		local v = (point - cframeRay.Position)
+		local zDelta = -v:Dot(cframeRay.LookVector.Unit)
+		do -- Vertical
+			local halfHeight = math.abs(v:Dot(cframeRay.UpVector.Unit)) + buffer.Y
+			local zDistance = halfHeight / math.tan(math.rad(verticalFOV/2))
+			maxZDistanceToCentre = math.max(maxZDistanceToCentre, zDistance + zDelta)
+		end
+		do -- Horizontal
+			local halfWidth = math.abs(v:Dot(cframeRay.RightVector.Unit)) + buffer.X
+			local halfHeight = halfWidth / aspectRatio
+			local zDistance = halfHeight / math.tan(math.rad(verticalFOV/2))
+			maxZDistanceToCentre = math.max(maxZDistanceToCentre, zDistance + zDelta)
+		end
+	end
+
+	return cframeRay * CFrame.new(0, 0, maxZDistanceToCentre)
+end
+
 return CameraUtils

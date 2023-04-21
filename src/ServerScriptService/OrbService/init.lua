@@ -27,10 +27,6 @@ local OrbService = {
 
 function OrbService:Start()
 
-	local PlayerToOrb = Instance.new("Folder")
-	PlayerToOrb.Name = "PlayerToOrb"
-	PlayerToOrb.Parent = ReplicatedStorage.OrbController
-
 	Rxi.tagged("metaorb"):Subscribe(function(instance: BasePart)
 		if not instance:IsA("BasePart") then
 			error(`[OrbService] {instance:GetFullName()} is a Model. Must tag PrimaryPart with "metaorb".`)

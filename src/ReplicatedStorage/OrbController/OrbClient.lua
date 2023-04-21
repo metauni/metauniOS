@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -74,6 +75,11 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 	local observeViewMode: Observable<ViewMode?> =
 		Rx.of(orbPart):Pipe {
 			Rxi.findFirstChildWithClass("StringValue", "ViewMode"),
+			Rxi.property("Value"),
+		}
+	local observeShowAudience: Observable<ViewMode?> =
+		Rx.of(orbPart):Pipe {
+			Rxi.findFirstChildWithClass("BoolValue", "ShowAudience"),
 			Rxi.property("Value"),
 		}
 	local observePoi1: Observable<Part?> =
@@ -209,6 +215,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				Rxi.property("Character")
 			},
 			ViewMode = observeViewMode,
+			ShowAudience = observeShowAudience,
 			ViewportSize = Rx.fromSignal(orbcam:GetPropertyChangedSignal("ViewportSize")):Pipe {
 				Rx.defaultsTo(nil),
 				Rx.throttleTime(0.5),
@@ -216,13 +223,20 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 					return workspace.CurrentCamera.ViewportSize
 				end),
 			},
+			Waypoint = Rx.of(orbPart):Pipe {
+				Rxi.findFirstChildWithClass("Folder", "Alignment"),
+				Rxi.findFirstChildWithClass("AlignPosition", "AlignPositionToWaypoint"),
+				Rxi.property("Position"),
+			}
 		}
 		:Subscribe(function(data)
 			local poi1: Part? = data.Poi1
 			local poi2: Part? = data.Poi2
 			local speakerCharacter: Model? = data.SpeakerCharacter
 			local viewMode: ViewMode? = data.ViewMode
+			local showAudience: boolean? = data.ShowAudience
 			local viewportSize: Vector2 = data.ViewportSize
+			local waypoint: Vector3? = data.Waypoint
 
 			if runConnection then
 				runConnection:Disconnect()
@@ -258,8 +272,43 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 
 			local aspectRatio = viewportSize.X / viewportSize.Y
 			local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, orbcam.FieldOfView, aspectRatio, Config.OrbcamBuffer)
-			CamPositionGoal:set(cframe.Position)
-			CamLookAtGoal:set(lookTarget)
+			
+			if showAudience then
+				
+				-- The boards + the audience characters
+				local targets = {poi1, poi2}
+				local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
+
+				for _, player in Players:GetPlayers() do
+					local character = player.Character
+					local orbValue = PlayerToOrb:FindFirstChild(player.UserId)
+					if character and character.PrimaryPart and orbValue and orbValue.Value == orbPart then
+						if (character.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
+							table.insert(targets, character.PrimaryPart)
+						end
+					end
+				end
+
+				for _, model in CollectionService:GetTagged("fake_audience") do
+					if (model.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
+						table.insert(targets, model.PrimaryPart)
+					end
+				end
+
+				local cframeWithAudience = CameraUtils.FitTargetsAlongCFrameRay(cframe, targets, orbcam.FieldOfView, aspectRatio, Config.OrbcamBuffer)
+				local lookTargetWithAudience = Vector3.zero
+				for _, target in targets do
+					lookTargetWithAudience += target.Position
+				end
+				lookTargetWithAudience /= #targets
+				
+				CamPositionGoal:set(cframeWithAudience.Position + Vector3.new(0, 5, 0))
+				CamLookAtGoal:set(lookTargetWithAudience)
+			else
+				CamPositionGoal:set(cframe.Position)
+				CamLookAtGoal:set(lookTarget)
+			end
+			
 		end)
 	)
 
@@ -398,8 +447,6 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 	PoiHighlight(observePoi1)
 	PoiHighlight(observePoi2)
 
-	local Audience = Value(false)
-
 	-- UI in bottom right when orbcam is active
 	destructor:Add(
 
@@ -432,9 +479,9 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 						return speaker == Players.LocalPlayer
 					end)
 				}),
-				Audience = Audience,
+				Audience = observedValue(observeShowAudience),
 				SetAudience = function(audience)
-					Audience:set(audience)
+					Remotes.SetShowAudience:FireServer(orbPart, audience)
 				end,
 				OrbcamActive = OrbcamActive,
 				SetOrbcamActive = function(active)

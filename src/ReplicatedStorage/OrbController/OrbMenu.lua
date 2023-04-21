@@ -437,9 +437,6 @@ return function(props)
 	
 					New "Camera" {
 						CFrame = CFrame.lookAt(Vector3.xAxis * 4, Vector3.new(0,0,0)),
-						-- CFrame = Computed(function()
-						-- 	return CFrame.lookAt(-LookSpring:get().Unit * 2.8, Vector3.new(0,0,0))
-						-- end),
 						[Fusion.Ref] = Cam,
 					},
 	

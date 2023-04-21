@@ -24,6 +24,10 @@
 		{
 			"Name": "TeleportToOrb",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetShowAudience",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }

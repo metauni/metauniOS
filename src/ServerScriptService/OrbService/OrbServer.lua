@@ -46,7 +46,7 @@ function OrbServer.new(orbPart: Part)
 			Rxi.property("Value"),
 		}
 
-	local PlayerToOrb: Folder = ReplicatedStorage.OrbController:FindFirstChild("PlayerToOrb")
+	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
 
 	destructor:Add(
 		Remotes.SetListener.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
@@ -140,11 +140,11 @@ function OrbServer.new(orbPart: Part)
 		Value = "double",
 		Parent = orbPart,
 	}
-	local observeViewMode: Observable<Player?> = 
+	local observeViewMode: Observable<String> = 
 		Rx.of(viewModeValue):Pipe {
 			Rxi.property("Value"),
 		}
-
+		
 	destructor:Add(
 		Remotes.SetViewMode.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, viewMode: "single" | "double" | "freecam")
 			if triggeredOrb ~= orbPart then
@@ -152,6 +152,27 @@ function OrbServer.new(orbPart: Part)
 			end
 			if speakerValue.Value == player then
 				viewModeValue.Value = viewMode
+			end
+		end)
+	)
+
+	local showAudienceValue = NewTracked "BoolValue" {
+		Name = "ShowAudience",
+		Value = false,
+		Parent = orbPart,
+	}
+	local observeShowAudience: Observable<boolean> = 
+		Rx.of(showAudienceValue):Pipe {
+			Rxi.property("Value"),
+		}
+
+	destructor:Add(
+		Remotes.SetShowAudience.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, showAudience: boolean)
+			if triggeredOrb ~= orbPart then
+				return
+			end
+			if speakerValue.Value == player then
+				showAudienceValue.Value = showAudience
 			end
 		end)
 	)
