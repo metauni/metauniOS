@@ -5,8 +5,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 -- Other services
-local Fusion = require(ReplicatedStorage.Fusion)
+local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
+local Value = Fusion.Value
 local Children = Fusion.Children
 local OnEvent = Fusion.OnEvent
 
@@ -21,8 +22,8 @@ local inputConnection = nil
 local inputChangedConnection = nil
 local inputEndedConnection = nil
 
-local BuilderUIEnabled = Fusion.State(false)
-local CurrentBlock = Fusion.State("Concrete")
+local BuilderUIEnabled = Value(false)
+local CurrentBlock = Value("Concrete")
 
 local blockTypes = { ["Concrete"] = { Color = Color3.fromRGB(159, 161, 172),
                                           Material = Enum.Material.Concrete,
@@ -237,9 +238,7 @@ local function Setup()
         Name = "BuilderGui",
         ResetOnSpawn = true,
         ZIndexBehavior = "Sibling",
-        Enabled = Fusion.Computed(function()
-            return BuilderUIEnabled:get()
-        end),
+        Enabled = BuilderUIEnabled,
     
         [Children] = New "Frame" {
             AnchorPoint = Vector2.new(0,0.5),
