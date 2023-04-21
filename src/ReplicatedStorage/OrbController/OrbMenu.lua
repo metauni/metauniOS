@@ -349,93 +349,92 @@ return function(props)
 
 		emojiMenu =
 		 UI.RoundedFrame {
-			 Visible = Computed(function()
-				 return ActiveMenu:get() == "Emoji"
-			 end),
-	 
-			 AnchorPoint = Vector2.new(0,0.5),
-			 Position = UDim2.new(0,130,0.5,0),
-			 Size = UDim2.fromOffset(170,140),
-	 
-			 BackgroundColor3 = BrickColor.new("Gray").Color,
-			 BackgroundTransparency = 0.6,
+			Visible = Computed(function()
+				return ActiveMenu:get() == "Emoji"
+			end),
+	
+			AnchorPoint = Vector2.new(0,0.5),
+			Position = UDim2.new(0,130,0.5,0),
+			Size = UDim2.fromOffset(170,140),
+	
+			BackgroundColor3 = BrickColor.new("Gray").Color,
+			BackgroundTransparency = 0.6,
 
-			 [Children] = {
-				 UI.ImageButton {
-					 Name = "Close",
-					 Image = "rbxassetid://13193094571",
-					 [OnEvent "Activated"] = function()
-						 ActiveMenu:set(nil)
-					 end,
-					 Position = UDim2.new(1, -15, 0, 15),
-					 Size = UDim2.fromOffset(25,25)
-				 },
-
-				 UI.Div {
-					Name = "here",
-					AnchorPoint = Vector2.new(0, 0.5),
-					Size = UDim2.new(1,-40,1,-10),
-					Position = UDim2.new(0, 10, 0.5, 0),
-					[Children] = {
-						
-						New "UIGridLayout" {
-							SortOrder = Enum.SortOrder.LayoutOrder,
-							CellSize = UDim2.fromOffset(25,25),
-							CellPadding = UDim2.fromOffset(10,10),
-						},
-
-						Fusion.ForPairs(availableEmojis, function(i, name)
-							return i, UI.Div {
-								[Children] = UI.TextButton {
-									LayoutOrder = i,
-									Text = EmojiList[name],
-									BackgroundTransparency = 0.6,
-									TextSize = 20,
-			
-									[OnEvent "Activated"] = function()
-										
-										local Position = Value(UDim2.new(0.5,math.random(-20,20),0.5,0))
-										local Transparency = Value(0)
-			
-										local tweenInfo = TweenInfo.new(
-												1.4, -- Time
-												Enum.EasingStyle.Linear, -- EasingStyle
-												Enum.EasingDirection.Out, -- EasingDirection
-												0, -- RepeatCount (when less than zero the tween will loop indefinitely)
-												false, -- Reverses (tween will reverse once reaching it's goal)
-												0 -- DelayTime
-										)
-			
-										local flying = FlyingEmojis:get()
-										table.insert(flying, UI.TextLabel {
-											Text = EmojiList[name],
-											Size = UDim2.fromOffset(50,50),
-											TextScaled = true,
-											Position = Tween(Position, tweenInfo),
-											TextTransparency = Tween(Transparency, tweenInfo)
-										})
-			
-										Position:set(UDim2.new(0.5, 0, 0.5, -800))
-										Transparency:set(1)
-			
-										FlyingEmojis:set(flying)
-			
-										task.delay(1.4, function()
-											local item = flying[1]
-											if item then
-												item:Destroy()
-												table.remove(flying, 1)
-												FlyingEmojis:set(flying)
-											end
-										end)
-									end
-								}
-							}
-						end, Fusion.cleanup),
-					}
+			[Children] = {
+				UI.ImageButton {
+					Name = "Close",
+					Image = "rbxassetid://13193094571",
+					[OnEvent "Activated"] = function()
+						ActiveMenu:set(nil)
+					end,
+					Position = UDim2.new(1, -15, 0, 15),
+					Size = UDim2.fromOffset(25,25)
 				},
 
-			 },
+				UI.Div {
+				Name = "here",
+				AnchorPoint = Vector2.new(0, 0.5),
+				Size = UDim2.new(1,-40,1,-10),
+				Position = UDim2.new(0, 10, 0.5, 0),
+				[Children] = {
+					
+					New "UIGridLayout" {
+						SortOrder = Enum.SortOrder.LayoutOrder,
+						CellSize = UDim2.fromOffset(25,25),
+						CellPadding = UDim2.fromOffset(10,10),
+					},
+
+					Fusion.ForPairs(availableEmojis, function(i, name)
+						return i, UI.Div {
+							[Children] = UI.TextButton {
+								LayoutOrder = i,
+								Text = EmojiList[name],
+								BackgroundTransparency = 0.6,
+								TextSize = 20,
+		
+								[OnEvent "Activated"] = function()
+									
+									local Position = Value(UDim2.new(0.5,math.random(-20,20),0.5,0))
+									local Transparency = Value(0)
+		
+									local tweenInfo = TweenInfo.new(
+											1.4, -- Time
+											Enum.EasingStyle.Linear, -- EasingStyle
+											Enum.EasingDirection.Out, -- EasingDirection
+											0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+											false, -- Reverses (tween will reverse once reaching it's goal)
+											0 -- DelayTime
+									)
+		
+									local flying = FlyingEmojis:get()
+									table.insert(flying, UI.TextLabel {
+										Text = EmojiList[name],
+										Size = UDim2.fromOffset(50,50),
+										TextScaled = true,
+										Position = Tween(Position, tweenInfo),
+										TextTransparency = Tween(Transparency, tweenInfo)
+									})
+		
+									Position:set(UDim2.new(0.5, 0, 0.5, -800))
+									Transparency:set(1)
+		
+									FlyingEmojis:set(flying)
+		
+									task.delay(1.4, function()
+										local item = flying[1]
+										if item then
+											item:Destroy()
+											table.remove(flying, 1)
+											FlyingEmojis:set(flying)
+										end
+									end)
+								end
+							}
+						}
+					end, Fusion.cleanup),
+				}
+			},
+			},
 		 }
 	end
 
