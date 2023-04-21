@@ -361,7 +361,7 @@ return function(props)
 
 						[OnEvent "Activated"] = function()
 							
-							local Position = Value(UDim2.fromScale(0.5,0.5))
+							local Position = Value(UDim2.new(0.5,math.random(-20,20),0.5,0))
 							local Transparency = Value(0)
 
 							local tweenInfo = TweenInfo.new(
