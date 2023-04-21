@@ -17,28 +17,37 @@ return function (target)
 	local Audience = Value("audience")
 	local OrbcamActive = Value(true)
 
-	local gui
-	gui = OrbMenu {
+	local menu
+	menu = New "Frame" {
 		Parent = target,
-		OrbcamActive = OrbcamActive,
-		SetOrbcamActive = function(active)
-			OrbcamActive:set(active)
-		end,
-		ViewMode = ViewMode,
-		SetViewMode = function(viewMode)
-			ViewMode:set(viewMode)
-		end,
-		Audience = Audience,
-		SetAudience = function(audience)
-			Audience:set(audience)
-		end,
-		IsSpeaker = Value(true),
-		Detach = function()
-			gui:Destroy()
-		end
+
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 30, 1, -30),
+		Size = UDim2.fromOffset(300, 150),
+
+		BackgroundTransparency = 1,
+
+		[Children] = OrbMenu {
+			OrbcamActive = OrbcamActive,
+			SetOrbcamActive = function(active)
+				OrbcamActive:set(active)
+			end,
+			ViewMode = ViewMode,
+			SetViewMode = function(viewMode)
+				ViewMode:set(viewMode)
+			end,
+			Audience = Audience,
+			SetAudience = function(audience)
+				Audience:set(audience)
+			end,
+			IsSpeaker = Value(true),
+			Detach = function()
+				menu:Destroy()
+			end
+		}
 	}
 
 	return function ()
-		gui:Destroy()
+		menu:Destroy()
 	end
 end

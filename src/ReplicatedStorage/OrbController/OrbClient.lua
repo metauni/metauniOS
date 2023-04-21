@@ -425,33 +425,47 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 
 	-- UI in bottom right when orbcam is active
 	destructor:Add(
-		OrbMenu {
-			Parent = observedValue(observeAttached:Pipe{
-				Rx.map(function(attached: boolean)
-					return if attached then Players.LocalPlayer.PlayerGui else nil
-				end)
-			}),
-			ViewMode = observedValue(observeViewMode),
-			SetViewMode = function(viewMode: ViewMode)
-				Remotes.SetViewMode:FireServer(orbPart, viewMode)
-			end,
-			Detach = function()
-				Remotes.DetachPlayer:FireServer(orbPart)
-			end,
-			IsSpeaker = observedValue(observeSpeaker:Pipe{
-				Rx.map(function(speaker: Player?)
-					return speaker == Players.LocalPlayer
-				end)
-			}),
-			Audience = Audience,
-			SetAudience = function(audience)
-				Audience:set(audience)
-			end,
-			OrbcamActive = OrbcamActive,
-			SetOrbcamActive = function(active)
-				OrbcamActive:set(active)
-			end,
+
+	New "ScreenGui" {
+
+		Parent = observedValue(observeAttached:Pipe{
+			Rx.map(function(attached: boolean)
+				return if attached then Players.LocalPlayer.PlayerGui else nil
+			end)
+		}),
+
+		[Children] = New "Frame" {
+
+			AnchorPoint = Vector2.new(0, 1),
+			Position = UDim2.new(0, 30, 1, -30),
+			Size = UDim2.fromOffset(300, 150),
+
+			BackgroundTransparency = 0,
+
+			[Children] = OrbMenu {
+				ViewMode = observedValue(observeViewMode),
+				SetViewMode = function(viewMode: ViewMode)
+					Remotes.SetViewMode:FireServer(orbPart, viewMode)
+				end,
+				Detach = function()
+					Remotes.DetachPlayer:FireServer(orbPart)
+				end,
+				IsSpeaker = observedValue(observeSpeaker:Pipe{
+					Rx.map(function(speaker: Player?)
+						return speaker == Players.LocalPlayer
+					end)
+				}),
+				Audience = Audience,
+				SetAudience = function(audience)
+					Audience:set(audience)
+				end,
+				OrbcamActive = OrbcamActive,
+				SetOrbcamActive = function(active)
+					OrbcamActive:set(active)
+				end,
+			}
 		}
+	}
 	)
 
 	return {
