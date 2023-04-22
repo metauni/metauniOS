@@ -351,9 +351,9 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
 function export.tagged(tag: string): Rx.Observable
-	return Rx.merge({
+	return Rx.concat({
 		Rx.from(CollectionService:GetTagged(tag)),
-		Rx.fromSignal(CollectionService:GetInstanceAddedSignal(tag))
+		Rx.fromSignal(CollectionService:GetInstanceAddedSignal(tag)),
 	})
 end
 
@@ -362,7 +362,7 @@ function export.untagged(tag: string): Rx.Observable
 end
 
 function export.players(): Rx.Observable
-	return Rx.merge({
+	return Rx.concat({
 		Rx.from(Players:GetPlayers()),
 		Rx.fromSignal(Players.PlayerAdded)
 	})
