@@ -94,9 +94,9 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 		ActionText = "Attach as Listener",
 		KeyboardKeyCode = Enum.KeyCode.E,
 		GamepadKeyCode = Enum.KeyCode.ButtonX,
-		Enabled = observedValue(observeAttached:Pipe{
-			Rx.map(function(attached: boolean)
-				return not attached
+		Enabled = observedValue(observedAttachedOrb:Pipe{
+			Rx.map(function(attachedOrb: Part?)
+				return attachedOrb == nil
 			end)
 		}),
 		[OnEvent "Triggered"] = function()
@@ -125,12 +125,12 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				Rx.of(Players.LocalPlayer):Pipe({
 					Rxi.attribute("metaadmin_isscribe")
 				}),
-				observeAttached,
+				observedAttachedOrb,
 			})
 			:Pipe {
 				Rx.unpacked,
-				Rx.map(function(speaker: Player?, isScribe: boolean?, attached: boolean)
-					return (not attached) and (isScribe or RunService:IsStudio()) and speaker == nil
+				Rx.map(function(speaker: Player?, isScribe: boolean?, attachedOrb: Part?)
+					return (attachedOrb == nil) and (isScribe or RunService:IsStudio()) and speaker == nil
 				end)
 			}
 		),
