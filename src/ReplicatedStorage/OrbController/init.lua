@@ -39,13 +39,10 @@ function OrbController:Start()
 		},
 	}:Subscribe(function(data)
 		if data.AttachedOrbEarPart then
-			print("Listening from Orb")
 			SoundService:SetListener(Enum.ListenerType.ObjectCFrame, data.AttachedOrbEarPart)
 		elseif data.PlayerHead then
-			print("Listening from Player")
 			SoundService:SetListener(Enum.ListenerType.ObjectCFrame, data.PlayerHead)
 		else
-			print("Listening from Camera")
 			SoundService:SetListener(Enum.ListenerType.Camera)
 		end
 	end)
