@@ -789,9 +789,11 @@ function NPC:Prompt()
             --    end
             --end
 
-            if parsedAction.Type == NPC.ActionType.Move then
+            if parsedAction.Type == NPC.ActionType.Walk then
                 if hasMoved then continue end
-                if self.CurrentProfile == "Seminar" then continue end
+                if self.CurrentProfile == "Seminar" then
+                    continue
+                end
                     
                 hasMoved = true
             end
@@ -1838,6 +1840,7 @@ function NPCService.HandleChat(speaker, message, target)
         if speakerIsPlayer and not getReadPerm(speaker, npc) then continue end
 
 		local npcPos = getInstancePosition(npc.Instance)
+        if not npcPos then continue end
 		local distance = (npcPos - pos).Magnitude
 
         if distance < npc:GetPersonality("HearingRadius") then
