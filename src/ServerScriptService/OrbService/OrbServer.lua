@@ -151,6 +151,16 @@ function OrbServer.new(orbPart: Part)
 		end)
 	)
 
+	destructor:Add(
+		Remotes.RequestStreamAtOrb.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
+			if triggeredOrb == orbPart then
+				if game.Workspace.StreamingEnabled then
+					player:RequestStreamAroundAsync(orbPart.Position)
+				end
+			end
+		end)
+	)
+
 	local viewModeValue = NewTracked "StringValue" {
 		Name = "ViewMode",
 		Value = "double",

@@ -32,6 +32,10 @@
 		{
 			"Name": "SendEmoji",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "RequestStreamAtOrb",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }
