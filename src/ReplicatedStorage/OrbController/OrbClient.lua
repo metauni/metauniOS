@@ -278,6 +278,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				-- The boards + the audience characters
 				local targets = {poi1, poi2}
 				local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
+				local audienceEmpty = true
 
 				for _, player in Players:GetPlayers() do
 					local character = player.Character
@@ -285,6 +286,9 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 					if character and character.PrimaryPart and orbValue and orbValue.Value == orbPart then
 						if (character.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
 							table.insert(targets, character.PrimaryPart)
+							if character ~= speakerCharacter then
+								audienceEmpty = false
+							end
 						end
 					end
 				end
@@ -292,7 +296,14 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				for _, model in CollectionService:GetTagged("fake_audience") do
 					if (model.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
 						table.insert(targets, model.PrimaryPart)
+						audienceEmpty = false
 					end
+				end
+
+				if audienceEmpty then
+					CamPositionGoal:set(cframe.Position)
+					CamLookAtGoal:set(lookTarget)
+					return 
 				end
 
 				local cframeWithAudience = CameraUtils.FitTargetsAlongCFrameRay(cframe, targets, orbcam.FieldOfView, aspectRatio, Config.OrbcamBuffer)
