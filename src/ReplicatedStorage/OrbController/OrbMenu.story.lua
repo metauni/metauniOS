@@ -47,6 +47,9 @@ return function (target)
 			Teleport = function()
 				print("teleport!")
 			end,
+			SendEmoji = function(emojiName: string)
+				print(`send emoji! - {emojiName}`)
+			end,
 		}
 	}
 

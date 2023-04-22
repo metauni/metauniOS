@@ -28,6 +28,10 @@
 		{
 			"Name": "SetShowAudience",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SendEmoji",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }

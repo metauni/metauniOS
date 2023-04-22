@@ -48,6 +48,31 @@ function OrbServer.new(orbPart: Part)
 
 	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
 
+	local observeAttached =
+		Rx.of(Players):Pipe {
+			Rxi.children(),
+			Rx.switchMap(function(players: {Players})
+				local AttachedOrNilObservers = {}
+				for _, player in players do
+					AttachedOrNilObservers[player] = Rx.of(PlayerToOrb):Pipe {
+						Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
+						Rxi.property("Value"),
+						Rx.map(function(attachedOrb: Part)
+							return attachedOrb == orbPart or nil
+						end)
+					}
+				end
+
+				-- This emits the latest set of players attached to this orb
+				return Rx.combineLatest(AttachedOrNilObservers)
+			end),
+		}
+
+	local AttachedPlayers: Value<{[Player]: true?}> = Value({})
+	observeAttached:Subscribe(function(attachedPlayers)
+		AttachedPlayers:set(attachedPlayers)
+	end)
+
 	destructor:Add(
 		Remotes.SetListener.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
 			if triggeredOrb ~= orbPart then
@@ -114,26 +139,17 @@ function OrbServer.new(orbPart: Part)
 		end)
 	)
 
-	Rx.of(Players):Pipe {
-		Rxi.children(),
-		Rx.switchMap(function(players: {Players})
-			local AttachedOrNilObservers = {}
-			for _, player in players do
-				AttachedOrNilObservers[player] = Rx.of(player.PlayerGui):Pipe {
-					Rxi.findFirstChildWithClass("ObjectValue", "AttachedOrb"),
-					Rxi.property("Value"),
-					Rx.map(function(attachedOrb: Part)
-						return attachedOrb == orbPart or nil
-					end)
-				}
+	destructor:Add(
+		Remotes.SendEmoji.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, emojiName: string)
+			if triggeredOrb == orbPart then
+				for attachedPlayer in AttachedPlayers:get(false) do
+					if attachedPlayer ~= player then
+						Remotes.SendEmoji:FireClient(attachedPlayer, emojiName)
+					end
+				end
 			end
-
-			-- This emits the latest set of players attached to this orb
-			return Rx.combineLatest(AttachedOrNilObservers)
-		end),
-	}:Pipe {
-		
-	}
+		end)
+	)
 
 	local viewModeValue = NewTracked "StringValue" {
 		Name = "ViewMode",

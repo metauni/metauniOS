@@ -180,6 +180,45 @@ return function(props)
 
 	local FlyingEmojis = Value({})
 
+	local function deployLocalEmoji(name: string)
+		local Position = Value(UDim2.new(0.5,math.random(-20,20),0.5,0))
+		local Transparency = Value(0)
+
+		local tweenInfo = TweenInfo.new(
+				1.4, -- Time
+				Enum.EasingStyle.Linear, -- EasingStyle
+				Enum.EasingDirection.Out, -- EasingDirection
+				0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+				false, -- Reverses (tween will reverse once reaching it's goal)
+				0 -- DelayTime
+		)
+
+		local flying = FlyingEmojis:get()
+		table.insert(flying, UI.TextLabel {
+			Text = EmojiList[name],
+			Size = UDim2.fromOffset(50,50),
+			TextScaled = true,
+			Position = Tween(Position, tweenInfo),
+			TextTransparency = Tween(Transparency, tweenInfo)
+		})
+
+		Position:set(UDim2.new(0.5, 0, 0.5, -800))
+		Transparency:set(1)
+
+		FlyingEmojis:set(flying)
+
+		task.delay(1.4, function()
+			local item = flying[1]
+			if item then
+				item:Destroy()
+				table.remove(flying, 1)
+				FlyingEmojis:set(flying)
+			end
+		end)
+	end
+
+	
+
 	local emojiMenu do
 	
 		local availableEmojis = {
@@ -193,7 +232,7 @@ return function(props)
 			":ok_hand:",
 			":100:",
 			":repeat:",
-			":shrug:",
+			":question:",
 			":sob:",
 			":laughing:",
 			":rage:",
@@ -214,6 +253,13 @@ return function(props)
 			BackgroundColor3 = BrickColor.new("Gray").Color,
 			BackgroundTransparency = 0.6,
 
+			[Fusion.Cleanup] =
+				if props.ReceiveEmojiSignal then
+					props.ReceiveEmojiSignal:Connect(function(emojiName: string)
+						deployLocalEmoji(emojiName)
+					end)
+				else nil,
+
 			[Children] = {
 				UI.ImageButton {
 					Name = "Close",
@@ -226,7 +272,6 @@ return function(props)
 				},
 
 				UI.Div {
-				Name = "here",
 				AnchorPoint = Vector2.new(0, 0.5),
 				Size = UDim2.new(1,-40,1,-10),
 				Position = UDim2.new(0, 10, 0.5, 0),
@@ -247,41 +292,8 @@ return function(props)
 								TextSize = 20,
 		
 								[OnEvent "Activated"] = function()
-									
-									local Position = Value(UDim2.new(0.5,math.random(-20,20),0.5,0))
-									local Transparency = Value(0)
-		
-									local tweenInfo = TweenInfo.new(
-											1.4, -- Time
-											Enum.EasingStyle.Linear, -- EasingStyle
-											Enum.EasingDirection.Out, -- EasingDirection
-											0, -- RepeatCount (when less than zero the tween will loop indefinitely)
-											false, -- Reverses (tween will reverse once reaching it's goal)
-											0 -- DelayTime
-									)
-		
-									local flying = FlyingEmojis:get()
-									table.insert(flying, UI.TextLabel {
-										Text = EmojiList[name],
-										Size = UDim2.fromOffset(50,50),
-										TextScaled = true,
-										Position = Tween(Position, tweenInfo),
-										TextTransparency = Tween(Transparency, tweenInfo)
-									})
-		
-									Position:set(UDim2.new(0.5, 0, 0.5, -800))
-									Transparency:set(1)
-		
-									FlyingEmojis:set(flying)
-		
-									task.delay(1.4, function()
-										local item = flying[1]
-										if item then
-											item:Destroy()
-											table.remove(flying, 1)
-											FlyingEmojis:set(flying)
-										end
-									end)
+									deployLocalEmoji(name)
+									props.SendEmoji(name)
 								end
 							}
 						}

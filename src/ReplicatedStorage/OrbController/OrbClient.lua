@@ -496,6 +496,10 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				Teleport = function()
 					Remotes.TeleportToOrb:FireServer(orbPart)
 				end,
+				SendEmoji = function(emojiName: string)
+					Remotes.SendEmoji:FireServer(orbPart, emojiName)
+				end,
+				ReceiveEmojiSignal = Remotes.SendEmoji.OnClientEvent,
 			}
 		}
 	}
