@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local TweenService = game:GetService("TweenService")
 
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
@@ -14,6 +15,7 @@ local Children = Fusion.Children
 local Destructor = require(ReplicatedStorage.Destructor)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
+local Rxf = require(ReplicatedStorage.Rxf)
 local BoardService = require(ServerScriptService.BoardService)
 local CameraUtils = require(ReplicatedStorage.OrbController.CameraUtils)
 
@@ -35,7 +37,7 @@ function OrbServer.new(orbPart: Part)
 
 	-- The orb will be aligned with physics to this position
 	-- If nil, and there is a speaker, the orb will chase the speaker
-	local Waypoint: Value<Vector3> = Value(orbPart.Position)
+	local Waypoint: Value<CFrame> = Value(orbPart.CFrame)
 
 	local speakerValue = NewTracked "ObjectValue" {
 		Name = "Speaker",
@@ -315,7 +317,8 @@ function OrbServer.new(orbPart: Part)
 				end),
 				Mode = Enum.PositionAlignmentMode.OneAttachment,
 				Position = Computed(function()
-					return Waypoint:get() or Vector3.zero
+					local waypoint = Waypoint:get()
+					return waypoint and waypoint.Position or Vector3.zero
 				end),
 				Attachment0 = orbAttachment,
 				MaxForce = 10000,
@@ -324,23 +327,23 @@ function OrbServer.new(orbPart: Part)
 		}
 	}
 
-	-- Emit the speaker position every second, but only when it has changed
-	local function observeSpeakerMovementThrottled(interval: number)
-		return observeSpeaker:Pipe {
-			Rxi.property("Character"),
-			Rxi.property("PrimaryPart"),
-			Rx.switchMap(function(part: Part)
-				if not part then
-					return Rx.never
-				end
-				return Rx.timer(0, interval):Pipe({
-					Rx.map(function()
-						return part.Position
-					end)
-				})
-			end),
-			Rx.distinct(),
-		}
+	-- Emit the observed part's position every second, but only when it has changed
+	local function throttledMovement(interval: number)
+		return function(source: Observable)
+			return source:Pipe {
+				Rx.switchMap(function(part: Part)
+					if not part then
+						return Rx.never
+					end
+					return Rx.timer(0, interval):Pipe({
+						Rx.map(function()
+							return part.Position
+						end)
+					})
+				end),
+				Rx.distinct(),
+			}
+		end
 	end
 	
 	local poi1Value = NewTracked "ObjectValue" {
@@ -361,13 +364,10 @@ function OrbServer.new(orbPart: Part)
 	destructor:Add(
 		Rx.combineLatest({
 			-- Speaker Movement
-			SpeakerPosition = observeSpeakerMovementThrottled(0.5),
-			-- Move Direction
-			MoveDirection = observeSpeaker:Pipe {
+			SpeakerPosition = observeSpeaker:Pipe {
 				Rxi.property("Character"),
-				Rxi.findFirstChildOfClass("Humanoid"),
-				Rxi.property("MoveDirection"),
-				Rxi.notNil(),
+				Rxi.property("PrimaryPart"),
+				throttledMovement(0.5),
 			},
 			ViewMode = observeViewMode,
 			-- Whenever Speaker Attachment gets parented to the speaker
@@ -375,7 +375,6 @@ function OrbServer.new(orbPart: Part)
 		})
 		:Subscribe(function(data)
 			local speakerPosition: Vector3? = data.SpeakerPosition
-			local moveDirection: Vector3? = data.MoveDirection
 			local viewMode: "single" | "double" | "freecam" | nil = data.ViewMode
 
 			if viewMode == nil or viewMode == "freecam" then
@@ -386,16 +385,9 @@ function OrbServer.new(orbPart: Part)
 			-- don't move it until speaker is out of shot.
 			if viewMode == "single" and poi1Value.Value and not poi2Value.Value then
 
-				local focalPosition = poi1Value.Value.Position
-				if poi2Value.Value then
-					focalPosition += poi2Value.Value.Position
-					focalPosition /= 2
-				end
-
-				local waypoint = Waypoint:get(false)
-				local orbLook = (focalPosition - waypoint).Unit
+				local waypoint: CFrame  = Waypoint:get(false)
 				local horizontalFOVRad = 2 * math.atan(Config.AssumedAspectRatio * math.tan(math.rad(Config.OrbcamFOV)/2))
-				local cosAngleToSpeaker = ((speakerPosition - waypoint).Unit):Dot(orbLook)
+				local cosAngleToSpeaker = ((speakerPosition - waypoint).Unit):Dot(waypoint.LookVector)
 
 				local ANGLE_BUFFER = math.rad(0)
 				local insideCamView = cosAngleToSpeaker >= math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
@@ -474,19 +466,18 @@ function OrbServer.new(orbPart: Part)
 				return
 			end
 
-			-- Speaker stopped in shot of camera
-			if true or moveDirection.Magnitude == 0 then
-				poi1Value.Value = firstPart
-				poi2Value.Value = secondPart
+			-- Speaker meets conditions to set waypoint in front of pois
 
-				-- Put orb in camera position, but lower it down to the ground
-				local waypoint = camCFrame.Position
-				local raycastResult = workspace:Raycast(camCFrame.Position, -Vector3.yAxis * 50, raycastParams)
-				if raycastResult then
-					waypoint = Vector3.new(waypoint.X, raycastResult.Position.Y, waypoint.Z)
-				end
-				Waypoint:set(waypoint)
+			poi1Value.Value = firstPart
+			poi2Value.Value = secondPart
+
+			-- Put orb in camera position, but lower it down to the ground (if possible)
+			local waypoint: CFrame = camCFrame
+			local raycastResult = workspace:Raycast(camCFrame.Position, -Vector3.yAxis * 50, raycastParams)
+			if raycastResult then
+				waypoint = waypoint - waypoint.Position + Vector3.new(waypoint.X, raycastResult.Position.Y, waypoint.Z)
 			end
+			Waypoint:set(waypoint)
 		end)
 	)
 
@@ -638,22 +629,29 @@ function OrbServer.new(orbPart: Part)
 	)
 
 	do
-		local cleanup = {}
+		local maids = {}
 
 		Rxi.playerLifetime():Subscribe(function(player: Player, added: boolean)
-			if cleanup[player] then
-				cleanup[player]()
-				cleanup[player] = nil
+			
+			if maids[player] then
+				maids[player]:Destroy()
+				maids[player] = nil
 			end
-
+			
 			if not added then
 				return
 			end
 
+			maids[player] = Destructor.new()
+
 			local earHalo: UnionOperation = earRing:Clone()
 			local eyeHalo: UnionOperation = eyeRing:Clone()
+			maids[player]:Add(earHalo)
+			maids[player]:Add(eyeHalo)
 			earHalo:ClearAllChildren()
 			eyeHalo:ClearAllChildren()
+			earRing.Archivable = false
+			eyeHalo.Archivable = false
 			local earWeld: WeldConstraint = New "WeldConstraint" {
 				Parent = earHalo,
 				Part0 = earHalo,
@@ -663,60 +661,218 @@ function OrbServer.new(orbPart: Part)
 				Part0 = eyeHalo,
 			}
 
-			local sub = Rx.combineLatest{
-				Head = Rx.of(player):Pipe{
-					Rxi.property("Character"),
-					Rxi.findFirstChildWithClass("MeshPart", "Head"),
-				},
-				OrbcamActive = Rx.fromSignal(Remotes.OrbcamStatus.OnServerEvent):Pipe{
-					Rx.map(function(triggeredPlayer: Player, triggeredOrb: Part, active: boolean)
-						return (triggeredPlayer == player) and triggeredOrb == orbPart and active
-					end),
-					Rx.defaultsTo(false)
-				},
-				Attached = Rx.of(PlayerToOrb):Pipe{
-					Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
-					Rxi.property("Value"),
-					Rx.map(function(attachedOrb: Part?)
-						return attachedOrb == orbPart
-					end),
-				},
-				Speaker = observeSpeaker,
-			}:Subscribe(function(data)
-				local head: Part? = data.Head
-				local orbcamActive: boolean = data.OrbcamActive
-				local attached: boolean = data.Attached
-				local speaker: Player? = data.Speaker
+			maids[player]:Add(
+				Rx.combineLatest{
+					Head = Rx.of(player):Pipe{
+						Rxi.property("Character"),
+						Rxi.findFirstChildWithClass("MeshPart", "Head"),
+					},
+					OrbcamActive = Rx.fromSignal(Remotes.OrbcamStatus.OnServerEvent):Pipe{
+						Rx.map(function(triggeredPlayer: Player, triggeredOrb: Part, active: boolean)
+							return (triggeredPlayer == player) and triggeredOrb == orbPart and active
+						end),
+						Rx.defaultsTo(false)
+					},
+					Attached = Rx.of(PlayerToOrb):Pipe{
+						Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
+						Rxi.property("Value"),
+						Rx.map(function(attachedOrb: Part?)
+							return attachedOrb == orbPart
+						end),
+					},
+					Speaker = observeSpeaker,
+				}:Subscribe(function(data)
+					local head: Part? = data.Head
+					local orbcamActive: boolean = data.OrbcamActive
+					local attached: boolean = data.Attached
+					local speaker: Player? = data.Speaker
 
-				local showEar = attached and head and (speaker ~= player)
-				local showEye = showEar and orbcamActive
+					local showEar = attached and head and (speaker ~= player)
+					local showEye = showEar and orbcamActive
 
-				if showEar then
-					earHalo.Parent = head
-					earHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
-					earWeld.Part1 = head
-				else
-					earHalo.Parent = nil
-					earWeld.Part1 = nil
-				end
+					if showEar then
+						earHalo.Parent = head
+						earHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
+						earWeld.Part1 = head
+					else
+						earHalo.Parent = nil
+						earWeld.Part1 = nil
+					end
 
-				if showEye then
-					eyeHalo.Parent = head
-					eyeHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
-					eyeWeld.Part1 = head
-				else
-					eyeHalo.Parent = nil
-					eyeWeld.Part1 = nil
+					if showEye then
+						eyeHalo.Parent = head
+						eyeHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
+						eyeWeld.Part1 = head
+					else
+						eyeHalo.Parent = nil
+						eyeWeld.Part1 = nil
+					end
+				end)
+			)
+
+			local ghost: Model
+
+			maids[player]:Add(function()
+				if ghost then
+					ghost:Destroy()
+					ghost = nil
 				end
 			end)
 
-			cleanup[player] = function()
-				sub()
-				earWeld:Destroy()
-				eyeWeld:Destroy()
-				earHalo:Destroy()
-				eyeHalo:Destroy()
-			end
+			maids[player]:Add(
+				Rx.combineLatest{
+					Waypoint = Rxf.fromState(Waypoint),
+					Character = Rx.of(player):Pipe{
+						Rxi.property("Character")
+					},
+					Speaker = observeSpeaker,
+					Attached = Rx.of(PlayerToOrb):Pipe{
+						Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
+						Rxi.property("Value"),
+						Rx.map(function(attachedOrb: Part?)
+							return attachedOrb == orbPart
+						end),
+					},
+					_movement = Rx.merge{
+						Rx.of(player):Pipe{
+							Rxi.property("Character"),
+							Rxi.property("PrimaryPart"),
+							throttledMovement(0.5),
+						},
+						observeSpeaker:Pipe{
+							Rxi.property("Character"),
+							Rxi.property("PrimaryPart"),
+							throttledMovement(0.5),
+						},
+					},
+				}:Subscribe(function(data)
+					local waypoint: CFrame? = data.Waypoint
+					local character: Model? = data.Character
+					local speaker: Player? = data.Speaker
+					local attached: boolean = data.Attached
+
+					local ghostTarget: CFrame = waypoint or orbPart.CFrame
+
+					if
+						not attached
+						-- or
+						-- not speaker
+						or
+						(character and (character.PrimaryPart.Position - ghostTarget.Position).Magnitude <= Config.GhostSpawnRadius)
+						or
+						(not ghost and not character)
+					then
+						if ghost then
+							
+							do -- Spooky ghost fades away ooooooooOOOOOooo
+								for _, desc in ipairs(ghost:GetDescendants()) do
+									if desc:IsA("BasePart") then
+										TweenService:Create(desc, TweenInfo.new(
+											2, -- Time
+											Enum.EasingStyle.Linear, -- EasingStyle
+											Enum.EasingDirection.Out, -- EasingDirection
+											0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+											false, -- Reverses (tween will reverse once reaching it's goal)
+											0 -- DelayTime
+										), {Transparency = 1}):Play()
+									end
+								end
+							end
+
+							local _ghost = ghost
+							ghost = nil
+							task.delay(2.5, function()
+								_ghost:Destroy()
+							end)
+						end
+						return
+					end
+
+					if not ghost then
+						-- By *logic*, character exists and is within spawn radius
+
+						character.Archivable = true
+						ghost = character:Clone()
+						character.Archivable = false
+
+						ghost.Name = character.Name.."-ghost"
+
+						pcall(function()
+							if ghost.Head:FindFirstChild("EarRing") then
+								ghost.Head:FindFirstChild("EarRing"):Destroy()
+							end
+							if ghost.Head:FindFirstChild("EyeRing") then
+								ghost.Head:FindFirstChild("EyeRing"):Destroy()
+							end
+						end)
+
+						for _, desc in ipairs(ghost:GetDescendants()) do
+							if desc:IsA("BasePart") then
+								desc.Transparency = 1 - (0.2 * (1 - desc.Transparency))
+								desc.CastShadow = false
+								desc.CanCollide = false
+							end
+						end
+						
+						ghost.Parent = workspace
+					end
+
+					-- ghost exists now
+
+					-- TODO: upperTorso/lowerTorso CanCollide seems to reactive itself
+					-- TODO: needs more testing
+
+					if (ghostTarget.Position - ghost.PrimaryPart.Position).Magnitude > Config.GhostSpawnRadius then
+						local humanoid: Humanoid = ghost.Humanoid
+
+						-- Stand somewhere sensible behind the orb
+						local angle = math.pi * (3/4) * math.random() - math.pi/2
+						local standBackDistance = Config.GhostMinOrbRadius + (Config.GhostMaxOrbRadius - Config.GhostMinOrbRadius) * math.random()
+						local position = (ghostTarget * CFrame.Angles(0,angle,0) * CFrame.new(0,0,standBackDistance)).Position
+
+						for _, desc in ipairs(ghost:GetDescendants()) do
+							if desc:IsA("BasePart") then
+								desc.CastShadow = false
+								desc.CanCollide = false
+							end
+						end
+
+						local animation = script.Parent.WalkAnim
+						local animationTrack = humanoid.Animator:LoadAnimation(animation)
+						animationTrack:Play()
+						
+						humanoid.MoveToFinished:Once(function()
+							
+							animationTrack:Stop()
+
+							if not ghost or not ghost.PrimaryPart then
+								return
+							end
+
+							local ghostPos = ghost.PrimaryPart.Position
+							local speakerPosXZ = Vector3.new(orbPart.Position.X,ghostPos.Y,orbPart.Position.Z)
+							-- local speakerPosXZ = Vector3.new(speakerPos.X,ghostPos.Y,speakerPos.Z)
+
+
+							local tweenInfo = TweenInfo.new(
+								0.5, -- Time
+								Enum.EasingStyle.Linear, -- EasingStyle
+								Enum.EasingDirection.Out, -- EasingDirection
+								0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+								false, -- Reverses (tween will reverse once reaching it's goal)
+								0 -- DelayTime
+							)
+							
+							local ghostTween = TweenService:Create(ghost.PrimaryPart, tweenInfo, {CFrame = CFrame.lookAt(ghostPos, speakerPosXZ)})
+							ghostTween:Play()
+							
+							ghost.UpperTorso.CanCollide = true
+							ghost.LowerTorso.CanCollide = true
+						end)
+						humanoid:MoveTo(position)
+					end
+				end)
+			)
 		end)
 	end
 
