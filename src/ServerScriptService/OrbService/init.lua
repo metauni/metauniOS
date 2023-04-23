@@ -1,25 +1,10 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local OrbServer = require(script.OrbServer)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
-local Remotes = ReplicatedStorage.OrbController.Remotes
-
-local speakerAttachSoundIds = {
-	7873470625,
-	7873470425,
-	7873469842,
-	7873470126,
-	7864771146,
-	7864770493,
-	8214755036,
-	8214754703
-}
-
-local SMALL_DISTANCE = 1e-6
-
-local speakerDetachSoundId = 7864770869
 
 local OrbService = {
 	Orbs = {} :: {[Part]: Orb}
@@ -45,6 +30,14 @@ function OrbService:Start()
 			self.Orbs[instance] = nil
 		end
 	end)
+
+	-- We don't use waypoints anymore, but we must still hide them if they are there.
+	for _, waypoint in CollectionService:GetTagged("metaorb_waypoint") do
+		waypoint.Transparency = 1
+		waypoint.Anchored = true
+		waypoint.CanCollide = false
+		waypoint.CastShadow = false
+	end
 	
 end
 

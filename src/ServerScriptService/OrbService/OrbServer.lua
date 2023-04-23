@@ -87,6 +87,43 @@ function OrbServer.new(orbPart: Part)
 		end)
 	)
 
+	local attachSoundIds = {
+		7873470625,
+		7873470425,
+		7873469842,
+		7873470126,
+		7864771146,
+		7864770493,
+		8214755036,
+		8214754703
+	}
+	
+	local attachSound = NewTracked "Sound" {
+		Name = "AttachSound",
+		Parent = orbPart,
+		
+		-- SoundId set randomly on play
+		RollOffMode = Enum.RollOffMode.InverseTapered,
+		RollOffMaxDistance = 200,
+		RollOffMinDistance = 10,
+		Playing = false,
+		Looped = false,
+		Volume = 0.2,
+	}
+	
+	local detachSound = NewTracked "Sound" {
+		Name = "DetachSound",
+		Parent = orbPart,
+		
+		SoundId = "rbxassetid://7864770869",
+		RollOffMode = Enum.RollOffMode.InverseTapered,
+		RollOffMaxDistance = 200,
+		RollOffMinDistance = 10,
+		Playing = false,
+		Looped = false,
+		Volume = 0.2,
+	}
+
 	destructor:Add(
 		Remotes.SetSpeaker.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
 			if triggeredOrb ~= orbPart then
@@ -101,6 +138,9 @@ function OrbServer.new(orbPart: Part)
 
 			if RunService:IsStudio() or player:GetAttribute("metaadmin_isscribe") then
 				speakerValue.Value = player
+				
+				attachSound.SoundId = "rbxassetid://"..attachSoundIds[math.random(1, #attachSoundIds)]
+				attachSound:Play()
 			end
 		end)
 	)
@@ -110,6 +150,7 @@ function OrbServer.new(orbPart: Part)
 		Players.PlayerRemoving:Connect(function(player: Player)
 			if speakerValue.Value == player then
 				speakerValue.Value = nil
+				detachSound:Play()
 			end
 		end)
 	)
@@ -119,6 +160,7 @@ function OrbServer.new(orbPart: Part)
 			if triggeredOrb == orbPart then
 				if speakerValue.Value == player then
 					speakerValue.Value = nil
+					detachSound:Play()
 				end
 
 				local attachedOrb = PlayerToOrb:FindFirstChild(player.UserId)
