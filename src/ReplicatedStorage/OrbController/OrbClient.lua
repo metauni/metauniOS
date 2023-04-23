@@ -453,57 +453,57 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 	PoiHighlight(observePoi1)
 	PoiHighlight(observePoi2)
 
+	local Attached = observedValue(observeAttached)
+
 	-- UI in bottom right when orbcam is active
 	destructor:Add(
 
-	New "ScreenGui" {
+		New "ScreenGui" {
 
-		Parent = observedValue(observeAttached:Pipe{
-			Rx.map(function(attached: boolean)
-				return if attached then Players.LocalPlayer.PlayerGui else nil
-			end)
-		}),
+			Parent = Players.LocalPlayer.PlayerGui,
+			Enabled = Attached,
 
-		[Children] = New "Frame" {
+			[Children] = New "Frame" {
 
-			AnchorPoint = Vector2.new(0, 1),
-			Position = UDim2.new(0, 30, 1, -30),
-			Size = UDim2.fromOffset(300, 150),
+				AnchorPoint = Vector2.new(0, 1),
+				Position = UDim2.new(0, 30, 1, -30),
+				Size = UDim2.fromOffset(300, 150),
 
-			BackgroundTransparency = 1,
+				BackgroundTransparency = 1,
 
-			[Children] = OrbMenu {
-				ViewMode = observedValue(observeViewMode),
-				SetViewMode = function(viewMode: ViewMode)
-					Remotes.SetViewMode:FireServer(orbPart, viewMode)
-				end,
-				Detach = function()
-					Remotes.DetachPlayer:FireServer(orbPart)
-				end,
-				IsSpeaker = observedValue(observeSpeaker:Pipe{
-					Rx.map(function(speaker: Player?)
-						return speaker == Players.LocalPlayer
-					end)
-				}),
-				Audience = observedValue(observeShowAudience),
-				SetAudience = function(audience)
-					Remotes.SetShowAudience:FireServer(orbPart, audience)
-				end,
-				OrbcamActive = OrbcamActive,
-				SetOrbcamActive = function(active)
-					Remotes.OrbcamStatus:FireServer(orbPart, active)
-					OrbcamActive:set(active)
-				end,
-				Teleport = function()
-					Remotes.TeleportToOrb:FireServer(orbPart)
-				end,
-				SendEmoji = function(emojiName: string)
-					Remotes.SendEmoji:FireServer(orbPart, emojiName)
-				end,
-				ReceiveEmojiSignal = Remotes.SendEmoji.OnClientEvent,
+				[Children] = OrbMenu {
+					Enabled = Attached,
+					ViewMode = observedValue(observeViewMode),
+					SetViewMode = function(viewMode: ViewMode)
+						Remotes.SetViewMode:FireServer(orbPart, viewMode)
+					end,
+					Detach = function()
+						Remotes.DetachPlayer:FireServer(orbPart)
+					end,
+					IsSpeaker = observedValue(observeSpeaker:Pipe{
+						Rx.map(function(speaker: Player?)
+							return speaker == Players.LocalPlayer
+						end)
+					}),
+					Audience = observedValue(observeShowAudience),
+					SetAudience = function(audience)
+						Remotes.SetShowAudience:FireServer(orbPart, audience)
+					end,
+					OrbcamActive = OrbcamActive,
+					SetOrbcamActive = function(active)
+						Remotes.OrbcamStatus:FireServer(orbPart, active)
+						OrbcamActive:set(active)
+					end,
+					Teleport = function()
+						Remotes.TeleportToOrb:FireServer(orbPart)
+					end,
+					SendEmoji = function(emojiName: string)
+						Remotes.SendEmoji:FireServer(orbPart, emojiName)
+					end,
+					ReceiveEmojiSignal = Remotes.SendEmoji.OnClientEvent,
+				}
 			}
 		}
-	}
 	)
 
 	return {

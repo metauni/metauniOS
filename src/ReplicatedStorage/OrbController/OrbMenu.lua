@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
@@ -6,12 +7,7 @@ local Value = Fusion.Value
 local OnEvent = Fusion.OnEvent
 local Computed = Fusion.Computed
 local Children = Fusion.Children
-local Observer = Fusion.Observer
-local Spring = Fusion.Spring
 local Tween = Fusion.Tween
-
-local Sift = require(ReplicatedStorage.Packages.Sift)
-
 
 local UI = require(script.Parent.UI)
 local EmojiList = require(script.Parent.EmojiList)
@@ -498,9 +494,48 @@ return function(props)
 		}
 	}
 
+	local macros = {
+		{
+			Keys = {Enum.KeyCode.LeftShift, Enum.KeyCode.C},
+			Callback = function()
+				props.SetOrbcamActive(not props.OrbcamActive:get())
+			end,
+		},
+		{
+			Keys = {Enum.KeyCode.LeftShift, Enum.KeyCode.E},
+			Callback = function()
+				ActiveMenu:set("Emoji")
+			end,
+		},
+	}
+
 	return UI.Div {
 
 		Parent = props.Parent,
+
+		[Fusion.Cleanup] = {
+			-- Detect macro key presses and fire callback
+			UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessedEvent: boolean)
+				if gameProcessedEvent or input.KeyCode == nil then
+					return
+				end
+
+				for _, macro in ipairs(macros) do
+					if macro.Keys[#macro.Keys] == input.KeyCode then
+						local allHeld = true
+						for _, key in macro.Keys do
+							if not UserInputService:IsKeyDown(key) then
+								allHeld = false
+							end
+						end
+						if allHeld then
+							macro.Callback()
+						end
+					end
+				end
+				
+			end),
+		},
 
 		[Children] = {
 
