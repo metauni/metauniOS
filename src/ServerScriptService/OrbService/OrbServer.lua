@@ -194,7 +194,7 @@ function OrbServer.new(orbPart: Part)
 	)
 
 	destructor:Add(
-		Remotes.RequestStreamAtOrb.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
+		Remotes.OrbcamStatus.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
 			if triggeredOrb == orbPart then
 				if game.Workspace.StreamingEnabled then
 					player:RequestStreamAroundAsync(orbPart.Position)
@@ -527,7 +527,7 @@ function OrbServer.new(orbPart: Part)
 	local EyeRingAttachment = Value()
 	local EyeRingOrientationCFrame = Value(orbPart.CFrame * CFrame.Angles(0, math.pi/2, 0))
 
-	destructor:Add(
+	local eyeRing = destructor:Add(
 		Ring {
 			Name = "EyeRing",
 			Parent = orbPart,
@@ -565,7 +565,7 @@ function OrbServer.new(orbPart: Part)
 	local EarRingAttachment = Value()
 	local EarOrientationCFrame = Value(orbPart.CFrame)
 
-	destructor:Add(
+	local earRing = destructor:Add(
 		Ring {
 			Name = "EarRing",
 			Parent = orbPart,
@@ -636,6 +636,89 @@ function OrbServer.new(orbPart: Part)
 			},
 		}
 	)
+
+	do
+		local cleanup = {}
+
+		Rxi.playerLifetime():Subscribe(function(player: Player, added: boolean)
+			if cleanup[player] then
+				cleanup[player]()
+				cleanup[player] = nil
+			end
+
+			if not added then
+				return
+			end
+
+			local earHalo: UnionOperation = earRing:Clone()
+			local eyeHalo: UnionOperation = eyeRing:Clone()
+			earHalo:ClearAllChildren()
+			eyeHalo:ClearAllChildren()
+			local earWeld: WeldConstraint = New "WeldConstraint" {
+				Parent = earHalo,
+				Part0 = earHalo,
+			}
+			local eyeWeld: WeldConstraint = New "WeldConstraint" {
+				Parent = eyeHalo,
+				Part0 = eyeHalo,
+			}
+
+			local sub = Rx.combineLatest{
+				Head = Rx.of(player):Pipe{
+					Rxi.property("Character"),
+					Rxi.findFirstChildWithClass("MeshPart", "Head"),
+				},
+				OrbcamActive = Rx.fromSignal(Remotes.OrbcamStatus.OnServerEvent):Pipe{
+					Rx.map(function(triggeredPlayer: Player, triggeredOrb: Part, active: boolean)
+						return (triggeredPlayer == player) and triggeredOrb == orbPart and active
+					end),
+					Rx.defaultsTo(false)
+				},
+				Attached = Rx.of(PlayerToOrb):Pipe{
+					Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
+					Rxi.property("Value"),
+					Rx.map(function(attachedOrb: Part?)
+						return attachedOrb == orbPart
+					end),
+				},
+				Speaker = observeSpeaker,
+			}:Subscribe(function(data)
+				local head: Part? = data.Head
+				local orbcamActive: boolean = data.OrbcamActive
+				local attached: boolean = data.Attached
+				local speaker: Player? = data.Speaker
+
+				local showEar = attached and head and (speaker ~= player)
+				local showEye = showEar and orbcamActive
+
+				if showEar then
+					earHalo.Parent = head
+					earHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
+					earWeld.Part1 = head
+				else
+					earHalo.Parent = nil
+					earWeld.Part1 = nil
+				end
+
+				if showEye then
+					eyeHalo.Parent = head
+					eyeHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
+					eyeWeld.Part1 = head
+				else
+					eyeHalo.Parent = nil
+					eyeWeld.Part1 = nil
+				end
+			end)
+
+			cleanup[player] = function()
+				sub()
+				earWeld:Destroy()
+				eyeWeld:Destroy()
+				earHalo:Destroy()
+				eyeHalo:Destroy()
+			end
+		end)
+	end
 
 	local ringHeartbeatConnection
 	destructor:Add(function()

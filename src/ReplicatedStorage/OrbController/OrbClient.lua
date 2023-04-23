@@ -491,9 +491,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				end,
 				OrbcamActive = OrbcamActive,
 				SetOrbcamActive = function(active)
-					if workspace.StreamingEnabled then
-						Remotes.RequestStreamAtOrb:FireServer(orbPart)
-					end
+					Remotes.OrbcamStatus:FireServer(orbPart, active)
 					OrbcamActive:set(active)
 				end,
 				Teleport = function()

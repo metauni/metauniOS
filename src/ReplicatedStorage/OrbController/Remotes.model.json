@@ -34,7 +34,7 @@
 			"ClassName": "RemoteEvent"
 		},
 		{
-			"Name": "RequestStreamAtOrb",
+			"Name": "OrbcamStatus",
 			"ClassName": "RemoteEvent"
 		}
 	]

@@ -361,11 +361,26 @@ function export.untagged(tag: string): Rx.Observable
 	return Rx.fromSignal(CollectionService:GetInstanceRemovedSignal(tag))
 end
 
-function export.players(): Rx.Observable
-	return Rx.concat({
-		Rx.from(Players:GetPlayers()),
-		Rx.fromSignal(Players.PlayerAdded)
-	})
+function export.playerLifetime(): Rx.Observable
+	return Rx.concat {
+		Rx.from(Players:GetPlayers()):Pipe{
+			Rx.map(function(player: Player)
+				return player, true
+			end)
+		},
+		Rx.merge {
+			Rx.fromSignal(Players.PlayerAdded):Pipe {
+				Rx.map(function(player: Player)
+					return player, true
+				end)
+			},
+			Rx.fromSignal(Players.PlayerRemoving):Pipe {
+				Rx.map(function(player: Player)
+					return player, false
+				end)
+			},
+		}
+	}
 end
 
 return table.freeze(export)
