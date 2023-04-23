@@ -7,12 +7,6 @@ local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
 local IconController = require(ReplicatedStorage.Icon.IconController)
 local Themes = require(ReplicatedStorage.Icon.Themes)
-local Fusion = require(ReplicatedStorage.Packages.Fusion)
-local Value = Fusion.Value
-local Icon = require(ReplicatedStorage.Icon)
-
-
-local Remotes = script.Remotes
 
 local OrbController = {
 	Orbs = {} :: {[Part]: Orb}
