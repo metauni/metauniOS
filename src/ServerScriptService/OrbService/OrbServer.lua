@@ -2,22 +2,16 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
-local TweenService = game:GetService("TweenService")
 
-local Sift = require(ReplicatedStorage.Packages.Sift)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
-local Hydrate = Fusion.Hydrate
 local Value = Fusion.Value
 local Computed = Fusion.Computed
-local Spring = Fusion.Spring
-local Tween = Fusion.Tween
 local Children = Fusion.Children
 
 local Destructor = require(ReplicatedStorage.Destructor)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
-local Rxf = require(ReplicatedStorage.Rxf)
 local BoardService = require(ServerScriptService.BoardService)
 local CameraUtils = require(ReplicatedStorage.OrbController.CameraUtils)
 local Ring = require(script.Parent.Ring)
@@ -263,10 +257,10 @@ function OrbServer.new(orbPart: Part)
 		Value = false,
 		Parent = orbPart,
 	}
-	local observeShowAudience: Observable<boolean> = 
-		Rx.of(showAudienceValue):Pipe {
-			Rxi.property("Value"),
-		}
+	-- local observeShowAudience: Observable<boolean> = 
+	-- 	Rx.of(showAudienceValue):Pipe {
+	-- 		Rxi.property("Value"),
+	-- 	}
 
 	destructor:Add(
 		Remotes.SetShowAudience.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, showAudience: boolean)

@@ -22,23 +22,6 @@ return function(player: Player)
 	
 	local destructor = Destructor.new()
 
-	-- Transform an observable into a Fusion StateObject that
-	-- holds the latest observed value
-	local function observedValue(observable: Rx.Observable<T>): Value<T>
-		local value = Value()
-		destructor:Add(observable:Subscribe(function(newValue)
-			value:set(newValue)
-		end))
-		return value 
-	end
-
-	-- Wrap Fusion.New in a destructor
-	local NewTracked = function(className: string)
-		return function (props)
-			return destructor:Add(New(className)(props))
-		end
-	end
-
 	local earHalo: UnionOperation = destructor:Add(Ring {
 		Name = "EarHalo",
 		Material = Enum.Material.Neon,
