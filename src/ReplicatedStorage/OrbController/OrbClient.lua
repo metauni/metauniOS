@@ -288,6 +288,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 					end
 				end
 
+				-- For testing
 				for _, model in CollectionService:GetTagged("fake_audience") do
 					if (model.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
 						table.insert(targets, model.PrimaryPart)
