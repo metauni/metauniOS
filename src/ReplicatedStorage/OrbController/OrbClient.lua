@@ -495,7 +495,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 						OrbcamActive:set(active)
 					end,
 					Teleport = function()
-						Remotes.TeleportToOrb:FireServer(orbPart)
+						Remotes.Teleport:FireServer(orbPart)
 					end,
 					SendEmoji = function(emojiName: string)
 						Remotes.SendEmoji:FireServer(orbPart, emojiName)

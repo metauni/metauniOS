@@ -22,7 +22,7 @@
 			"ClassName": "RemoteEvent"
 		},
 		{
-			"Name": "TeleportToOrb",
+			"Name": "Teleport",
 			"ClassName": "RemoteEvent"
 		},
 		{

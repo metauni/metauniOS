@@ -200,16 +200,6 @@ function OrbServer.new(orbPart: Part)
 	)
 
 	destructor:Add(
-		Remotes.TeleportToOrb.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
-			if triggeredOrb == orbPart then
-				if player.Character then
-					player.Character:PivotTo(orbPart.CFrame + Vector3.new(0,5 * orbPart.Size.Y,0))
-				end
-			end
-		end)
-	)
-
-	destructor:Add(
 		Remotes.SendEmoji.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, emojiName: string)
 			if triggeredOrb == orbPart then
 				for attachedPlayer in AttachedPlayers:get(false) do

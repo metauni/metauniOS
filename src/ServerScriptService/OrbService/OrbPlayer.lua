@@ -493,5 +493,51 @@ return function(player: Player)
 		end)
 	)
 
+	destructor:Add(
+		Rx.fromSignal(Remotes.Teleport.OnServerEvent):Pipe {
+			Rx.where(function(triggeredPlayer: Player)
+				return triggeredPlayer == player
+			end),
+			Rx.mapTo("teleport pls!"),
+			Rx.withLatestFrom {
+				observeAttachedOrb,
+				Rxf.fromState(Ghost),
+				Rxf.fromState(Mode),
+			},
+			Rx.unpacked,
+		}:Subscribe(function(_eventTrigger: any, attachedOrb: Part?, ghost: Model?, mode: Mode)
+			if ghost then
+				if mode == "standing" and ghost then
+					local ghostCFrame = ghost:GetPivot()
+					Mode:set("hidden")
+					player.Character:PivotTo(ghostCFrame)
+				else
+					player.Character:PivotTo(attachedOrb.CFrame + Vector3.new(0,5 * attachedOrb.Size.Y,0))
+				end
+			end
+		end)
+	)
+
+	-- OLD IMPLEMENTATION FOR COMPARISON
+	-- destructor:Add(
+	-- 	Remotes.Teleport.OnServerEvent:Connect(function(triggeredPlayer: Player, triggeredOrb: Part)
+	-- 		if triggeredPlayer == player then
+
+	-- 			local attachedOrb = PlayerToOrb:FindFirstChild(tostring(player.UserId))
+	-- 			if attachedOrb and player.Character then
+	-- 				local mode = Mode:get(false)
+	-- 				local ghost = Ghost:get(false)
+	-- 				if mode == "standing" and ghost then
+	-- 					local ghostCFrame = ghost:GetPivot()
+	-- 					Mode:set("hidden")
+  -- 					player.Character:PivotTo(ghostCFrame)
+	-- 				else
+	-- 					player.Character:PivotTo(attachedOrb.CFrame + Vector3.new(0,5 * attachedOrb.Size.Y,0))
+	-- 				end
+	-- 			end
+	-- 		end
+	-- 	end)
+	-- )
+
 	return destructor
 end
