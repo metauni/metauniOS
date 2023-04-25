@@ -1,10 +1,11 @@
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local OrbServer = require(script.OrbServer)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
+local Rxf = require(ReplicatedStorage.Rxf)
+local OrbPlayer = require(script.OrbPlayer)
 
 local OrbService = {
 	Orbs = {} :: {[Part]: Orb}
@@ -39,6 +40,23 @@ function OrbService:Start()
 		waypoint.CastShadow = false
 	end
 	
+	local playerDestructors = {}
+
+	task.spawn(function()
+		Rxi.playerLifetime():Subscribe(function(player: Player, added: boolean)
+	
+			if playerDestructors[player] then
+				playerDestructors[player]:Destroy()
+				playerDestructors[player] = nil
+			end
+			
+			if not added then
+				return
+			end
+	
+			playerDestructors[player] = OrbPlayer(player)
+		end)
+	end)
 end
 
 return OrbService

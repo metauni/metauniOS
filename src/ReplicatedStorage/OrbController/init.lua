@@ -1,10 +1,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local OrbClient = require(script.OrbClient)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
+local Destructor = require(ReplicatedStorage.Destructor)
 local IconController = require(ReplicatedStorage.Icon.IconController)
 local Themes = require(ReplicatedStorage.Icon.Themes)
 
@@ -58,6 +60,35 @@ function OrbController:Start()
 			self.Orbs[instance]:Destroy()
 			self.Orbs[instance] = nil
 		end
+	end)
+
+	Rxi.tagged("spooky_part"):Subscribe(function(instance: BasePart)
+
+		local destructor = Destructor.new()
+
+		destructor:Add(
+			Rx.of(instance):Pipe {
+				Rxi.attribute("spooky_transparency"),
+			}:Subscribe(function(transparency: Number?)
+				if transparency then
+					TweenService:Create(instance, TweenInfo.new(
+						1.8, -- Time
+						Enum.EasingStyle.Linear, -- EasingStyle
+						Enum.EasingDirection.Out, -- EasingDirection
+						0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+						false, -- Reverses (tween will reverse once reaching it's goal)
+						0 -- DelayTime
+					), {
+						Transparency = transparency,
+					}):Play()
+				end
+			end)
+		)
+
+		instance.Destroying:Once(function()
+			destructor:Destroy()
+			destructor = nil
+		end)
 	end)
 end
 
