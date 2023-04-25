@@ -1547,24 +1547,27 @@ function export.timer(initialDelaySeconds: number?, seconds: number): Observable
 		local number = -1
 		local running = true
 
-		local thread = task.spawn(function()
-			if initialDelaySeconds and initialDelaySeconds > 0 then
-				task.wait(initialDelaySeconds)
-			end
-
+		local function intervalLoop()
 			while running do
 				number += 1
 				sub:Fire(number)
 				task.wait(seconds)
 			end
+		end
+
+		task.spawn(function()
+			if initialDelaySeconds and initialDelaySeconds > 0 then
+				task.wait(initialDelaySeconds)
+			end
+			intervalLoop()
 		end)
 
 		return function()
 			running = false
-			task.cancel(thread)
 		end
 	end)
 end
+
 
 --[=[
 	Honestly, I have not used this one much.
