@@ -593,15 +593,20 @@ return function(props)
 							ActiveMenu:set("Emoji")
 						end,
 					},
-					menuButton {
-						Text = "Teleport",
-						Image = "rbxassetid://11877012097",
-						LayoutOrder = 3,
-						BackgroundTransparency = 0.8,
-						OnClick = function()
-							props.Teleport()
-						end,
-					},
+					Computed(function()
+						if not props.IsSpeaker:get() then
+							return 
+								menuButton {
+									Text = "Teleport",
+									Image = "rbxassetid://11877012097",
+									LayoutOrder = 3,
+									BackgroundTransparency = 0.8,
+									OnClick = function()
+										props.Teleport()
+									end,
+								}
+						end
+					end, Fusion.cleanup),
 				}
 			}
 		},
