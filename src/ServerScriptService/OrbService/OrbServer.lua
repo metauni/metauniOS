@@ -322,7 +322,7 @@ function OrbServer.new(orbPart: Part)
 				Mode = Enum.PositionAlignmentMode.TwoAttachment,
 				Attachment0 = orbAttachment,
 				Attachment1 = speakerAttachment,
-				MaxForce = 100000,
+				MaxForce = math.huge,
 				MaxVelocity = 16,
 				ApplyAtCenterOfMass = true,
 			},
@@ -342,7 +342,7 @@ function OrbServer.new(orbPart: Part)
 					end),
 				}),
 				Attachment0 = orbAttachment,
-				MaxForce = 10000,
+				MaxForce = math.huge,
 				MaxVelocity = 8,
 			},
 		}
@@ -472,7 +472,8 @@ function OrbServer.new(orbPart: Part)
 
 			local ANGLE_BUFFER = math.rad(2.5)
 			local outsideCamView = cosAngleToSpeaker < math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
-			local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
+			-- local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
+			local tooFarBehindBoard = distanceToCharacter > 1.2 * distanceToFocalPoint
 
 			if outsideCamView or tooFarBehindBoard then
 				if speakerAttachment.Parent then
