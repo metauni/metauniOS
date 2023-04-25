@@ -15,7 +15,7 @@ local AIService = require(script.Parent.AIService)
 local OrbService = require(ServerScriptService.OrbService)
 local BoardService = require(ServerScriptService.BoardService)
 
-local AskQuestionRemoteEvent = ReplicatedStorage.Orb.Remotes.AskQuestion
+local AskQuestionRemoteEvent = ReplicatedStorage.OrbController.Remotes.AskQuestion
 
 local function getInstancePosition(x)
 	if x:IsA("BasePart") then return x.Position end

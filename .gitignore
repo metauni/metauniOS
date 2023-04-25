@@ -4,4 +4,5 @@ Packages
 /*.rbxlx
 /*.rbxl
 
+*.DS_Store
 dev-local.project.json

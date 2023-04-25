@@ -135,6 +135,7 @@ function export.findFirstChild(name: string)
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
 		Rx.switchMap(function(instance)
+			if not instance then return nilobs() end
 			return Rx.observable(function(sub)
 				local maid = Maid.new()
 				local current = UNSET
@@ -173,7 +174,8 @@ end
 function export.findFirstChildWithClass(className: string, name: string)
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
-		switch = Rx.switchMap(function(instance)
+		Rx.switchMap(function(instance)
+			if not instance then return nilobs() end
 			return Rx.observable(function(sub)
 				local maid = Maid.new()
 				local current = UNSET
@@ -221,7 +223,8 @@ end
 function export.findFirstChildWithClassOf(className: string, name: string)
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
-		switch = Rx.switchMap(function(instance)
+		Rx.switchMap(function(instance)
+			if not instance then return nilobs() end
 			return Rx.observable(function(sub)
 				local maid = Maid.new()
 				local current = UNSET
@@ -348,17 +351,36 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
 function export.tagged(tag: string): Rx.Observable
-	return Rx.merge({
+	return Rx.concat({
 		Rx.from(CollectionService:GetTagged(tag)),
-		Rx.fromSignal(CollectionService:GetInstanceAddedSignal(tag))
+		Rx.fromSignal(CollectionService:GetInstanceAddedSignal(tag)),
 	})
 end
 
-function export.players(): Rx.Observable
-	return Rx.merge({
-		Rx.from(Players:GetPlayers()),
-		Rx.fromSignal(Players.PlayerAdded)
-	})
+function export.untagged(tag: string): Rx.Observable
+	return Rx.fromSignal(CollectionService:GetInstanceRemovedSignal(tag))
+end
+
+function export.playerLifetime(): Rx.Observable
+	return Rx.concat {
+		Rx.from(Players:GetPlayers()):Pipe{
+			Rx.map(function(player: Player)
+				return player, true
+			end)
+		},
+		Rx.merge {
+			Rx.fromSignal(Players.PlayerAdded):Pipe {
+				Rx.map(function(player: Player)
+					return player, true
+				end)
+			},
+			Rx.fromSignal(Players.PlayerRemoving):Pipe {
+				Rx.map(function(player: Player)
+					return player, false
+				end)
+			},
+		}
+	}
 end
 
 return table.freeze(export)

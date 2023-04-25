@@ -1,0 +1,41 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "SetSpeaker",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetListener",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "DetachPlayer",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetViewMode",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "AskQuestion",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Teleport",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetShowAudience",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SendEmoji",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "OrbcamStatus",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}

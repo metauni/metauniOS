@@ -5,7 +5,8 @@ local ChatService = game:GetService("Chat")
 local Players = game:GetService("Players")
 
 -- Other services
-local Fusion = require(ReplicatedStorage.Fusion)
+local Fusion = require(ReplicatedStorage.Packages.Fusion)
+local Value = Fusion.Value
 local New = Fusion.New
 local Children = Fusion.Children
 local OnEvent = Fusion.OnEvent
@@ -53,7 +54,7 @@ local function SetupAIMenu()
     -- Can hear rbxassetid://12296137475
     -- Can remember rbxassetid://12296137280
 
-    local AIFrameEnabled = Fusion.State(false)
+    local AIFrameEnabled = Value(false)
     local NPCentries = {}
     local selectedColor = Color3.new(0.058823, 0.576470, 0.180392)
 
@@ -133,11 +134,11 @@ local function SetupAIMenu()
 
     for _, npc in sortedNPCs do
         NPCState[npc] = {}
-        NPCState[npc]["Hear"] = Fusion.State(false)
-        NPCState[npc]["Read"] = Fusion.State(false)
-        NPCState[npc]["Remember"] = Fusion.State(false)
-        NPCState[npc]["Visible"] = Fusion.State(false)
-        NPCState[npc]["TokenCount"] = Fusion.State(0)
+        NPCState[npc]["Hear"] = Value(false)
+        NPCState[npc]["Read"] = Value(false)
+        NPCState[npc]["Remember"] = Value(false)
+        NPCState[npc]["Visible"] = Value(false)
+        NPCState[npc]["TokenCount"] = Value(0)
 
         table.insert(NPCentries, 
             New "Frame" {

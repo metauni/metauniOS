@@ -1547,24 +1547,27 @@ function export.timer(initialDelaySeconds: number?, seconds: number): Observable
 		local number = -1
 		local running = true
 
-		local thread = task.spawn(function()
-			if initialDelaySeconds and initialDelaySeconds > 0 then
-				task.wait(initialDelaySeconds)
-			end
-
+		local function intervalLoop()
 			while running do
 				number += 1
 				sub:Fire(number)
 				task.wait(seconds)
 			end
+		end
+
+		task.spawn(function()
+			if initialDelaySeconds and initialDelaySeconds > 0 then
+				task.wait(initialDelaySeconds)
+			end
+			intervalLoop()
 		end)
 
 		return function()
 			running = false
-			task.cancel(thread)
 		end
 	end)
 end
+
 
 --[=[
 	Honestly, I have not used this one much.
@@ -1806,5 +1809,48 @@ function export.throttleDefer(): Transformer
 		end)
 	end
 end
+
+--------------------------------------------------------------------------------
+-- metauni ADDITIONS
+--------------------------------------------------------------------------------
+
+-- GPT-4 wrote this concat Transformer after debugging an incorrect
+-- usage of Rx.merge.
+
+--[=[
+    Concatenates the given observables in order, waiting for the previous observable to complete before starting the next one.
+    https://rxjs.dev/api/operators/concat
+
+    @param observables { Observable }
+    @return Observable
+]=]
+function export.concat(observables: {Observable}): Observable
+	assert(type(observables) == "table", "observables must be array of Observable values")
+
+	for _, item in pairs(observables) do
+			assert(isObservable(item), "Observable expected")
+	end
+
+	return newObservable(function(sub)
+			local currentIndex = 1
+
+			local function onNextObservable()
+					if currentIndex > #observables then
+							sub:Complete()
+					else
+							local currentObservable = observables[currentIndex]
+							currentIndex = currentIndex + 1
+							currentObservable:Subscribe(
+									function(...) sub:Fire(...) end,
+									function(...) sub:Fail(...) end,
+									onNextObservable
+							)
+					end
+			end
+
+			onNextObservable()
+	end)
+end
+
 
 return table.freeze(export)

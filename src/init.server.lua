@@ -23,6 +23,11 @@ end
 -- Distribute scripts across containers
 
 migrate(script.ReplicatedFirst, ReplicatedFirst)
+if ReplicatedStorage:FindFirstChild("Packages") then
+	if ReplicatedStorage:FindFirstChild("Packages"):FindFirstChild("ForHoarcekat") then
+		ReplicatedStorage:FindFirstChild("Packages"):Destroy()
+	end
+end
 script.Packages.Parent = ReplicatedStorage
 migrate(script.ReplicatedStorage, ReplicatedStorage)
 migrate(script.ServerScriptService, ServerScriptService)
