@@ -319,6 +319,7 @@ return function(player: Player)
 			Character = Rx.of(player):Pipe{
 				Rxi.property("Character")
 			},
+			Speaker = observeSpeaker,
 			AttachedOrb = observeAttachedOrb,
 			GhostHumanoid = Rxf.fromState(Ghost):Pipe {
 				Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
@@ -391,19 +392,21 @@ return function(player: Player)
 			local character: Model? = data.Character
 			local attachedOrb: Part? = data.AttachedOrb
 			local ghostHumanoid: Humanoid? = data.GhostHumanoid
+			local speaker: Player? = data.Speaker
 			local progress: boolean = data.Progress
 
 			local focalCFrame: CFrame = waypoint or orbCFrame
-			if not ghostHumanoid or not focalCFrame then
-				return
-			end
-
-			local ghost: Model = ghostHumanoid.Parent
 			local mode: Mode = Mode:get(false)
 			
 			-- No ghost needed in these situations
 			if
 				not attachedOrb
+				or
+				speaker == player
+				or
+				not ghostHumanoid
+				or
+				not focalCFrame
 				or
 				(character and (character.PrimaryPart.Position - focalCFrame.Position).Magnitude <= Config.GhostSpawnRadius)
 			then
@@ -417,6 +420,8 @@ return function(player: Player)
 				end
 				return
 			end
+
+			local ghost: Model = ghostHumanoid.Parent
 
 			if mode == "fading" then
 				return
