@@ -374,9 +374,6 @@ function OrbServer.new(orbPart: Part)
 		Parent = orbPart,
 	}
 
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	raycastParams.FilterDescendantsInstances = {orbPart}
 
 	-- Watch speaker movement to update Waypoint
 	destructor:Add(
@@ -491,7 +488,18 @@ function OrbServer.new(orbPart: Part)
 
 			-- Put orb in camera position, but lower it down to the ground (if possible)
 			local newWaypoint: CFrame = camCFrame
+			
+			local raycastParams = RaycastParams.new()
+			raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+			local exclude = {orbPart}
+			for _, player in Players:GetPlayers() do
+				if player.Character then
+					table.insert(exclude, player.Character)
+				end
+			end
+			raycastParams.FilterDescendantsInstances = exclude
 			local raycastResult = workspace:Raycast(camCFrame.Position, -Vector3.yAxis * 50, raycastParams)
+			
 			if raycastResult then
 				newWaypoint = newWaypoint - newWaypoint.Position + Vector3.new(newWaypoint.X, raycastResult.Position.Y, newWaypoint.Z)
 			end
