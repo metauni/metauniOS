@@ -490,7 +490,9 @@ return function(player: Player)
 	
 					if mode == "hidden" then
 						if character then
-							ghost:PivotTo(character:GetPivot() * CFrame.new(Vector3.zAxis * character:GetExtentsSize()) * CFrame.Angles(0,math.pi,0))
+							local dir = position - character:GetPivot().Position
+							local startOffset = character:GetExtentsSize().Z
+							ghost:PivotTo(CFrame.lookAt(character:GetPivot().Position + startOffset * dir.Unit, position))
 						else
 							ghost:PivotTo(CFrame.lookAt(position, position + (focalCFrame - position) * Vector3.new(1,0,1)))
 							Mode:set("standing")
