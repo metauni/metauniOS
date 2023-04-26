@@ -519,14 +519,36 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 			}
 		)
 
-		return NewTracked "Highlight" {
-			Parent = orbPart,
-			FillTransparency = 1,
+		local spring = Spring(Computed(function()
+			return showValue:get() and 0 or 1
+		end), 30, 1)
+
+		local highlight = NewTracked "Highlight" {
 			Adornee = observedValue(observeAdornee),
-			OutlineTransparency = Spring(Computed(function()
-				return showValue:get() and 0 or 1
-			end), 30, 1),
+			FillTransparency = 1,
+			OutlineColor = BrickColor.new("Flame reddish orange").Color,
+			OutlineTransparency = spring,
 		}
+
+		Fusion.Hydrate(highlight) {
+			[Fusion.Cleanup] = {
+				-- adornee seems to have to be set after parent is set in order to use adornee over parent
+				observeAttached:Subscribe(function(attached: boolean)
+					highlight.Parent = attached and orbPart or nil
+					highlight.Adornee = highlight.Adornee
+				end),
+				-- Due to delay between client and server, the highlight may have faded
+				-- away by the time the new poi replicates.
+				-- This gives it a final bump
+				observeAdornee:Subscribe(function(adornee: Part?)
+					if adornee ~= nil then
+						spring:setPosition(0)
+					end
+				end)
+			}
+		}
+
+		return highlight
 	end
 
 	PoiHighlight(observePoi1)
