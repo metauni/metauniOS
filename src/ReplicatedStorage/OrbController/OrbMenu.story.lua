@@ -16,6 +16,7 @@ return function (target)
 	local ViewMode = Value("single")
 	local Audience = Value("audience")
 	local OrbcamActive = Value(true)
+	local WaypointOnly = Value(false)
 
 	local menu
 	menu = New "Frame" {
@@ -49,6 +50,10 @@ return function (target)
 			end,
 			SendEmoji = function(emojiName: string)
 				print(`send emoji! - {emojiName}`)
+			end,
+			WaypointOnly = WaypointOnly,
+			SetWaypointOnly = function(waypointOnly: boolean)
+				WaypointOnly:set(waypointOnly)
 			end,
 		}
 	}

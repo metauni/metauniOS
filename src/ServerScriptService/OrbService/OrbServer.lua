@@ -64,6 +64,16 @@ function OrbServer.new(orbPart: Part)
 		Rx.of(orbModeValue):Pipe {
 			Rxi.property("Value"),
 		}
+		
+	local waypointOnlyValue: boolean = NewTracked "BoolValue" {
+		Name = "WaypointOnly",
+		Value = false,
+		Parent = orbPart,
+	}
+	local observeWaypointOnly =
+		Rx.of(waypointOnlyValue):Pipe {
+			Rxi.property("Value"),
+		}
 
 	local speakerValue = NewTracked "ObjectValue" {
 		Name = "Speaker",
@@ -263,6 +273,17 @@ function OrbServer.new(orbPart: Part)
 		end)
 	)
 
+	destructor:Add(
+		Remotes.SetWaypointOnly.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, waypointOnly: boolean)
+			if triggeredOrb ~= orbPart then
+				return
+			end
+			if speakerValue.Value == player then
+				waypointOnlyValue.Value = waypointOnly
+			end
+		end)
+	)
+
 	local SpeakerGroundOffset: Value<Vector3> = Value(Vector3.zero)
 
 	local orbAttachment = NewTracked "Attachment" {
@@ -375,7 +396,7 @@ function OrbServer.new(orbPart: Part)
 	}
 
 
-	-- Watch speaker movement to update Waypoint
+	-- Watch speaker movement to update Waypoint and OrbMode
 	destructor:Add(
 		Rx.combineLatest({
 			-- Speaker Movement
@@ -385,12 +406,14 @@ function OrbServer.new(orbPart: Part)
 				throttledMovement(0.5),
 			},
 			ViewMode = observeViewMode,
+			WaypointOnly = observeWaypointOnly,
 			-- Whenever Speaker Attachment gets parented to the speaker
 			_attachment = Rx.fromSignal(speakerAttachment.AncestryChanged),
 		})
 		:Subscribe(function(data)
 			local speakerPosition: Vector3? = data.SpeakerPosition
 			local viewMode: "single" | "double" | "freecam" | nil = data.ViewMode
+			local waypointOnly: boolean = data.WaypointOnly
 
 			if viewMode == nil or viewMode == "freecam" or speakerPosition == nil then
 				return
@@ -472,7 +495,7 @@ function OrbServer.new(orbPart: Part)
 			-- local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
 			local tooFarBehindBoard = distanceToCharacter > 1.2 * distanceToFocalPoint
 
-			if outsideCamView or tooFarBehindBoard then
+			if not waypointOnly and (outsideCamView or tooFarBehindBoard) then
 				if speakerAttachment.Parent then
 					poi1Value.Value = nil
 					poi2Value.Value = nil

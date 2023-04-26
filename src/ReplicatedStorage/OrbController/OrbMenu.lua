@@ -15,7 +15,7 @@ local EmojiList = require(script.Parent.EmojiList)
 return function(props)
 
 	-- local ActiveMenu = Value(nil)
-	local ActiveMenu = Value(nil)
+	local ActiveMenu = Value("Controls")
 
 	local controlsMenu = UI.RoundedFrame {
 
@@ -25,7 +25,7 @@ return function(props)
 
 		AnchorPoint = Vector2.new(0,0.5),
 		Position = UDim2.new(0,130,0.5,0),
-		Size = UDim2.fromOffset(200,140),
+		Size = UDim2.fromOffset(200,180),
 
 		BackgroundColor3 = BrickColor.new("Gray").Color,
 		BackgroundTransparency = 0.6,
@@ -46,7 +46,7 @@ return function(props)
 
 				AnchorPoint = Vector2.new(0,0),
 				Position = UDim2.fromOffset(10,0),
-				Size = UDim2.new(0,100,0,140),
+				Size = UDim2.new(0,100,1,0),
 
 				[Children] = {
 
@@ -145,7 +145,7 @@ return function(props)
 								Font = Enum.Font.SciFi,
 								BackgroundColor3 = Computed(function()
 									if props.Audience:get() then
-										return BrickColor.new("Flame reddish orange").Color
+										return BrickColor.new("Bright blue").Color
 									else
 										return BrickColor.new("Phosph. White").Color
 									end
@@ -167,6 +167,27 @@ return function(props)
 									},
 								}
 							}
+						},
+					},
+					UI.Div {
+						Size = UDim2.fromOffset(100, 35),
+						LayoutOrder = 4,
+						[Children] = {
+							UI.TextButton {
+								Size = UDim2.fromScale(1,1),
+								Text = "Boards Only",
+								Font = Enum.Font.SciFi,
+								BackgroundColor3 = Computed(function()
+									if props.WaypointOnly:get() then
+										return BrickColor.new("Bright blue").Color
+									else
+										return BrickColor.new("Phosph. White").Color
+									end
+								end),
+								[OnEvent "Activated"] = function()
+									props.SetWaypointOnly(not props.WaypointOnly:get())
+								end,
+							},
 						},
 					},
 				}

@@ -36,6 +36,10 @@
 		{
 			"Name": "OrbcamStatus",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetWaypointOnly",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }

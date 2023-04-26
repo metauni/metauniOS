@@ -87,6 +87,11 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 			Rxi.findFirstChildWithClass("ObjectValue", "poi2"),
 			Rxi.property("Value"),
 		}
+	local observeWaypointOnly: Observable<boolean?> =
+		Rx.of(orbPart):Pipe {
+			Rxi.findFirstChildWithClass("BoolValue", "WaypointOnly"),
+			Rxi.property("Value"),
+		}
 
 	NewTracked "ProximityPrompt" {
 
@@ -157,13 +162,13 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 	local orbcam
 	orbcam = NewTracked "Camera" {
 		
-		Name = "OrbCam",
+		Name = "OrbCam"..orbPart:GetFullName(),
 		CameraType = Enum.CameraType.Scriptable,
 		CFrame = Computed(function()
 			return CFrame.lookAt(PositionSpring:get(), LookAtSpring:get())
 		end),
 		FieldOfView = 55,
-		Parent = orbPart,
+		Parent = ReplicatedStorage,
 	}
 	
 	local defaultCam: Camera = workspace.CurrentCamera
@@ -183,10 +188,12 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				-- Store exising camera in ReplicatedStorage - is destroyed otherwise
 				defaultCam = workspace.CurrentCamera
 				defaultCam.Parent = ReplicatedStorage
+				orbcam.Parent = workspace
 				-- selene: allow(incorrect_standard_library_use)
 				workspace.CurrentCamera = orbcam
 			else
 				defaultCam.Parent = workspace
+				orbcam.Parent = ReplicatedStorage
 				-- selene: allow(incorrect_standard_library_use)
 				workspace.CurrentCamera = defaultCam
 			end
@@ -201,6 +208,53 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 		end
 	end)
 
+	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
+
+	local observeAttachedCharacterMovement =
+		Rx.of(Players):Pipe {
+			Rxi.children(),
+			Rx.switchMap(function(players: {Players})
+				local movements = {}
+				for _, player in players do
+					movements[player] = Rx.of(PlayerToOrb):Pipe {
+						Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
+						Rxi.property("Value"),
+						Rx.switchMap(function(attachedOrb: Part)
+							if attachedOrb == orbPart then
+								return Rx.of(player):Pipe {
+									Rxi.property("Character"),
+									Rxi.property("PrimaryPart"),
+									Rx.switchMap(function(part: Part)
+										return Rx.timer(0, 0.5):Pipe({
+											Rx.map(function()
+												if not part then
+													return nil
+												else
+													return Vector3.new(
+														math.round(part.Position.X * 10),
+														math.round(part.Position.Y * 10),
+														math.round(part.Position.Z * 10)
+													)
+												end
+											end)
+										})
+									end),
+									Rx.distinct(),
+									Rx.mapTo(true),
+								}
+							else
+								-- won't appear in emitted table
+								return Rx.of(nil)
+							end
+						end)
+					}
+				end
+
+				-- This emits the latest set of players attached to this orb
+				return Rx.combineLatest(movements)
+			end),
+		}
+
 	destructor:Add(
 
 		Rx.combineLatest {
@@ -210,7 +264,6 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				Rxi.property("Character")
 			},
 			ViewMode = observeViewMode,
-			ShowAudience = observeShowAudience,
 			ViewportSize = Rx.fromSignal(orbcam:GetPropertyChangedSignal("ViewportSize")):Pipe {
 				Rx.defaultsTo(nil),
 				Rx.throttleTime(0.5),
@@ -222,7 +275,18 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				Rxi.findFirstChildWithClass("Folder", "Alignment"),
 				Rxi.findFirstChildWithClass("AlignPosition", "AlignPositionToWaypoint"),
 				Rxi.property("Position"),
-			}
+			},
+			ShowAudience = observeShowAudience,
+			AudienceMovement = observeShowAudience:Pipe {
+				Rx.switchMap(function(showAudience: boolean)
+					if showAudience then
+						return observeAttachedCharacterMovement
+					else
+						return Rx.of({})
+					end
+				end),
+			},
+			WaypointOnly = observeWaypointOnly
 		}
 		:Subscribe(function(data)
 			local poi1: Part? = data.Poi1
@@ -232,6 +296,8 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 			local showAudience: boolean? = data.ShowAudience
 			local viewportSize: Vector2 = data.ViewportSize
 			local waypoint: Vector3? = data.Waypoint
+			local audienceMovement: {[Player]: true?} = data.AudienceMovement
+			local waypointOnly: boolean? = data.WaypointOnly
 
 			if runConnection then
 				runConnection:Disconnect()
@@ -272,16 +338,16 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				
 				-- The boards + the audience characters
 				local targets = {poi1, poi2}
-				local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
 				local audienceEmpty = true
 
-				for _, player in Players:GetPlayers() do
+				-- Find attached characters close enough to orb
+				for player in audienceMovement do
 					local character = player.Character
-					local orbValue = PlayerToOrb:FindFirstChild(player.UserId)
-					if character and character.PrimaryPart and orbValue and orbValue.Value == orbPart then
-						if (character.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
+					if character and character.PrimaryPart then
+						if (character.PrimaryPart.Position - waypoint).Magnitude <= 2 * (poi1.Position - waypoint).Magnitude then
 							table.insert(targets, character.PrimaryPart)
-							if character ~= speakerCharacter then
+							-- Include the speaker in the audience iff not waypointOnly
+							if waypointOnly or character ~= speakerCharacter then
 								audienceEmpty = false
 							end
 						end
@@ -290,9 +356,21 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 
 				-- For testing
 				for _, model in CollectionService:GetTagged("fake_audience") do
-					if (model.PrimaryPart.Position - waypoint).Magnitude <= (poi1.Position - waypoint).Magnitude then
-						table.insert(targets, model.PrimaryPart)
-						audienceEmpty = false
+					if model.PrimaryPart then
+						if (model.PrimaryPart.Position - waypoint).Magnitude <= 2 * (poi1.Position - waypoint).Magnitude then
+							table.insert(targets, model.PrimaryPart)
+							audienceEmpty = false
+						end
+					end
+				end
+
+				-- For NPCs
+				for _, model in CollectionService:GetTagged("npcservice_npc") do
+					if model.PrimaryPart then
+						if (model.PrimaryPart.Position - waypoint).Magnitude <= 2 * (poi1.Position - waypoint).Magnitude then
+							table.insert(targets, model.PrimaryPart)
+							audienceEmpty = false
+						end
 					end
 				end
 
@@ -502,6 +580,10 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 						Remotes.SendEmoji:FireServer(orbPart, emojiName)
 					end,
 					ReceiveEmojiSignal = Remotes.SendEmoji.OnClientEvent,
+					WaypointOnly = observedValue(observeWaypointOnly),
+					SetWaypointOnly = function(waypointOnly: boolean)
+						Remotes.SetWaypointOnly:FireServer(orbPart, waypointOnly)
+					end,
 				}
 			}
 		}
