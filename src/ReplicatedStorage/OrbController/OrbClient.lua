@@ -180,9 +180,9 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				PositionSpring:setVelocity(Vector3.zero)
 				LookAtSpring:setPosition(CamLookAtGoal:get())
 				LookAtSpring:setVelocity(Vector3.zero)
-				-- Store exising camera in orb - is destroyed otherwise
+				-- Store exising camera in ReplicatedStorage - is destroyed otherwise
 				defaultCam = workspace.CurrentCamera
-				defaultCam.Parent = orbPart
+				defaultCam.Parent = ReplicatedStorage
 				-- selene: allow(incorrect_standard_library_use)
 				workspace.CurrentCamera = orbcam
 			else
