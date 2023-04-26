@@ -14,8 +14,7 @@ local EmojiList = require(script.Parent.EmojiList)
 
 return function(props)
 
-	-- local ActiveMenu = Value(nil)
-	local ActiveMenu = Value("Controls")
+	local ActiveMenu = Value(nil)
 
 	local controlsMenu = UI.RoundedFrame {
 
