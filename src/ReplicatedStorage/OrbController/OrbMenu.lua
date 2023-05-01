@@ -194,36 +194,44 @@ return function(props)
 		}
 	}
 
+	local OrbAbsPos = Value(Vector2.new(0,0))
 	local FlyingEmojis = Value({})
 
 	local function deployLocalEmoji(name: string)
 		local Position = Value(UDim2.new(0.5,math.random(-20,20),0.5,0))
 		local Transparency = Value(0)
 
-		local tweenInfo = TweenInfo.new(
-				1.4, -- Time
-				Enum.EasingStyle.Linear, -- EasingStyle
-				Enum.EasingDirection.Out, -- EasingDirection
-				0, -- RepeatCount (when less than zero the tween will loop indefinitely)
-				false, -- Reverses (tween will reverse once reaching it's goal)
-				0 -- DelayTime
-		)
+		local lifetime = 2
 
 		local flying = FlyingEmojis:get()
 		table.insert(flying, UI.TextLabel {
 			Text = EmojiList[name],
 			Size = UDim2.fromOffset(50,50),
 			TextScaled = true,
-			Position = Tween(Position, tweenInfo),
-			TextTransparency = Tween(Transparency, tweenInfo)
+			Position = Tween(Position, TweenInfo.new(
+				lifetime, -- Time
+				Enum.EasingStyle.Linear, -- EasingStyle
+				Enum.EasingDirection.In, -- EasingDirection
+				0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+				false, -- Reverses (tween will reverse once reaching it's goal)
+				0 -- DelayTime
+			)),
+			TextTransparency = Tween(Transparency, TweenInfo.new(
+				lifetime, -- Time
+				Enum.EasingStyle.Exponential, -- EasingStyle
+				Enum.EasingDirection.In, -- EasingDirection
+				0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+				false, -- Reverses (tween will reverse once reaching it's goal)
+				0 -- DelayTime
+			))
 		})
 
-		Position:set(UDim2.new(0.5, 0, 0.5, -800))
+		Position:set(UDim2.new(0.5, 0, 0.5, -OrbAbsPos:get().Y - 130/2 + 150))
 		Transparency:set(1)
 
 		FlyingEmojis:set(flying)
 
-		task.delay(1.4, function()
+		task.delay(lifetime, function()
 			local item = flying[1]
 			if item then
 				item:Destroy()
@@ -232,8 +240,6 @@ return function(props)
 			end
 		end)
 	end
-
-	
 
 	local emojiMenu do
 	
@@ -376,6 +382,8 @@ return function(props)
 		Size = UDim2.fromOffset(130, 130),
 
 		BackgroundTransparency = 1,
+
+		[Fusion.Out "AbsolutePosition"] = OrbAbsPos,
 
 		[OnEvent "Activated"] = function()
 			ActiveMenu:set(nil)
@@ -585,10 +593,6 @@ return function(props)
 				AnchorPoint = Vector2.new(0,0.5),
 				Position = UDim2.new(0, 140,0.5,0),
 				Size = UDim2.fromOffset(120,140),
-
-				-- Visible = Computed(function()
-				-- 	return ActiveMenu:get() == nil
-				-- end),
 
 				[Children] = {
 					New "UIListLayout" {
