@@ -23,7 +23,7 @@ return function(props)
 		end),
 
 		AnchorPoint = Vector2.new(0,0.5),
-		Position = UDim2.new(0,130,0.5,0),
+		Position = UDim2.new(0,180,0.5,0),
 		Size = UDim2.fromOffset(200,180),
 
 		BackgroundColor3 = BrickColor.new("Gray").Color,
@@ -263,7 +263,7 @@ return function(props)
 			end),
 	
 			AnchorPoint = Vector2.new(0,0.5),
-			Position = UDim2.new(0,130,0.5,0),
+			Position = UDim2.new(0,180,0.5,0),
 			Size = UDim2.fromOffset(170,140),
 	
 			BackgroundColor3 = BrickColor.new("Gray").Color,
@@ -329,17 +329,23 @@ return function(props)
 			
 			[Children] = {
 				
-				UI.TextLabel {
+				UI.TextButton {
 					AnchorPoint = Vector2.new(0,0.5),
 					Position = UDim2.new(0,40, 0.5, 0),
 					Size = UDim2.fromOffset(80,40),
+					BackgroundTransparency = 1,
 					
 					TextColor3 = BrickColor.new("Phosph. White").Color,
-					TextStrokeTransparency = 0,
 					Text = `<b>{buttonProps.Text}</b>`,
 					RichText = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
 					Font = Enum.Font.SciFi,
+
+					Visible = Computed(function()
+						return ActiveMenu:get() == nil
+					end),
+
+					[OnEvent "Activated"] = buttonProps.OnClick,
 				},
 	
 				UI.Div {
@@ -580,9 +586,9 @@ return function(props)
 				Position = UDim2.new(0, 140,0.5,0),
 				Size = UDim2.fromOffset(120,140),
 
-				Visible = Computed(function()
-					return ActiveMenu:get() == nil
-				end),
+				-- Visible = Computed(function()
+				-- 	return ActiveMenu:get() == nil
+				-- end),
 
 				[Children] = {
 					New "UIListLayout" {
@@ -599,7 +605,11 @@ return function(props)
 									LayoutOrder = 1,
 									BackgroundTransparency = 0.8,
 									OnClick = function()
-										ActiveMenu:set("Controls")
+										if ActiveMenu:get() == "Controls" then
+											ActiveMenu:set(nil)
+										else
+											ActiveMenu:set("Controls")
+										end
 									end,
 								}
 						end
@@ -610,7 +620,11 @@ return function(props)
 						LayoutOrder = 2,
 						BackgroundTransparency = 0.8,
 						OnClick = function()
-							ActiveMenu:set("Emoji")
+							if ActiveMenu:get() == "Emoji" then
+								ActiveMenu:set(nil)
+							else
+								ActiveMenu:set("Emoji")
+							end
 						end,
 					},
 					Computed(function()
