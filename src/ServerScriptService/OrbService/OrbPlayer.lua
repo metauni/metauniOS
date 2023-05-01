@@ -26,12 +26,13 @@ return function(player: Player)
 		Name = "EarHalo",
 		Material = Enum.Material.Neon,
 		Color = Color3.new(1,1,1),
+		Transparency = 0.8,
 		CastShadow = false,
 		CanCollide = false,
 		Archivable = false,
 
-		InnerDiameter = 2 + 0.1,
-		OuterDiameter = 2 + 0.5,
+		InnerDiameter = 1.5 + 0.1,
+		OuterDiameter = 1.5 + 0.5,
 	})
 	local eyeHalo: UnionOperation = destructor:Add(
 		Ring {
@@ -42,8 +43,8 @@ return function(player: Player)
 		CanCollide = false,
 		Archivable = false,
 
-		InnerDiameter = 2 + 0.5,
-		OuterDiameter = 2 + 1,
+		InnerDiameter = 1.5 + 0.5,
+		OuterDiameter = 1.5 + 1,
 	})
 	
 	local earWeld: WeldConstraint = New "WeldConstraint" {
