@@ -271,11 +271,6 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 					return workspace.CurrentCamera.ViewportSize
 				end),
 			},
-			Waypoint = Rx.of(orbPart):Pipe {
-				Rxi.findFirstChildWithClass("Folder", "Alignment"),
-				Rxi.findFirstChildWithClass("AlignPosition", "AlignPositionToWaypoint"),
-				Rxi.property("Position"),
-			},
 			ShowAudience = observeShowAudience,
 			AudienceMovement = observeShowAudience:Pipe {
 				Rx.switchMap(function(showAudience: boolean)
@@ -295,7 +290,6 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 			local viewMode: ViewMode? = data.ViewMode
 			local showAudience: boolean? = data.ShowAudience
 			local viewportSize: Vector2 = data.ViewportSize
-			local waypoint: Vector3? = data.Waypoint
 			local audienceMovement: {[Player]: true?} = data.AudienceMovement
 			local waypointOnly: boolean? = data.WaypointOnly
 
@@ -339,12 +333,14 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				-- The boards + the audience characters
 				local targets = {poi1, poi2}
 				local audienceEmpty = true
+				local speakerPos = speakerCharacter:GetPivot().Position
+				local audienceRadius = math.max(30, (lookTarget - speakerPos).Magnitude)
 
-				-- Find attached characters close enough to orb
+				-- Find attached characters close enough to speaker
 				for player in audienceMovement do
 					local character = player.Character
 					if character and character.PrimaryPart then
-						if (character.PrimaryPart.Position - waypoint).Magnitude <= 2 * (poi1.Position - waypoint).Magnitude then
+						if (character.PrimaryPart.Position - speakerPos).Magnitude <= audienceRadius then
 							table.insert(targets, character.PrimaryPart)
 							-- Include the speaker in the audience iff not waypointOnly
 							if waypointOnly or character ~= speakerCharacter then
@@ -357,7 +353,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				-- For testing
 				for _, model in CollectionService:GetTagged("fake_audience") do
 					if model.PrimaryPart then
-						if (model.PrimaryPart.Position - waypoint).Magnitude <= 2 * (poi1.Position - waypoint).Magnitude then
+						if (model.PrimaryPart.Position - speakerPos).Magnitude <= audienceRadius then
 							table.insert(targets, model.PrimaryPart)
 							audienceEmpty = false
 						end
@@ -367,7 +363,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				-- For NPCs
 				for _, model in CollectionService:GetTagged("npcservice_npc") do
 					if model.PrimaryPart then
-						if (model.PrimaryPart.Position - waypoint).Magnitude <= 2 * (poi1.Position - waypoint).Magnitude then
+						if (model.PrimaryPart.Position - speakerPos).Magnitude <= audienceRadius then
 							table.insert(targets, model.PrimaryPart)
 							audienceEmpty = false
 						end
