@@ -510,9 +510,10 @@ return function(player: Player)
 				observeAttachedOrb,
 				Rxf.fromState(Ghost),
 				Rxf.fromState(Mode),
+				observeSpeaker,
 			},
 			Rx.unpacked,
-		}:Subscribe(function(_eventTrigger: any, attachedOrb: Part?, ghost: Model?, mode: Mode)
+		}:Subscribe(function(_eventTrigger: any, attachedOrb: Part?, ghost: Model?, mode: Mode, speaker: Player?)
 			if ghost then
 				if mode == "standing" and ghost then
 					local ghostCFrame = ghost:GetPivot()
@@ -522,9 +523,15 @@ return function(player: Player)
 				else
 					for _, otherPlayer in Players:GetPlayers() do
 						local orbValue = PlayerToOrb:FindFirstChild(otherPlayer.UserId)
-						if otherPlayer ~= player and otherPlayer.Character and orbValue and orbValue.Value == attachedOrb then
+						if 
+							otherPlayer ~= player
+							and otherPlayer ~= speaker
+							and otherPlayer.Character
+							and orbValue
+							and orbValue.Value == attachedOrb
+						then
 							-- Land on top of an audience member
-							player.Character:PivotTo(otherPlayer:GetPivot() + Vector3.new(0,10,0))
+							player.Character:PivotTo(otherPlayer.Character:GetPivot() + Vector3.new(0,10,0))
 							return
 						end
 					end
@@ -534,27 +541,6 @@ return function(player: Player)
 			end
 		end)
 	)
-
-	-- OLD IMPLEMENTATION FOR COMPARISON
-	-- destructor:Add(
-	-- 	Remotes.Teleport.OnServerEvent:Connect(function(triggeredPlayer: Player, triggeredOrb: Part)
-	-- 		if triggeredPlayer == player then
-
-	-- 			local attachedOrb = PlayerToOrb:FindFirstChild(tostring(player.UserId))
-	-- 			if attachedOrb and player.Character then
-	-- 				local mode = Mode:get(false)
-	-- 				local ghost = Ghost:get(false)
-	-- 				if mode == "standing" and ghost then
-	-- 					local ghostCFrame = ghost:GetPivot()
-	-- 					Mode:set("hidden")
-  -- 					player.Character:PivotTo(ghostCFrame)
-	-- 				else
-	-- 					player.Character:PivotTo(attachedOrb.CFrame + Vector3.new(0,5 * attachedOrb.Size.Y,0))
-	-- 				end
-	-- 			end
-	-- 		end
-	-- 	end)
-	-- )
 
 	return destructor
 end
