@@ -1,9 +1,11 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local Promise = require(ReplicatedStorage.Packages.Promise)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
 local Value = Fusion.Value
@@ -503,27 +505,41 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 			end),
 		}
 
-		local showValue: StateObject<boolean> = observedValue(
-			Rx.combineLatest{
-				observeAdornee,
-				observeMoving,
-			}:Pipe{
-				Rx.unpacked,
-				Rx.map(function(adornee: Part?, isMoving: boolean)
-					return isMoving and adornee ~= nil
-				end),
-			}
-		)
+		local holdPromise
+		destructor:Add(function()
+			if holdPromise then
+				holdPromise:cancel()
+				holdPromise = nil
+			end
+		end)
 
-		local spring = Spring(Computed(function()
-			return showValue:get() and 0 or 1
-		end), 30, 1)
+		local Transparency = Value(1)
+
+		-- When the player is moving, show the highlights,
+		-- when they stop, hide the highlights after a short delay
+		Rx.combineLatest{
+			Adornee = observeAdornee,
+			Moving = observeMoving,
+		}:Subscribe(function(data)
+			if data.Moving and data.Adornee then
+				if holdPromise then
+					holdPromise:cancel()
+					holdPromise = nil
+				end
+				holdPromise = 
+				Promise.delay(0.6)
+					:andThen(function()
+						Transparency:set(1)
+					end)
+				Transparency:set(0)
+			end
+		end)
 
 		local highlight = NewTracked "Highlight" {
 			Adornee = observedValue(observeAdornee),
 			FillTransparency = 1,
 			OutlineColor = BrickColor.new("Electric blue").Color,
-			OutlineTransparency = spring,
+			OutlineTransparency = Spring(Transparency, 30, 1),
 		}
 
 		Fusion.Hydrate(highlight) {
@@ -533,14 +549,6 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 					highlight.Parent = attached and orbPart or nil
 					highlight.Adornee = highlight.Adornee
 				end),
-				-- Due to delay between client and server, the highlight may have faded
-				-- away by the time the new poi replicates.
-				-- This gives it a final bump
-				observeAdornee:Subscribe(function(adornee: Part?)
-					if adornee ~= nil then
-						spring:setPosition(0)
-					end
-				end)
 			}
 		}
 
