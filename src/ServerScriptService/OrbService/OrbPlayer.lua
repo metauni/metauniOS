@@ -1,4 +1,5 @@
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
@@ -516,9 +517,19 @@ return function(player: Player)
 				if mode == "standing" and ghost then
 					local ghostCFrame = ghost:GetPivot()
 					Mode:set("hidden")
+					-- Replace ghost
 					player.Character:PivotTo(ghostCFrame)
 				else
-					player.Character:PivotTo(attachedOrb.CFrame + Vector3.new(0,5 * attachedOrb.Size.Y,0))
+					for _, otherPlayer in Players:GetPlayers() do
+						local orbValue = PlayerToOrb:FindFirstChild(otherPlayer.UserId)
+						if otherPlayer ~= player and otherPlayer.Character and orbValue and orbValue.Value == attachedOrb then
+							-- Land on top of an audience member
+							player.Character:PivotTo(otherPlayer:GetPivot() + Vector3.new(0,10,0))
+							return
+						end
+					end
+					-- If all else fails, go 10 studs back and up from the orb
+					player.Character:PivotTo(attachedOrb.CFrame * CFrame.new(0,10, 20))
 				end
 			end
 		end)

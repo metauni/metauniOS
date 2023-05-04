@@ -1,13 +1,9 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
 local Value = Fusion.Value
-local OnEvent = Fusion.OnEvent
-local Computed = Fusion.Computed
 local Children = Fusion.Children
-local Observer = Fusion.Observer
 
 local OrbMenu = require(script.Parent.OrbMenu)
 

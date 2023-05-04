@@ -18,7 +18,6 @@ local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
 local Value = Fusion.Value
 local Computed = Fusion.Computed
-local OnEvent = Fusion.OnEvent
 local Children = Fusion.Children
 local Spring = Fusion.Spring
 
@@ -174,20 +173,6 @@ function OrbController:Start()
 	local PositionSpring = Spring(CamPositionGoal, SPEED, DAMPING)
 	local LookAtSpring = Spring(CamLookAtGoal, SPEED, DAMPING)
 
-	-- local orbcam
-	-- orbcam = NewTracked "Camera" {
-		
-	-- 	Name = "OrbCam"..orbPart:GetFullName(),
-	-- 	CameraType = Enum.CameraType.Scriptable,
-	-- 	CFrame = Computed(function()
-	-- 		return CFrame.lookAt(PositionSpring:get(), LookAtSpring:get())
-	-- 	end),
-	-- 	FieldOfView = 55,
-	-- 	Parent = ReplicatedStorage,
-	-- }
-
-
-	local runConnection
 	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
 
 	local observePeers =
@@ -290,6 +275,8 @@ function OrbController:Start()
 		end
 	end)
 
+	local runConnection
+
 	Rx.combineLatest {
 		AttachedOrb = observeAttachedOrb,
 		OrbcamActive = Rxf.fromState(OrbcamActive),
@@ -360,6 +347,7 @@ function OrbController:Start()
 		end
 
 		if not poi1 then
+			-- Need to set goals so the orbccam doesn't start far away
 			local chaseTarget = if speakerCharacter then speakerCharacter:GetPivot().Position else attachedOrb.Position
 			local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget) * Vector3.new(1,0,1)
 			local camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0,5,0)

@@ -4,6 +4,6 @@ return {
 	OrbcamBuffer = Vector2.new(2,2),
 	HaloOffset = 1.2,
 	GhostSpawnRadius = 50,
-	GhostMinOrbRadius = 5,
-	GhostMaxOrbRadius = 15,
+	GhostMinOrbRadius = 10,
+	GhostMaxOrbRadius = 30,
 }
