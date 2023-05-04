@@ -111,20 +111,6 @@ function OrbServer.new(orbPart: Part)
 		AttachedPlayers:set(attachedPlayers)
 	end)
 
-	destructor:Add(
-		Remotes.SetListener.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
-			if triggeredOrb ~= orbPart then
-				return
-			end
-
-			local attachedOrb = PlayerToOrb:FindFirstChild(player.UserId) or New "ObjectValue" {
-				Name = player.UserId,
-				Parent = PlayerToOrb,
-			}
-			attachedOrb.Value = orbPart
-		end)
-	)
-
 	local attachSoundIds = {
 		7873470625,
 		7873470425,
@@ -165,6 +151,10 @@ function OrbServer.new(orbPart: Part)
 	destructor:Add(
 		Remotes.SetSpeaker.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
 			if triggeredOrb ~= orbPart then
+				if speakerValue.Value == player then
+					speakerValue.Value = nil
+					detachSound:Play()
+				end
 				return
 			end
 
@@ -180,6 +170,24 @@ function OrbServer.new(orbPart: Part)
 				attachSound.SoundId = "rbxassetid://"..attachSoundIds[math.random(1, #attachSoundIds)]
 				attachSound:Play()
 			end
+		end)
+	)
+
+	destructor:Add(
+		Remotes.SetListener.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part)
+			if triggeredOrb ~= orbPart then
+				if speakerValue.Value == player then
+					speakerValue.Value = nil
+					detachSound:Play()
+				end
+				return
+			end
+
+			local attachedOrb = PlayerToOrb:FindFirstChild(player.UserId) or New "ObjectValue" {
+				Name = player.UserId,
+				Parent = PlayerToOrb,
+			}
+			attachedOrb.Value = orbPart
 		end)
 	)
 
@@ -291,6 +299,7 @@ function OrbServer.new(orbPart: Part)
 	}
 	local speakerAttachment = NewTracked "Attachment" {
 		-- Parent: set via observable
+		Name = "SpeakerAttachment",
 		Position = Computed(function()
 			return SpeakerGroundOffset:get() + Vector3.new(0,0,-5)
 		end),
