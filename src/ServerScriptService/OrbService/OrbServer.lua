@@ -367,13 +367,18 @@ function OrbServer.new(orbPart: Part)
 				}),
 				Mode = Enum.PositionAlignmentMode.OneAttachment,
 				Position = observedValue(observeWaypoint:Pipe {
-					Rx.map(function(waypoint: CFrame?)
-						return waypoint and waypoint.Position or orbPart.Position
+					Rx.map(function(waypoint: CFrame)
+						return waypoint.Position
 					end),
 				}),
 				Attachment0 = orbAttachment,
 				MaxForce = math.huge,
 				MaxVelocity = 8,
+			},
+			New "AlignOrientation" {
+				Mode = Enum.OrientationAlignmentMode.OneAttachment,
+				Attachment0 = orbAttachment,
+				CFrame = observedValue(observeWaypoint),
 			},
 		}
 	}

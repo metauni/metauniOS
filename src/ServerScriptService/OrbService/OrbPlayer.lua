@@ -308,16 +308,6 @@ return function(player: Player)
 	destructor:Add(
 		Rx.combineLatest{
 			Waypoint = observeWaypoint,
-			OrbCFrame = observeAttachedOrb:Pipe {
-				Rx.switchMap(function(part: Part?)
-					return Rx.of(part):Pipe {
-						throttledMovement(0.5),
-						Rx.map(function(_position: Vector3)
-							return part and part.CFrame or nil
-						end)
-					}
-				end),
-			},
 			Character = Rx.of(player):Pipe{
 				Rxi.property("Character")
 			},
@@ -390,14 +380,12 @@ return function(player: Player)
 			},
 		}:Subscribe(function(data)
 			local waypoint: CFrame? = data.Waypoint
-			local orbCFrame: CFrame? = data.OrbCFrame
 			local character: Model? = data.Character
 			local attachedOrb: Part? = data.AttachedOrb
 			local ghostHumanoid: Humanoid? = data.GhostHumanoid
 			local speaker: Player? = data.Speaker
 			local progress: boolean = data.Progress
 
-			local focalCFrame: CFrame = waypoint or orbCFrame
 			local mode: Mode = Mode:get(false)
 			
 			-- No ghost needed in these situations
@@ -408,9 +396,9 @@ return function(player: Player)
 				or
 				not ghostHumanoid
 				or
-				not focalCFrame
+				not waypoint
 				or
-				(character and (character.PrimaryPart.Position - focalCFrame.Position).Magnitude <= Config.GhostSpawnRadius)
+				(character and (character.PrimaryPart.Position - waypoint.Position).Magnitude <= Config.GhostSpawnRadius)
 			then
 				if mode ~= "fading" and mode ~= "hidden" then
 					Mode:set("fading")
@@ -439,7 +427,7 @@ return function(player: Player)
 
 			-- Know now that mode is either "hidden" or "standing"
 
-			if mode == "hidden" or (ghostHumanoid.WalkToPoint - focalCFrame.Position).Magnitude > Config.GhostSpawnRadius then
+			if mode == "hidden" or (ghostHumanoid.WalkToPoint - waypoint.Position).Magnitude > Config.GhostSpawnRadius then
 				-- Find somewhere to stand behind orb, try 10 times.
 				local position do
 					local success = false
@@ -447,7 +435,7 @@ return function(player: Player)
 
 						local angle = math.pi * (3/4) * math.random() - math.pi/2
 						local standBackDistance = Config.GhostMinOrbRadius + (Config.GhostMaxOrbRadius - Config.GhostMinOrbRadius) * math.random()
-						position = (focalCFrame * CFrame.Angles(0,angle,0) * CFrame.new(0,0,standBackDistance)).Position + Vector3.new(0, ghostHumanoid.HipHeight + ghost.PrimaryPart.Size.Y/2, 0)
+						position = (waypoint * CFrame.Angles(0,angle,0) * CFrame.new(0,0,standBackDistance)).Position + Vector3.new(0, ghostHumanoid.HipHeight + ghost.PrimaryPart.Size.Y/2, 0)
 						
 						local overlapParams = OverlapParams.new()
 						overlapParams.FilterDescendantsInstances = {ghost}
@@ -484,7 +472,7 @@ return function(player: Player)
 							local startOffset = character:GetExtentsSize().Z
 							ghost:PivotTo(CFrame.lookAt(character:GetPivot().Position + startOffset * dir.Unit, position))
 						else
-							ghost:PivotTo(CFrame.lookAt(position, position + (focalCFrame - position) * Vector3.new(1,0,1)))
+							ghost:PivotTo(CFrame.lookAt(position, position + (waypoint - position) * Vector3.new(1,0,1)))
 							Mode:set("standing")
 							return
 						end
