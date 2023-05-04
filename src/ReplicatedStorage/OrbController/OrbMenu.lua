@@ -483,8 +483,8 @@ return function(props)
 					},
 	
 					New "Part" {
-						Material = Enum.Material.CrackedLava,
-						BrickColor = BrickColor.new("CGA brown"),
+						Material = props.OrbMaterial,
+						BrickColor = props.OrbBrickColor,
 						Shape = Enum.PartType.Ball,
 						Size = Vector3.new(3,3,3),
 						Position = Vector3.new(0,0,0),

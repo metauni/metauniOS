@@ -29,6 +29,8 @@ return function (target)
 		BackgroundTransparency = 1,
 
 		[Children] = OrbMenu {
+			OrbBrickColor = BrickColor.new("CGA brown"),
+			OrbMaterial = Enum.Material.CrackedLava,
 			OrbcamActive = OrbcamActive,
 			SetOrbcamActive = function(active)
 				OrbcamActive:set(active)

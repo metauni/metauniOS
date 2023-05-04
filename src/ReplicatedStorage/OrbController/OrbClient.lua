@@ -569,6 +569,8 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 				BackgroundTransparency = 1,
 
 				[Children] = OrbMenu {
+					OrbBrickColor = orbPart.BrickColor,
+					OrbMaterial = orbPart.Material,
 					Enabled = Attached,
 					ViewMode = observedValue(observeViewMode),
 					SetViewMode = function(viewMode: ViewMode)
