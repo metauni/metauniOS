@@ -437,20 +437,18 @@ function OrbController:Start()
 	Rx.combineLatest {
 		Poi1 = observePoi1,
 		Poi2 = observePoi2,
-		Humanoid = observeLocalSpeaker:Pipe {
+		Humanoid = Rx.of(Players.LocalPlayer):Pipe {
 			Rxi.property("Character"),
-			Rxi.findFirstChildOfClass("Humanoid"),
+			Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
 		},
+		Speaker = observeSpeaker,
 	}:Subscribe(function(data)
-		local poi1: Part? = data.Poi1
-		local poi2: Part? = data.Poi2
-		local humanoid: Humanoid? = data.Humanoid
 
 		-- Walk slowly while orbcam looking at poi
-		if humanoid and (poi1 or poi2) then
-			humanoid.WalkSpeed = 10
-		elseif humanoid then
-			humanoid.WalkSpeed = 16
+		if data.Speaker == Players.LocalPlayer and data.Humanoid and (data.Poi1 or data.Poi2) then
+			data.Humanoid.WalkSpeed = 10
+		elseif data.Humanoid then
+			data.Humanoid.WalkSpeed = 16
 		end
 	end)
 
