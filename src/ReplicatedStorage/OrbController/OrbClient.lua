@@ -522,7 +522,7 @@ function OrbClient.new(orbPart: Part, observedAttachedOrb: Observable): OrbClien
 		local highlight = NewTracked "Highlight" {
 			Adornee = observedValue(observeAdornee),
 			FillTransparency = 1,
-			OutlineColor = BrickColor.new("Flame reddish orange").Color,
+			OutlineColor = BrickColor.new("Electric blue").Color,
 			OutlineTransparency = spring,
 		}
 
