@@ -4,12 +4,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local OrbServer = require(script.OrbServer)
 local Rxi = require(ReplicatedStorage.Rxi)
 local OrbPlayer = require(script.OrbPlayer)
+local Ring = require(script.Ring)
 
 local OrbService = {
 	Orbs = {} :: {[Part]: Orb}
 }
 
 function OrbService:Start()
+
+	self:MakeHaloTemplates()
 
 	Rxi.tagged("metaorb"):Subscribe(function(instance: BasePart)
 		if CollectionService:HasTag(instance, "metaorb_transport") then
@@ -61,6 +64,41 @@ function OrbService:Start()
 			playerDestructors[player] = OrbPlayer(player)
 		end)
 	end)
+end
+
+function OrbService:MakeHaloTemplates()
+
+	local earHalo: UnionOperation = Ring {
+		Name = "EarHalo",
+		Parent = script,
+		Material = Enum.Material.Neon,
+		Color = Color3.new(1,1,1),
+		CastShadow = false,
+		CanCollide = false,
+
+		InnerDiameter = 1.5 + 0.1,
+		OuterDiameter = 1.5 + 0.5,
+	}
+
+	local eyeHalo: UnionOperation = Ring {
+		Name = "EyeHalo",
+		Parent = script,
+		Material = Enum.Material.Neon,
+		Color = Color3.new(0,0,0),
+		CastShadow = false,
+		CanCollide = false,
+
+		InnerDiameter = 1.5 + 0.5,
+		OuterDiameter = 1.5 + 1,
+	}
+
+	local earWeld = Instance.new("WeldConstraint")
+	earWeld.Part0 = earHalo
+	earWeld.Parent = earHalo
+
+	local eyeWeld = Instance.new("WeldConstraint")
+	eyeWeld.Part0 = eyeHalo
+	eyeWeld.Parent = eyeHalo
 end
 
 return OrbService

@@ -14,7 +14,6 @@ local Destructor = require(ReplicatedStorage.Destructor)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
 local Rxf = require(ReplicatedStorage.Rxf)
-local Ring = require(script.Parent.Ring)
 
 local Remotes = ReplicatedStorage.OrbController.Remotes
 local Config = require(ReplicatedStorage.OrbController.Config)
@@ -23,39 +22,8 @@ return function(player: Player)
 	
 	local destructor = Destructor.new()
 
-	local earHalo: UnionOperation = destructor:Add(Ring {
-		Name = "EarHalo",
-		Material = Enum.Material.Neon,
-		Color = Color3.new(1,1,1),
-		Transparency = 0.8,
-		CastShadow = false,
-		CanCollide = false,
-		Archivable = false,
-
-		InnerDiameter = 1.5 + 0.1,
-		OuterDiameter = 1.5 + 0.5,
-	})
-	local eyeHalo: UnionOperation = destructor:Add(
-		Ring {
-		Name = "EyeHalo",
-		Material = Enum.Material.Neon,
-		Color = Color3.new(0,0,0),
-		CastShadow = false,
-		CanCollide = false,
-		Archivable = false,
-
-		InnerDiameter = 1.5 + 0.5,
-		OuterDiameter = 1.5 + 1,
-	})
-	
-	local earWeld: WeldConstraint = New "WeldConstraint" {
-		Parent = earHalo,
-		Part0 = earHalo,
-	}
-	local eyeWeld: WeldConstraint = New "WeldConstraint" {
-		Parent = eyeHalo,
-		Part0 = eyeHalo,
-	}
+	local earHaloTemplate = script.Parent:WaitForChild("EarHalo")
+	local eyeHaloTemplate = script.Parent:WaitForChild("EyeHalo")
 
 	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
 
@@ -77,11 +45,51 @@ return function(player: Player)
 			Rxi.property("Value")
 		}
 
+	-- Detach from Orb on reset
+	destructor:Add(
+		Rx.of(player):Pipe {
+			Rxi.property("Character"),
+			Rxi.findFirstChild("Humanoid"),
+			Rxi.notNil(),
+			Rx.switchMap(function(humanoid: Humanoid)
+				return Rx.fromSignal(humanoid.Died)
+			end)
+		}:Subscribe(function()
+			local orbValue = PlayerToOrb:FindFirstChild(tostring(player.UserId))
+			if orbValue.Value then
+				local speakerValue = orbValue.Value:FindFirstChild("Speaker")
+				if speakerValue.Value == Players.LocalPlayer then
+					speakerValue.Value = nil
+				end
+			end
+			orbValue.Value = nil
+		end)
+	)
+
 	destructor:Add(
 		Rx.combineLatest{
-			Head = Rx.of(player):Pipe{
+			Halos = Rx.of(player):Pipe{
 				Rxi.property("Character"),
 				Rxi.findFirstChildWithClass("MeshPart", "Head"),
+				Rx.map(function(head: MeshPart)
+					if not head then
+						return {}
+					end
+
+					local earHalo = earHaloTemplate:Clone()
+					earHalo.Parent = head
+					earHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
+					earHalo.WeldConstraint.Part1 = head
+					earHalo.Archivable = false
+
+					local eyeHalo = eyeHaloTemplate:Clone()
+					eyeHalo.Parent = head
+					eyeHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
+					eyeHalo.WeldConstraint.Part1 = head
+					eyeHalo.Archivable = false
+
+					return {earHalo, eyeHalo}
+				end),
 			},
 			OrbcamActive = Rx.fromSignal(Remotes.OrbcamStatus.OnServerEvent):Pipe{
 				Rx.where(function(triggeredPlayer: Player, _triggeredOrb: Part, _active: boolean)
@@ -95,30 +103,29 @@ return function(player: Player)
 			AttachedOrb = observeAttachedOrb,
 			Speaker = observeSpeaker,
 		}:Subscribe(function(data)
-			local head: Part? = data.Head
+			local earHalo: UnionOperation? = data.Halos[1]
+			local eyeHalo: UnionOperation? = data.Halos[2]
 			local orbcamActive: boolean = data.OrbcamActive
 			local attached: boolean = data.AttachedOrb
 			local speaker: Player? = data.Speaker
 
-			local showEar = attached and head and (speaker ~= player)
-			local showEye = showEar and orbcamActive
+			if not earHalo or not eyeHalo then
+				return
+			end
+
+			local showEar = earHalo and attached and (speaker ~= player)
+			local showEye = eyeHalo and showEar and orbcamActive
 
 			if showEar then
-				earHalo.Parent = head
-				earHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
-				earWeld.Part1 = head
+				earHalo.Transparency = 0.8
 			else
-				earHalo.Parent = nil
-				earWeld.Part1 = nil
+				earHalo.Transparency = 1
 			end
 
 			if showEye then
-				eyeHalo.Parent = head
-				eyeHalo.CFrame = head.CFrame * CFrame.new(0,Config.HaloOffset,0) * CFrame.Angles(0,0,math.pi/2)
-				eyeWeld.Part1 = head
+				eyeHalo.Transparency = 0
 			else
-				eyeHalo.Parent = nil
-				eyeWeld.Part1 = nil
+				eyeHalo.Transparency = 1
 			end
 		end)
 	)
