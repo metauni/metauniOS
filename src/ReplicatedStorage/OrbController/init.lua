@@ -73,6 +73,9 @@ function OrbController:Start()
 	end)
 
 	Rxi.tagged("metaorb"):Subscribe(function(instance: BasePart)
+		if CollectionService:HasTag(instance, "metaorb_transport") then
+			return
+		end
 		if not instance:IsA("BasePart") then
 			error(`[OrbService] {instance:GetFullName()} is a Model. Must tag PrimaryPart with "metaorb".`)
 		end
@@ -91,6 +94,9 @@ function OrbController:Start()
 	end)
 
 	Rxi.untagged("metaorb"):Subscribe(function(instance: BasePart)
+		if CollectionService:HasTag(instance, "metaorb_transport") then
+			return
+		end
 		if self.Orbs[instance] then
 			self.Orbs[instance]:Destroy()
 			self.Orbs[instance] = nil
