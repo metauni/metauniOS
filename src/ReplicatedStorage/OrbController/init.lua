@@ -161,6 +161,11 @@ function OrbController:Start()
 			Rxi.findFirstChildWithClass("ObjectValue", "poi1"),
 			Rxi.property("Value"),
 		}
+	local observeNearestBoard: Observable<Part?> =
+		observeAttachedOrb:Pipe {
+			Rxi.findFirstChildWithClass("ObjectValue", "NearestBoard"),
+			Rxi.property("Value"),
+		}
 	local observePoi2: Observable<Part?> =
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("ObjectValue", "poi2"),
@@ -288,6 +293,7 @@ function OrbController:Start()
 		OrbcamActive = Rxf.fromState(OrbcamActive),
 		Poi1 = observePoi1,
 		Poi2 = observePoi2,
+		NearestBoard = observeNearestBoard,
 		SpeakerCharacter = observeSpeaker:Pipe{
 			Rxi.property("Character")
 		},
@@ -320,6 +326,7 @@ function OrbController:Start()
 		local viewportSize: Vector2 = data.ViewportSize
 		local poi1: Part? = data.Poi1
 		local poi2: Part? = data.Poi2
+		local nearestBoard: Part? = data.NearestBoard
 		local speakerCharacter: Model? = data.SpeakerCharacter
 		local viewMode: ViewMode? = data.ViewMode
 		local showAudience: boolean? = data.ShowAudience
@@ -342,8 +349,25 @@ function OrbController:Start()
 				-- Chase speaker or orb if not looking at boards
 				if not poi1 and not poi2 then
 					local chaseTarget = if speakerCharacter then speakerCharacter:GetPivot().Position else attachedOrb.Position
-					local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget) * Vector3.new(1,0,1)
-					local camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0,5,0)
+					local camPos
+
+					if nearestBoard then
+						local targetToBoard = (chaseTarget - nearestBoard.Position)
+						if targetToBoard.Magnitude < 30 then
+
+							-- Check that cam would be within 120 view of board (not too side-on)
+							if targetToBoard.Unit:Dot(nearestBoard.CFrame.LookVector.Unit) > math.cos(math.rad(60)) then
+								local awayFromBoard = targetToBoard * Vector3.new(1,0,1)
+								camPos = chaseTarget + awayFromBoard.Unit * 20 + Vector3.new(0,5,0)
+							end
+						end
+					end
+
+					-- Default to looking from wherever camera currently is
+					if not camPos then
+						local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget) * Vector3.new(1,0,1)
+						camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0,5,0)
+					end
 					CamPositionGoal:set(camPos)
 					CamLookAtGoal:set(chaseTarget)
 				end

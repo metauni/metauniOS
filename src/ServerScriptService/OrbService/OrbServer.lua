@@ -409,6 +409,10 @@ function OrbServer.new(orbPart: Part)
 		Parent = orbPart,
 	}
 
+	local nearestBoardValue = NewTracked "ObjectValue" {
+		Name = "NearestBoard",
+		Parent = orbPart,
+	}
 
 	-- Watch speaker movement to update Waypoint and OrbMode
 	destructor:Add(
@@ -468,9 +472,10 @@ function OrbServer.new(orbPart: Part)
 			end
 
 			if #boardByProximity == 0 then
+				nearestBoardValue.Value = false
+				poi1Value.Value = nil
+				poi2Value.Value = nil
 				if speakerAttachment.Parent then
-					poi1Value.Value = nil
-					poi2Value.Value = nil
 					orbModeValue.Value = "follow"
 				end
 				return
@@ -480,6 +485,8 @@ function OrbServer.new(orbPart: Part)
 			local firstPart = if firstBoard then firstBoard._instance else nil
 			local secondBoard = boardByProximity[2]
 			local secondPart = if secondBoard then secondBoard._instance else nil
+
+			nearestBoardValue.Value = firstPart
 
 			if secondBoard then
 				local betweenBoards = (firstPart.Position - secondPart.Position).Magnitude
