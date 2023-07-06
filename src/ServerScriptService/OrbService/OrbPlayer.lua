@@ -58,7 +58,7 @@ return function(player: Player)
 			local orbValue = PlayerToOrb:FindFirstChild(tostring(player.UserId))
 			if orbValue.Value then
 				local speakerValue = orbValue.Value:FindFirstChild("Speaker")
-				if speakerValue.Value == Players.LocalPlayer then
+				if speakerValue and speakerValue.Value == Players.LocalPlayer then
 					speakerValue.Value = nil
 				end
 			end
