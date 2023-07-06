@@ -469,10 +469,6 @@ function OrbServer.new(orbPart: Part)
 			-- Try not to move to next board in single mode until speaker is outside left/right bounds
 			if viewMode == "single" and poi1Value.Value and not poi2Value.Value and waypointValue.Value then
 				local boardPart = poi1Value.Value :: Part
-				-- local camToBoard = (boardPart.Position - waypointValue.Value.Position) * Vector3.new(1,0,1)
-				-- local camToSpeaker = (speakerPosition - waypointValue.Value.Position) * Vector3.new(1,0,1)
-				-- local maxAxisSize = math.max(boardPart.Size.X, boardPart.Size.Y, boardPart.Size.Z)
-
 				if speakerInCamView(waypointValue.Value.Position, boardPart.Position) then
 					if speakerInFrontOfFocal(waypointValue.Value.Position, boardPart.Position) then
 						return
@@ -480,14 +476,13 @@ function OrbServer.new(orbPart: Part)
 				end
 			end
 
-			-- local k = if viewMode == "single" then 1 else 2
-			
-			local firstBoard do
+			local firstBoard, firstPart do
 				local minSoFar = math.huge
 				for _, board in BoardService.Boards do
 					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
 					if distance < minSoFar then
 						firstBoard = board
+						firstPart = board._instance
 						minSoFar = distance
 					end
 				end
@@ -502,43 +497,22 @@ function OrbServer.new(orbPart: Part)
 				end
 				return
 			end
+			
+			nearestBoardValue.Value = firstPart
 
-			-- This is the closest board to the first board, not the second closest to the speaker
-			local secondBoard do
+			-- Find next closest board with angle difference <90 degrees
+			local secondBoard, secondPart do
 				local minSoFar = math.huge
 				for _, board in BoardService.Boards do
-					local distance = (board.SurfaceCFrame.Position - firstBoard.SurfaceCFrame.Position).Magnitude
-					if distance < minSoFar and board ~= firstBoard then
+					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
+					local goodAngle = firstBoard.SurfaceCFrame.LookVector:Dot(board.SurfaceCFrame.LookVector) > 0
+					
+					if distance < minSoFar and goodAngle and board ~= firstBoard then
 						secondBoard = board
+						secondPart = board._instance
 						minSoFar = distance
 					end
 				end
-			end
-			
-			local firstPart = firstBoard._instance
-			local secondPart = if secondBoard then secondBoard._instance else nil
-			nearestBoardValue.Value = firstPart
-
-			if secondBoard then
-				local betweenBoards = (firstPart.Position - secondPart.Position).Magnitude
-				local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
-				if betweenBoards > maxAxisSizeFirstBoard * 1.5 then
-					secondBoard = nil
-					secondPart = nil
-				end
-				
-				-- if viewMode == "double" and (firstPart == poi1Value.Value or firstPart == poi2Value.Value) and poi2Value.Value ~= nil then
-				-- 	print("----------------")
-				-- 	print(poi1Value.Value:GetFullName())
-				-- 	print(poi2Value.Value:GetFullName())
-				-- 	print(firstPart:GetFullName())
-				-- 	print(secondPart:GetFullName())
-				-- 	local betweenOldBoards = (poi1Value.Value.Position - poi2Value.Value.Position).Magnitude
-				-- 	if betweenOldBoards < betweenBoards then
-				-- 		print("NOT CHANGING YET")
-				-- 		return
-				-- 	end
-				-- end
 			end
 
 			local camCFrame, focalPosition =
@@ -550,8 +524,17 @@ function OrbServer.new(orbPart: Part)
 				)
 			local closeEnough = speakerCloseToWaypoint(camCFrame.Position, focalPosition)
 			local inFront = speakerInFrontOfFocal(camCFrame.Position, focalPosition)
+			local goodDistanceBetweenBoards do
+				if not secondBoard then
+					goodDistanceBetweenBoards = true
+				else
+					local betweenBoards = (secondBoard.SurfaceCFrame.Position - firstBoard.SurfaceCFrame.Position).Magnitude
+					local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
+					goodDistanceBetweenBoards = betweenBoards <= maxAxisSizeFirstBoard * 1.5
+				end
+			end
 
-			if not waypointOnly and not (closeEnough and inFront) then
+			if not waypointOnly and not (closeEnough and inFront and goodDistanceBetweenBoards) then
 				if speakerAttachment.Parent then
 					poi1Value.Value = nil
 					poi2Value.Value = nil
