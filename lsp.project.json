@@ -1,4 +1,5 @@
 {
+
 	"name": "metauniOS (LSP)",
 	"tree": {
 		"$className": "DataModel",
@@ -9,7 +10,8 @@
 			"$path": "src/ServerScriptService",
 	
 			"metauniOS": {
-				"$path": "src/metauniOS.server.lua"
+				"$path": "src/init.server.lua",
+				"$className": "Script"
 			}
 		},
 
