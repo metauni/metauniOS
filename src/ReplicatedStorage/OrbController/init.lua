@@ -624,9 +624,10 @@ function OrbController:Start()
 		local highlight = New "Highlight" {
 			Adornee = observedValue(observeAdornee),
 			FillColor = Color3.new(1,1,1),
-			FillTransparency = Computed(function()
-				return 0.8 + 0.2 * SpringTransparency:get()
-			end),
+			-- This would be better if it made it brighter, not darker...
+			-- FillTransparency = Computed(function()
+			-- 	return 0.8 + 0.2 * SpringTransparency:get()
+			-- end),
 			OutlineColor = BrickColor.new("Baby blue").Color,
 			OutlineTransparency = SpringTransparency,
 		}
