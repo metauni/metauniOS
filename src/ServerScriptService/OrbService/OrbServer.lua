@@ -480,26 +480,21 @@ function OrbServer.new(orbPart: Part)
 				end
 			end
 
-			local boardByProximity = {}
-			local k = if viewMode == "single" then 1 else 2
-
-			for _=1, k do
+			-- local k = if viewMode == "single" then 1 else 2
+			
+			local firstBoard do
 				local minSoFar = math.huge
-				local nearestBoard
 				for _, board in BoardService.Boards do
-					if not table.find(boardByProximity, board) then
-						local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
-						if distance < minSoFar then
-							nearestBoard = board
-							minSoFar = distance
-						end
+					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
+					if distance < minSoFar then
+						firstBoard = board
+						minSoFar = distance
 					end
 				end
-				table.insert(boardByProximity, nearestBoard)
 			end
 
-			if #boardByProximity == 0 then
-				nearestBoardValue.Value = false
+			if not firstBoard then
+				nearestBoardValue.Value = nil
 				poi1Value.Value = nil
 				poi2Value.Value = nil
 				if speakerAttachment.Parent then
@@ -508,20 +503,42 @@ function OrbServer.new(orbPart: Part)
 				return
 			end
 
-			local firstBoard = boardByProximity[1]
-			local firstPart = if firstBoard then firstBoard._instance else nil
-			local secondBoard = boardByProximity[2]
+			-- This is the closest board to the first board, not the second closest to the speaker
+			local secondBoard do
+				local minSoFar = math.huge
+				for _, board in BoardService.Boards do
+					local distance = (board.SurfaceCFrame.Position - firstBoard.SurfaceCFrame.Position).Magnitude
+					if distance < minSoFar and board ~= firstBoard then
+						secondBoard = board
+						minSoFar = distance
+					end
+				end
+			end
+			
+			local firstPart = firstBoard._instance
 			local secondPart = if secondBoard then secondBoard._instance else nil
-
 			nearestBoardValue.Value = firstPart
 
 			if secondBoard then
 				local betweenBoards = (firstPart.Position - secondPart.Position).Magnitude
 				local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
-				if betweenBoards > maxAxisSizeFirstBoard * 2 then
+				if betweenBoards > maxAxisSizeFirstBoard * 1.5 then
 					secondBoard = nil
 					secondPart = nil
 				end
+				
+				-- if viewMode == "double" and (firstPart == poi1Value.Value or firstPart == poi2Value.Value) and poi2Value.Value ~= nil then
+				-- 	print("----------------")
+				-- 	print(poi1Value.Value:GetFullName())
+				-- 	print(poi2Value.Value:GetFullName())
+				-- 	print(firstPart:GetFullName())
+				-- 	print(secondPart:GetFullName())
+				-- 	local betweenOldBoards = (poi1Value.Value.Position - poi2Value.Value.Position).Magnitude
+				-- 	if betweenOldBoards < betweenBoards then
+				-- 		print("NOT CHANGING YET")
+				-- 		return
+				-- 	end
+				-- end
 			end
 
 			local camCFrame, focalPosition =
