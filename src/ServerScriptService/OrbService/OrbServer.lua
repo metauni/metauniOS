@@ -55,7 +55,7 @@ function OrbServer.new(orbPart: Part)
 		}
 
 	export type OrbMode = "follow" | "waypoint"
-	local orbModeValue: CFrameValue = NewTracked "StringValue" {
+	local orbModeValue: StringValue = NewTracked "StringValue" {
 		Name = "OrbMode",
 		Value = "waypoint",
 		Parent = orbPart,
@@ -65,7 +65,7 @@ function OrbServer.new(orbPart: Part)
 			Rxi.property("Value"),
 		}
 		
-	local waypointOnlyValue: boolean = NewTracked "BoolValue" {
+	local waypointOnlyValue: BoolValue = NewTracked "BoolValue" {
 		Name = "WaypointOnly",
 		Value = false,
 		Parent = orbPart,
@@ -399,17 +399,17 @@ function OrbServer.new(orbPart: Part)
 		end
 	end
 	
-	local poi1Value = NewTracked "ObjectValue" {
+	local poi1Value: ObjectValue = NewTracked "ObjectValue" {
 		Name = "poi1",
 		Parent = orbPart,
 	}
 	
-	local poi2Value = NewTracked "ObjectValue" {
+	local poi2Value: ObjectValue = NewTracked "ObjectValue" {
 		Name = "poi2",
 		Parent = orbPart,
 	}
 
-	local nearestBoardValue = NewTracked "ObjectValue" {
+	local nearestBoardValue: ObjectValue = NewTracked "ObjectValue" {
 		Name = "NearestBoard",
 		Parent = orbPart,
 	}
@@ -420,7 +420,7 @@ function OrbServer.new(orbPart: Part)
 			-- Speaker Movement
 			SpeakerPosition = observeSpeaker:Pipe {
 				Rxi.property("Character"),
-				Rxi.property("PrimaryPart"),
+				Rxi.findFirstChild("Head"),
 				throttledMovement(0.5),
 			},
 			ViewMode = observeViewMode,
@@ -437,21 +437,48 @@ function OrbServer.new(orbPart: Part)
 				return
 			end
 
-			-- If the orb is already looking at a board
-			-- don't move it until speaker is out of shot.
-			if speakerPosition and viewMode == "single" and poi1Value.Value and not poi2Value.Value then
+			--[[
+				Functions for determining whether speaker is within certain bounds.
+				All calculations are XZ-plane relative.
+			--]]
 
-				local horizontalFOVRad = 2 * math.atan(Config.AssumedAspectRatio * math.tan(math.rad(Config.OrbcamFOV)/2))
-				local cosAngleToSpeaker = ((speakerPosition - waypointValue.Value.Position).Unit):Dot(waypointValue.Value.LookVector)
-
-				local ANGLE_BUFFER = math.rad(0)
-				local insideCamView = cosAngleToSpeaker >= math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
-
-				if insideCamView then
-					return
-				end
+			local BUFFER = 6
+			local function speakerInFrontOfFocal(camPos: Vector3, focalPos: Vector3)
+				local camToSpeaker = (speakerPosition - camPos) * Vector3.new(1,0,1)
+				local camToFocal = (focalPos - camPos) * Vector3.new(1,0,1)
+				
+				return camToSpeaker:Dot(camToFocal.Unit) <= camToFocal.Magnitude + BUFFER
 			end
 
+			local function speakerCloseToWaypoint(camPos: Vector3, focalPos: Vector3)
+				local camToFocal = (focalPos - camPos) * Vector3.new(1,0,1)
+				local focalToSpeaker = (speakerPosition - focalPos) * Vector3.new(1,0,1)
+				
+				return focalToSpeaker.Magnitude <= camToFocal.Magnitude + BUFFER
+			end
+			
+			local function speakerInCamView(camPos: Vector3, focalPos: Vector3)
+				local camToFocal = (focalPos - camPos) * Vector3.new(1,0,1)
+				local horizontalFOVRad = 2 * math.atan(Config.AssumedAspectRatio * math.tan(math.rad(Config.OrbcamFOV)/2))
+				local cosAngleToSpeaker = ((speakerPosition - camPos).Unit):Dot(camToFocal.Unit)
+
+				local ANGLE_BUFFER = math.rad(10)
+				return cosAngleToSpeaker >= math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
+			end
+
+			-- Try not to move to next board in single mode until speaker is outside left/right bounds
+			if viewMode == "single" and poi1Value.Value and not poi2Value.Value and waypointValue.Value then
+				local boardPart = poi1Value.Value :: Part
+				-- local camToBoard = (boardPart.Position - waypointValue.Value.Position) * Vector3.new(1,0,1)
+				-- local camToSpeaker = (speakerPosition - waypointValue.Value.Position) * Vector3.new(1,0,1)
+				-- local maxAxisSize = math.max(boardPart.Size.X, boardPart.Size.Y, boardPart.Size.Z)
+
+				if speakerInCamView(waypointValue.Value.Position, boardPart.Position) then
+					if speakerInFrontOfFocal(waypointValue.Value.Position, boardPart.Position) then
+						return
+					end
+				end
+			end
 
 			local boardByProximity = {}
 			local k = if viewMode == "single" then 1 else 2
@@ -490,7 +517,6 @@ function OrbServer.new(orbPart: Part)
 
 			if secondBoard then
 				local betweenBoards = (firstPart.Position - secondPart.Position).Magnitude
-
 				local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
 				if betweenBoards > maxAxisSizeFirstBoard * 2 then
 					secondBoard = nil
@@ -505,18 +531,10 @@ function OrbServer.new(orbPart: Part)
 					Config.AssumedAspectRatio,
 					Config.OrbcamBuffer
 				)
+			local closeEnough = speakerCloseToWaypoint(camCFrame.Position, focalPosition)
+			local inFront = speakerInFrontOfFocal(camCFrame.Position, focalPosition)
 
-			local horizontalFOVRad = 2 * math.atan(Config.AssumedAspectRatio * math.tan(math.rad(Config.OrbcamFOV)/2))
-			local cosAngleToSpeaker = ((speakerPosition - camCFrame.Position).Unit):Dot(camCFrame.LookVector.Unit)
-			local distanceToFocalPoint = (focalPosition - camCFrame.Position).Magnitude
-			local distanceToCharacter = (speakerPosition - camCFrame.Position).Magnitude
-
-			local ANGLE_BUFFER = math.rad(2.5)
-			local outsideCamView = cosAngleToSpeaker < math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
-			-- local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
-			local tooFarBehindBoard = distanceToCharacter > 1.2 * distanceToFocalPoint
-
-			if not waypointOnly and (outsideCamView or tooFarBehindBoard) then
+			if not waypointOnly and not (closeEnough and inFront) then
 				if speakerAttachment.Parent then
 					poi1Value.Value = nil
 					poi2Value.Value = nil
