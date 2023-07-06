@@ -600,6 +600,7 @@ function OrbController:Start()
 		end
 
 		local Transparency = Value(1)
+		local SpringTransparency = Spring(Transparency, 30, 1)
 
 		-- When the player is moving, show the highlights,
 		-- when they stop, hide the highlights after a short delay
@@ -623,9 +624,12 @@ function OrbController:Start()
 
 		local highlight = New "Highlight" {
 			Adornee = observedValue(observeAdornee),
-			FillTransparency = 1,
-			OutlineColor = BrickColor.new("Electric blue").Color,
-			OutlineTransparency = Spring(Transparency, 30, 1),
+			FillColor = Color3.new(1,1,1),
+			FillTransparency = Computed(function()
+				return 0.8 + 0.2 * SpringTransparency:get()
+			end),
+			OutlineColor = BrickColor.new("Baby blue").Color,
+			OutlineTransparency = SpringTransparency,
 		}
 
 		New "Folder" {
