@@ -501,13 +501,17 @@ function OrbServer.new(orbPart: Part)
 			nearestBoardValue.Value = firstPart
 
 			-- Find next closest board with angle difference <90 degrees
-			local secondBoard, secondPart do
+			local secondBoard, secondPart
+			if viewMode == "double" then
 				local minSoFar = math.huge
 				for _, board in BoardService.Boards do
 					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
 					local goodAngle = firstBoard.SurfaceCFrame.LookVector:Dot(board.SurfaceCFrame.LookVector) > 0
 					
-					if distance < minSoFar and goodAngle and board ~= firstBoard then
+					local betweenBoards = (board.SurfaceCFrame.Position - firstBoard.SurfaceCFrame.Position).Magnitude
+					local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
+					local goodDistanceBetweenBoards = betweenBoards <= maxAxisSizeFirstBoard * 1.5
+					if distance < minSoFar and goodAngle and goodDistanceBetweenBoards and board ~= firstBoard then
 						secondBoard = board
 						secondPart = board._instance
 						minSoFar = distance
@@ -524,17 +528,9 @@ function OrbServer.new(orbPart: Part)
 				)
 			local closeEnough = speakerCloseToWaypoint(camCFrame.Position, focalPosition)
 			local inFront = speakerInFrontOfFocal(camCFrame.Position, focalPosition)
-			local goodDistanceBetweenBoards do
-				if not secondBoard then
-					goodDistanceBetweenBoards = true
-				else
-					local betweenBoards = (secondBoard.SurfaceCFrame.Position - firstBoard.SurfaceCFrame.Position).Magnitude
-					local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
-					goodDistanceBetweenBoards = betweenBoards <= maxAxisSizeFirstBoard * 1.5
-				end
-			end
+			
 
-			if not waypointOnly and not (closeEnough and inFront and goodDistanceBetweenBoards) then
+			if not waypointOnly and not (closeEnough and inFront) then
 				if speakerAttachment.Parent then
 					poi1Value.Value = nil
 					poi2Value.Value = nil
