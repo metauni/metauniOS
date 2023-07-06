@@ -576,11 +576,10 @@ function OrbController:Start()
 
 		local observeAdornee = observePoi:Pipe{
 			Rx.map(function(poi: Part?)
-				if poi then
-					if poi.Parent and poi.Parent:IsA("Model") and poi.Parent.PrimaryPart == poi then
-						return poi.Parent
-					end
+				if poi and poi.Parent and poi.Parent:IsA("Model") and poi.Parent.PrimaryPart == poi then
+					return poi.Parent
 				end
+				return poi
 			end),
 		}
 
