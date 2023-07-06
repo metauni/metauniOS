@@ -497,13 +497,30 @@ function OrbController:Start()
 		},
 		RootPart = observeLocalSpeaker:Pipe {
 			Rxi.property("Character"),
-			Rxi.findFirstChildWithClass("Part", "HumanoidRootPart")
+			Rxi.property("PrimaryPart"),
+		},
+		HumanoidState = observeLocalSpeaker:Pipe {
+			Rxi.property("Character"),
+			Rxi.findFirstChild("Humanoid"),
+			Rx.switchMap(function(humanoid: Humanoid?)
+				if not humanoid then
+					return Rx.of(nil)
+				else
+					return Rx.fromSignal(humanoid.StateChanged):Pipe {
+						Rx.map(function(_, newState: Enum.HumanoidStateType)
+							return newState
+						end),
+						Rx.defaultsTo(humanoid:GetState())
+					}
+				end
+			end),
 		},
 		CamPositionGoal = Rxf.fromState(CamPositionGoal),
 		CamLookAtGoal = Rxf.fromState(CamLookAtGoal),
 	}:Subscribe(function(data)
 		local poi1: Part? = data.Poi1
 		local rootPart: Part? = data.RootPart
+		local humanoidState: Enum.HumanoidStateType? = data.HumanoidState
 		local moveDirection: Vector3? = data.MoveDirection
 		local camPositionGoal: Vector3? = data.CamPositionGoal
 		local camLookAtGoal: Vector3? = data.CamLookAtGoal
@@ -517,6 +534,18 @@ function OrbController:Start()
 		if moveDirection and moveDirection.Magnitude ~= 0 then
 			return
 		end
+
+		-- We don't want to rotate the speaker if they're jumping or something else
+		-- Yes it says running but that's the state when just standing still
+		if
+			not humanoidState
+			or humanoidState == Enum.HumanoidStateType.Jumping
+			or humanoidState == Enum.HumanoidStateType.Freefall
+		then
+			return
+		end
+
+		-- print("not running")
 		
 		-- No character or poi1 not looking at anything
 		if not rootPart or not poi1 then
