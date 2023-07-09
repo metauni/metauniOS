@@ -628,6 +628,7 @@ function OrbController:Start()
 			-- FillTransparency = Computed(function()
 			-- 	return 0.8 + 0.2 * SpringTransparency:get()
 			-- end),
+			FillTransparency = 1,
 			OutlineColor = BrickColor.new("Baby blue").Color,
 			OutlineTransparency = SpringTransparency,
 		}
