@@ -56,6 +56,10 @@ return function(player: Player)
 			end)
 		}:Subscribe(function()
 			local orbValue = PlayerToOrb:FindFirstChild(tostring(player.UserId))
+			if not orbValue then
+				return
+			end
+
 			if orbValue.Value then
 				local speakerValue = orbValue.Value:FindFirstChild("Speaker")
 				if speakerValue and speakerValue.Value == Players.LocalPlayer then
