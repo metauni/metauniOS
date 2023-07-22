@@ -1617,69 +1617,71 @@ function NPCService.Start()
     -- In order to avoid frequently OCRing boards that are far away from any
     -- NPC, we only OCR boards within GetsDetailedObservationsRadius
     
-    task.spawn(function() 
-        while true do
-            task.wait(10)
+    -- task.spawn(NPCService.CheckBoardOCR)
+end
 
-            local function observationFolder(board)
-                local obPart = board:FindFirstChild("NPCObservationPart")
-                if obPart then return obPart.Observations end
-                
-                local boardPart = if board:IsA("Model") then board.PrimaryPart else board
-                
-                -- TODO these can obscure clicking on boards
-                local obPart = Instance.new("Part")
-                obPart.Name = "NPCObservationPart"
-                obPart.CFrame = boardPart.CFrame + boardPart.CFrame.LookVector * 10
-                obPart.Position += Vector3.new(0,-boardPart.Size.Y/2 + 1,0)
-                obPart.Color = Color3.new(0.3,0.2,0.7)
-                obPart.Transparency = 1
-                obPart.Size = Vector3.new(4, 1, 2)
-                obPart.CanCollide = false
-                obPart.CastShadow = false
-                obPart.Anchored = true
-                obPart.Parent = board
+function NPCService.CheckBoardOCR()
+    while true do
+        task.wait(10)
 
-                CollectionService:AddTag(obPart, NPCService.ObjectTag)
-                CollectionService:AddTag(obPart, "_hidden")
+        local function observationFolder(board)
+            local obPart = board:FindFirstChild("NPCObservationPart")
+            if obPart then return obPart.Observations end
+            
+            local boardPart = if board:IsA("Model") then board.PrimaryPart else board
+            
+            -- TODO these can obscure clicking on boards
+            local obPart = Instance.new("Part")
+            obPart.Name = "NPCObservationPart"
+            obPart.CFrame = boardPart.CFrame + boardPart.CFrame.LookVector * 10
+            obPart.Position += Vector3.new(0,-boardPart.Size.Y/2 + 1,0)
+            obPart.Color = Color3.new(0.3,0.2,0.7)
+            obPart.Transparency = 1
+            obPart.Size = Vector3.new(4, 1, 2)
+            obPart.CanCollide = false
+            obPart.CastShadow = false
+            obPart.Anchored = true
+            obPart.Parent = board
 
-                local obFolder = Instance.new("Folder")
-                obFolder.Name = "Observations"
-                obFolder.Parent = obPart
+            CollectionService:AddTag(obPart, NPCService.ObjectTag)
+            CollectionService:AddTag(obPart, "_hidden")
 
-                return obFolder
+            local obFolder = Instance.new("Folder")
+            obFolder.Name = "Observations"
+            obFolder.Parent = obPart
+
+            return obFolder
+        end
+
+        local boards = CollectionService:GetTagged("metaboard")
+        for _, boardInstance in boards do
+            if not boardInstance:IsDescendantOf(game.Workspace) then continue end
+            local distToNPC, npc = NPCService.DistanceToNearestAwakeNPC(getInstancePosition(boardInstance))
+            if npc == nil then continue end -- no NPCs
+
+            if distToNPC > npc:GetPersonality("GetsDetailedObservationsRadius") then continue end
+
+            local board = BoardService.Boards[boardInstance]
+            if not board then
+                print("[NPCService] Could not access board")
+                continue
             end
 
-            local boards = CollectionService:GetTagged("metaboard")
-            for _, boardInstance in boards do
-                if not boardInstance:IsDescendantOf(game.Workspace) then continue end
-                local distToNPC, npc = NPCService.DistanceToNearestAwakeNPC(getInstancePosition(boardInstance))
-                if npc == nil then continue end -- no NPCs
+            local boardText = AIService.OCRBoard(board)
+            if boardText and boardText ~= "" then
+                boardText = cleanstring(boardText)
+                boardText = string.gsub(boardText, "\n", " ")
+                boardText = string.gsub(boardText, "\"", "'")
 
-                if distToNPC > npc:GetPersonality("GetsDetailedObservationsRadius") then continue end
+                local obFolder = observationFolder(boardInstance)
+                obFolder:ClearAllChildren()
 
-                local board = BoardService.Boards[boardInstance]
-                if not board then
-                    print("[NPCService] Could not access board")
-                    continue
-                end
-
-                local boardText = AIService.OCRBoard(board)
-                if boardText and boardText ~= "" then
-                    boardText = cleanstring(boardText)
-                    boardText = string.gsub(boardText, "\n", " ")
-                    boardText = string.gsub(boardText, "\"", "'")
-
-                    local obFolder = observationFolder(boardInstance)
-                    obFolder:ClearAllChildren()
-
-                    local stringValue = Instance.new("StringValue")
-                    stringValue.Value = "The board has written on it \"" .. boardText .."\""
-                    stringValue.Parent = obFolder
-                end
+                local stringValue = Instance.new("StringValue")
+                stringValue.Value = "The board has written on it \"" .. boardText .."\""
+                stringValue.Parent = obFolder
             end
         end
-    end)
+    end
 end
 
 function NPCService.HandleTranscription(sourcePlayer, message)
@@ -2353,6 +2355,7 @@ function NPCService.DistanceToNearestNPC(pos)
 end
 
 function NPCService.ReferenceWithKey(keyword)
+    if not NPCService.ReferenceList then return end
     for _, ref in NPCService.ReferenceList do
         if ref["key"] == keyword then
             return ref
