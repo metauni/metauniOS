@@ -9,6 +9,7 @@ local Value = Fusion.Value
 local Computed = Fusion.Computed
 local Children = Fusion.Children
 
+local Sift = require(ReplicatedStorage.Packages.Sift)
 local Destructor = require(ReplicatedStorage.Destructor)
 local Rx = require(ReplicatedStorage.Rx)
 local Rxi = require(ReplicatedStorage.Rxi)
@@ -476,9 +477,13 @@ function OrbServer.new(orbPart: Part)
 				end
 			end
 
+			local poiBoards = Sift.Dictionary.filter(BoardService.Boards, function(board)
+				return not board._instance:HasTag("metaboard_personal_board")
+			end)
+
 			local firstBoard, firstPart do
 				local minSoFar = math.huge
-				for _, board in BoardService.Boards do
+				for _, board in poiBoards do
 					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
 					if distance < minSoFar then
 						firstBoard = board
@@ -504,7 +509,7 @@ function OrbServer.new(orbPart: Part)
 			local secondBoard, secondPart
 			if viewMode == "double" then
 				local minSoFar = math.huge
-				for _, board in BoardService.Boards do
+				for _, board in poiBoards do
 					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
 					local goodAngle = firstBoard.SurfaceCFrame.LookVector:Dot(board.SurfaceCFrame.LookVector) > 0
 					
