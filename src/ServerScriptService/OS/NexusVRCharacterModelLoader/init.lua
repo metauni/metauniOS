@@ -79,17 +79,18 @@ local Configuration = {
 	},
 }
 
-
-
---Load the Nexus VR Character Model module.
-local NexusVRCharacterModelModule
-local MainModule = script:FindFirstChild("MainModule")
-if MainModule then
-	NexusVRCharacterModelModule = require(MainModule)
-else
-	NexusVRCharacterModelModule = require(10728814921)
+-- metauniOS note: we turn this into a module script function to call
+return function()
+	--Load the Nexus VR Character Model module.
+	local NexusVRCharacterModelModule
+	local MainModule = script:FindFirstChild("MainModule")
+	if MainModule then
+		NexusVRCharacterModelModule = require(MainModule)
+	else
+		NexusVRCharacterModelModule = require(10728814921)
+	end
+	
+	--Load Nexus VR Character Model.
+	NexusVRCharacterModelModule:SetConfiguration(Configuration)
+	NexusVRCharacterModelModule:Load()
 end
-
---Load Nexus VR Character Model.
-NexusVRCharacterModelModule:SetConfiguration(Configuration)
-NexusVRCharacterModelModule:Load()

@@ -11,43 +11,19 @@ local Version = (versionValue and versionValue.Value or "dev")
 print("[metauniOS] Version: "..Version)
 
 do -- Convert Model metaboards to Part metaboards
-	require(script.patchLegacymetaboards)()
+	require(script.Parent.OS.patchLegacymetaboards)()
 end
 
-local function migrate(source, target)
-	for _, instance in source:GetChildren() do
-		instance.Parent = target
-	end
+do -- Start NexusVRCharacterModel
+	require(script.Parent.NexusVRCharacterModelLoader)()
 end
-
--- Distribute scripts across containers
-
-migrate(script.ReplicatedFirst, ReplicatedFirst)
-if ReplicatedStorage:FindFirstChild("Packages") then
-	if ReplicatedStorage:FindFirstChild("Packages"):FindFirstChild("ForHoarcekat") then
-		ReplicatedStorage:FindFirstChild("Packages"):Destroy()
-	end
-end
-script.Packages.Parent = ReplicatedStorage
-migrate(script.ReplicatedStorage, ReplicatedStorage)
-migrate(script.ServerScriptService, ServerScriptService)
-migrate(script.StarterGui, StarterGui)
-migrate(script.StarterPlayerScripts, StarterPlayer.StarterPlayerScripts)
-
--- Signal that install is complete (in 2 ways)
-
-ReplicatedStorage:SetAttribute("metauniOSInstalled", true)
-local installedValue = Instance.new("BoolValue")
-installedValue.Name = "metauniOSInstalled"
-installedValue.Value = true
-installedValue.Parent = ReplicatedStorage
 
 --
 -- Error Logging
 --
 
-local SecretService = require(ServerScriptService.SecretService)
-local Raven = require(ServerScriptService.Raven)
+local SecretService = require(ServerScriptService:FindFirstChild("SecretService"))
+local Raven = require(ServerScriptService.OS.Raven)
 
 -- NOTE: This is what Sentry now calls the Deprecated DSN
 local ravenClient = Raven:Client(SecretService.SENTRY_DSN, {
