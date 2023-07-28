@@ -11,7 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
 local BoardModel = script.BoardModels.BlackBoardMini
-local Destructor = require(ReplicatedStorage.Destructor)
+local Destructor = require(ReplicatedStorage.OS.Destructor)
 
 -- Globals
 local _destructors = {}

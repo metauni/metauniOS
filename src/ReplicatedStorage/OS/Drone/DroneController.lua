@@ -8,10 +8,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Destructor = require(ReplicatedStorage.Destructor)
+local Destructor = require(ReplicatedStorage.OS.Destructor)
 local Remotes = script.Parent.Remotes
-local Icon = require(ReplicatedStorage.Icon)
-local Themes =  require(ReplicatedStorage.Icon.Themes)
+local Icon = require(ReplicatedStorage.OS.Icon)
+local Themes =  require(ReplicatedStorage.OS.Icon.Themes)
 
 -- https://fonts.google.com/icons?icon.query=toy
 

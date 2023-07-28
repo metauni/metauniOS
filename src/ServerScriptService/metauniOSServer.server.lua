@@ -1,8 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ServerScriptService = game:GetService("ServerScriptService")
-local StarterGui = game:GetService("StarterGui")
-local StarterPlayer = game:GetService("StarterPlayer")
 local ScriptContext = game:GetService("ScriptContext")
 local RunService = game:GetService("RunService")
 
@@ -14,15 +11,12 @@ do -- Convert Model metaboards to Part metaboards
 	require(script.Parent.OS.patchLegacymetaboards)()
 end
 
-do -- Start NexusVRCharacterModel
-	require(script.Parent.NexusVRCharacterModelLoader)()
-end
-
 --
 -- Error Logging
 --
 
-local SecretService = require(ServerScriptService:FindFirstChild("SecretService"))
+-- Manually installed in ServerScriptService
+local SecretService = (require)(ServerScriptService:FindFirstChild("SecretService"))
 local Raven = require(ServerScriptService.OS.Raven)
 
 -- NOTE: This is what Sentry now calls the Deprecated DSN
@@ -41,7 +35,7 @@ if not RunService:IsStudio() then
 		ravenClient:SendException(Raven.ExceptionType.Server, message, trace)
 	end)
 	
-	ravenClient:ConnectRemoteEvent(ReplicatedStorage.RavenErrorLog)
+	ravenClient:ConnectRemoteEvent(ReplicatedStorage.OS.RavenErrorLog)
 	
 	task.spawn(function()
 		
@@ -50,10 +44,10 @@ if not RunService:IsStudio() then
 			ravenClient.config.tags.PocketName = "The Rising Sea"
 		else
 			
-			ravenClient.config.tags.PocketName = ReplicatedStorage.Pocket:GetAttribute("PocketName")
-			ReplicatedStorage.Pocket:GetAttributeChangedSignal("PocketName"):Connect(function()
+			ravenClient.config.tags.PocketName = ReplicatedStorage.OS.Pocket:GetAttribute("PocketName")
+			ReplicatedStorage.OS.Pocket:GetAttributeChangedSignal("PocketName"):Connect(function()
 				
-				ravenClient.config.tags.PocketName = ReplicatedStorage.Pocket:GetAttribute("PocketName")
+				ravenClient.config.tags.PocketName = ReplicatedStorage.OS.Pocket:GetAttribute("PocketName")
 			end)
 		end
 	end)
@@ -82,6 +76,10 @@ local servicePromises = {}
 
 for _, container in {ServerScriptService, ReplicatedStorage} do
 	for _, instance in container:GetDescendants() do
+
+		if instance:IsDescendantOf(ReplicatedStorage.Packages) then
+			continue
+		end
 		
 		if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
 	
@@ -101,8 +99,12 @@ end
 -- Yield until every promise has resolved or rejected
 
 local function awaitAll(promises)
-	for _, promise in promises do
-		promise:await()
+	for instance, promise in promises do
+		local timeoutMsg = `{instance:GetFullName()} took too long to import`
+		local success, result = promise:timeout(3, timeoutMsg):await()
+		if not success then
+			warn(result)
+		end
 	end
 end
 

@@ -10,15 +10,15 @@ local Computed = Fusion.Computed
 local Children = Fusion.Children
 
 local Sift = require(ReplicatedStorage.Packages.Sift)
-local Destructor = require(ReplicatedStorage.Destructor)
-local Rx = require(ReplicatedStorage.Rx)
-local Rxi = require(ReplicatedStorage.Rxi)
-local BoardService = require(ServerScriptService.BoardService)
-local CameraUtils = require(ReplicatedStorage.OrbController.CameraUtils)
+local Destructor = require(ReplicatedStorage.OS.Destructor)
+local Rx = require(ReplicatedStorage.OS.Rx)
+local Rxi = require(ReplicatedStorage.OS.Rxi)
+local BoardService = require(ServerScriptService.OS.BoardService)
+local CameraUtils = require(ReplicatedStorage.OS.OrbController.CameraUtils)
 local Ring = require(script.Parent.Ring)
 
-local Remotes = ReplicatedStorage.OrbController.Remotes
-local Config = require(ReplicatedStorage.OrbController.Config)
+local Remotes = ReplicatedStorage.OS.OrbController.Remotes
+local Config = require(ReplicatedStorage.OS.OrbController.Config)
 
 local OrbServer = {}
 
@@ -85,7 +85,7 @@ function OrbServer.new(orbPart: Part)
 			Rxi.property("Value"),
 		}
 
-	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
+	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
 	local observeAttached =
 		Rx.of(Players):Pipe {

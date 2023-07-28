@@ -12,10 +12,10 @@ local Players = game:GetService("Players")
 
 local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 local AIService = require(script.Parent.AIService)
-local OrbService = require(ServerScriptService.OrbService)
-local BoardService = require(ServerScriptService.BoardService)
+local OrbService = require(ServerScriptService.OS.OrbService)
+local BoardService = require(ServerScriptService.OS.BoardService)
 
-local AskQuestionRemoteEvent = ReplicatedStorage.OrbController.Remotes.AskQuestion
+local AskQuestionRemoteEvent = ReplicatedStorage.OS.OrbController.Remotes.AskQuestion
 
 local function getInstancePosition(x)
 	if x:IsA("BasePart") then return x.Position end

@@ -23,7 +23,7 @@ NotificationService.__index = NotificationService
 function NotificationService.GetNumberOfSubscribers()
     local pocketId = ""
     if isPocket() then
-        pocketId = ReplicatedStorage.Pocket:GetAttribute("PocketId")
+        pocketId = ReplicatedStorage.OS.Pocket:GetAttribute("PocketId")
     end
 	
 	local success, response = pcall(function()
@@ -183,7 +183,7 @@ function NotificationService.BoardsToNotify(delay)
             local boardKey = boardId
             
             if isPocket() then
-                local pocketId = ReplicatedStorage.Pocket:GetAttribute("PocketId")
+                local pocketId = ReplicatedStorage.OS.Pocket:GetAttribute("PocketId")
                 boardKey = pocketId .. "-" .. boardKey
             end
 

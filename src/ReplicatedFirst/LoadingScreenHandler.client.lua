@@ -72,7 +72,7 @@ screenGui.Parent = playerGui
 
 -- Launch data is set if we have joined the world with a URL, and are
 -- thus about to be redirected
-local GetLaunchDataRemoteFunction = ReplicatedStorage:WaitForChild("Pocket"):WaitForChild("Remotes"):WaitForChild("GetLaunchData")
+local GetLaunchDataRemoteFunction = ReplicatedStorage:WaitForChild("OS"):WaitForChild("Pocket"):WaitForChild("Remotes"):WaitForChild("GetLaunchData")
 local launchData = GetLaunchDataRemoteFunction:InvokeServer()
 
 local function fadeIn(fadeTime)

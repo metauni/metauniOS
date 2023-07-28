@@ -21,7 +21,7 @@ local SetTeleportGuiRemoteEvent = Remotes.SetTeleportGui
 
 local localPlayer = Players.LocalPlayer
 
-local GetLaunchDataRemoteFunction = ReplicatedStorage:WaitForChild("Pocket"):WaitForChild("Remotes"):WaitForChild("GetLaunchData")
+local GetLaunchDataRemoteFunction = ReplicatedStorage.OS.Pocket.Remotes.GetLaunchData
 
 local function getInstancePosition(x)
 	if x:IsA("Part") then return x.Position end
@@ -405,8 +405,8 @@ return {
 		end
 		
 		local function CreateTopbarItems()
-				local Icon = require(game:GetService("ReplicatedStorage").Icon)
-			local Themes =  require(game:GetService("ReplicatedStorage").Icon.Themes)
+				local Icon = require(game:GetService("ReplicatedStorage").OS.Icon)
+			local Themes =  require(game:GetService("ReplicatedStorage").OS.Icon.Themes)
 			
 			if Pocket:GetAttribute("IsPocket") == nil then
 				Pocket:GetAttributeChangedSignal("IsPocket"):Wait()

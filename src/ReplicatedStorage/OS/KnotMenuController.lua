@@ -4,7 +4,7 @@ local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
-local Pocket = ReplicatedStorage.Pocket
+local Pocket = ReplicatedStorage.OS.Pocket
 local Config = require(Pocket.Config)
 
 local localPlayer = Players.LocalPlayer
@@ -259,8 +259,8 @@ local function StartBoardSelectMode(onBoardSelected, displayType)
 end
 
 local function CreateTopbarItems()
-	local Icon = require(game:GetService("ReplicatedStorage").Icon)
-	local Themes =  require(game:GetService("ReplicatedStorage").Icon.Themes)
+	local Icon = require(game:GetService("ReplicatedStorage").OS.Icon)
+	local Themes =  require(game:GetService("ReplicatedStorage").OS.Icon.Themes)
 
     -- Knot menu
 	local icon = Icon.new()

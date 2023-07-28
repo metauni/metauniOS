@@ -4,7 +4,7 @@ local teleportButton = backgroundFrame.TeleportButton
 local cancelButton = backgroundFrame.CancelButton
 local textBox = backgroundFrame.TextBox
 
-local Pocket = game:GetService("ReplicatedStorage").Pocket
+local Pocket = game:GetService("ReplicatedStorage").OS.Pocket
 local ContextActionService = game:GetService("ContextActionService")
 
 local GotoEvent = Pocket.Remotes.Goto

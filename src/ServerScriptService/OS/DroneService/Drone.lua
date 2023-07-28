@@ -9,10 +9,10 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
-local Destructor = require(ReplicatedStorage.Destructor)
-local Rx = require(ReplicatedStorage.Rx)
-local Rxi = require(ReplicatedStorage.Rxi)
-local Remotes = ReplicatedStorage.Drone.Remotes
+local Destructor = require(ReplicatedStorage.OS.Destructor)
+local Rx = require(ReplicatedStorage.OS.Rx)
+local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Remotes = ReplicatedStorage.OS.Drone.Remotes
 
 local Drone = {}
 Drone.__index = Drone

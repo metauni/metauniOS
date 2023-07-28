@@ -9,7 +9,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 
-local Pocket = ReplicatedStorage.Pocket
+local Pocket = ReplicatedStorage.OS.Pocket
 
 -- Utils
 local function waitForBudget(requestType: Enum.DataStoreRequestType)

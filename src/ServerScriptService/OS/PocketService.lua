@@ -19,7 +19,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Requires
-local Pocket = ReplicatedStorage.Pocket
+local Pocket = ReplicatedStorage.OS.Pocket
 local Remotes = Pocket.Remotes
 local Config = require(Pocket.Config)
 local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)

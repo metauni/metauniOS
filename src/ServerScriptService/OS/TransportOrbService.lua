@@ -2,8 +2,8 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Remotes = ReplicatedStorage.TransportOrbController.Remotes
-local Config = require(ReplicatedStorage.TransportOrbController.Config)
+local Remotes = ReplicatedStorage.OS.TransportOrbController.Remotes
+local Config = require(ReplicatedStorage.OS.TransportOrbController.Config)
 
 local function getInstancePosition(x)
 	if x:IsA("BasePart") then return x.Position end

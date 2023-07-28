@@ -6,12 +6,12 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
 local OrbClient = require(script.OrbClient)
-local Rx = require(ReplicatedStorage.Rx)
-local Rxi = require(ReplicatedStorage.Rxi)
-local Rxf = require(ReplicatedStorage.Rxf)
-local Destructor = require(ReplicatedStorage.Destructor)
-local IconController = require(ReplicatedStorage.Icon.IconController)
-local Themes = require(ReplicatedStorage.Icon.Themes)
+local Rx = require(ReplicatedStorage.OS.Rx)
+local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Rxf = require(ReplicatedStorage.OS.Rxf)
+local Destructor = require(ReplicatedStorage.OS.Destructor)
+local IconController = require(ReplicatedStorage.OS.Icon.IconController)
+local Themes = require(ReplicatedStorage.OS.Icon.Themes)
 
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
@@ -21,12 +21,12 @@ local Computed = Fusion.Computed
 local Children = Fusion.Children
 local Spring = Fusion.Spring
 
-local BoardController = require(ReplicatedStorage.BoardController)
+local BoardController = require(ReplicatedStorage.OS.BoardController)
 local CameraUtils = require(script.CameraUtils)
 local OrbMenu = require(script.OrbMenu)
 
 local Remotes = script.Remotes
-local Config = require(ReplicatedStorage.OrbController.Config)
+local Config = require(ReplicatedStorage.OS.OrbController.Config)
 
 local OrbController = {
 	Orbs = {} :: {[Part]: Orb}
@@ -47,7 +47,7 @@ function OrbController:Start()
 
 	IconController.setGameTheme(Themes["BlueGradient"])
 
-	local observeAttachedOrb = Rx.of(ReplicatedStorage.OrbController):Pipe {
+	local observeAttachedOrb = Rx.of(ReplicatedStorage.OS.OrbController):Pipe {
 		Rxi.findFirstChild("PlayerToOrb"),
 		Rxi.findFirstChildWithClass("ObjectValue", tostring(Players.LocalPlayer.UserId)),
 		Rxi.property("Value"),
@@ -184,7 +184,7 @@ function OrbController:Start()
 	local PositionSpring = Spring(CamPositionGoal, SPEED, DAMPING)
 	local LookAtSpring = Spring(CamLookAtGoal, SPEED, DAMPING)
 
-	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
+	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
 	local observePeers =
 		observeAttachedOrb:Pipe {

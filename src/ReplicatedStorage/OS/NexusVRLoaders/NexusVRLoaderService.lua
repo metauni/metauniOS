@@ -1,9 +1,5 @@
---[[
-TheNexusAvenger
-
-Loads Nexus VR Character Model.
-GitHub: TheNexusAvenger/Nexus-VR-Character-Model
---]]
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local NexusVRCharacterModel = ReplicatedStorage.Packages.NexusVRCharacterModel :: ModuleScript
 
 local Configuration = {
 	Appearance = {
@@ -75,22 +71,16 @@ local Configuration = {
 			--If true, Nexus VR Backpack (https://github.com/TheNexusAvenger/Nexus-VR-Backpack)
 			--will be inserted into the game and loaded. This replaces
 			--the default Roblox backpack.
-			NexusVRBackpackEnabled = true,
+			NexusVRBackpackEnabled = false, -- false because we manually install
 	},
 }
 
--- metauniOS note: we turn this into a module script function to call
-return function()
-	--Load the Nexus VR Character Model module.
-	local NexusVRCharacterModelModule
-	local MainModule = script:FindFirstChild("MainModule")
-	if MainModule then
-		NexusVRCharacterModelModule = require(MainModule)
-	else
-		NexusVRCharacterModelModule = require(10728814921)
-	end
-	
-	--Load Nexus VR Character Model.
-	NexusVRCharacterModelModule:SetConfiguration(Configuration)
-	NexusVRCharacterModelModule:Load()
-end
+return {
+
+	Init = function()
+		local NexusVRCharacterModelModule = require(NexusVRCharacterModel)
+		NexusVRCharacterModelModule:SetConfiguration(Configuration)
+		-- This also moves it to ReplicatedStorage
+		NexusVRCharacterModelModule:Load()
+	end,
+}

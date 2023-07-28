@@ -33,7 +33,7 @@ local function toRoleName(level: number)
 	end
 end
 
-local Remotes = ReplicatedStorage.PermissionsController.Remotes
+local Remotes = ReplicatedStorage.OS.PermissionsController.Remotes
 local GlobalPermissionsDataStore = DataStoreService:GetDataStore("permissionsDataStore")
 
 function PermissionsService:_makeCommand(name: string, args: table)
@@ -121,7 +121,7 @@ end
 
 function PermissionsService:promisePermissionsDataStore()
 
-	local Pocket = ReplicatedStorage.Pocket
+	local Pocket = ReplicatedStorage.OS.Pocket
 	local POCKET_PATTERN = "metadmin.%s"
 	local PRIVATE_SERVER_PATTERN = "metadmin.%s"
 	local TRS = "permissionsDataStore"

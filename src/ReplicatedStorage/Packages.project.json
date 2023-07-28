@@ -2,6 +2,14 @@
 	"name": "Packages",
 	"tree": {
 		"$className": "Folder",
-		"$path": "../../Packages"
+		"$path": "../../Packages",
+
+		"NexusVRCharacterModel": {
+			"$path": "../../CompiledPackages/NexusVRCharacterModel.rbxm"
+		},
+
+		"NexusVRBackpack": {
+			"$path": "../../CompiledPackages/NexusVRBackpack.rbxm"
+		}
 	}
 }

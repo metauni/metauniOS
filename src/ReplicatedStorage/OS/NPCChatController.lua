@@ -314,8 +314,8 @@ local function SetupAIMenu()
     -- The icon is https://fonts.google.com/icons?selected=Material%20Symbols%20Outlined%3Apsychology%3AFILL%400%3Bwght%40400%3BGRAD%400%3Bopsz%4048
     local iconAssetId = "rbxassetid://12295342491"
     
-    local Icon = require(ReplicatedStorage.Icon)
-    local Themes =  require(ReplicatedStorage.Icon.Themes)
+    local Icon = require(ReplicatedStorage.OS.Icon)
+    local Themes =  require(ReplicatedStorage.OS.Icon.Themes)
 
     local icon = Icon.new()
     icon:setImage(iconAssetId)

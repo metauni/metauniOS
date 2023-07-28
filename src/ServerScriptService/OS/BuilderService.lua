@@ -8,7 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
-local Destructor = require(ReplicatedStorage.Destructor)
+local Destructor = require(ReplicatedStorage.OS.Destructor)
 
 -- Globals
 local _infoOfPlayer = {}

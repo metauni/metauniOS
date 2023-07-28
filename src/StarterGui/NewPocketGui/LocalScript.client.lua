@@ -1,4 +1,4 @@
-local Pocket = game:GetService("ReplicatedStorage").Pocket
+local Pocket = game:GetService("ReplicatedStorage").OS.Pocket
 local VRService = game:GetService("VRService")
 local Config = require(Pocket.Config)
 

@@ -8,8 +8,8 @@ local TeleportService = game:GetService("TeleportService")
 
 -- Imports
 local Drone = require(script.Drone)
-local Destructor = require(ReplicatedStorage.Destructor)
-local Remotes = ReplicatedStorage.Drone.Remotes
+local Destructor = require(ReplicatedStorage.OS.Destructor)
+local Remotes = ReplicatedStorage.OS.Drone.Remotes
 
 -- Globals
 local dataStore = DataStoreService:GetDataStore("DroneToHost")

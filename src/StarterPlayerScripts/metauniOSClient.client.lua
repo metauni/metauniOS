@@ -6,17 +6,13 @@ if not RunService:IsStudio() then
 	
 	ScriptContext.Error:Connect(function(message, trace, _script)
 		
-		ReplicatedStorage.RavenErrorLog:FireServer(message, trace)
+		ReplicatedStorage.OS.RavenErrorLog:FireServer(message, trace)
 	end)
 end
 
 -- Game analytics
 local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 GameAnalytics:initClient()
-
--- Wait for metauniOS to distribute files.
-
-ReplicatedStorage:WaitForChild("metauniOSInstalled")
 
 -- Initialise & Start Controllers
 
@@ -30,6 +26,10 @@ local controllerPromises = {}
 -- Find an import any descendent of ReplicatedStorage ending with "Controller"
 
 for _, instance in ReplicatedStorage:GetDescendants() do
+
+	if instance:IsDescendantOf(ReplicatedStorage.Packages) then
+		continue
+	end
 	
 	if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Controller$") then
 
@@ -70,7 +70,7 @@ controllerPromises = Sift.Dictionary.map(controllerPromises, function(promise, i
 			warn("[metauniOS] "..instance.Name..".Init failed")
 			warn(...)
 			if not RunService:IsStudio() then
-				ReplicatedStorage.RavenErrorLog:FireServer(instance.Name..".Init failed", ...)
+				ReplicatedStorage.OS.RavenErrorLog:FireServer(instance.Name..".Init failed", ...)
 			end
 		end)
 end)
@@ -92,7 +92,7 @@ controllerPromises = Sift.Dictionary.map(controllerPromises, function(promise, i
 			warn("[metauniOS] "..instance.Name..".Start failed")
 			warn(...)
 			if not RunService:IsStudio() then
-				ReplicatedStorage.RavenErrorLog:FireServer(instance.Name..".Start failed", ...)
+				ReplicatedStorage.OS.RavenErrorLog:FireServer(instance.Name..".Start failed", ...)
 			end
 		end)
 end)

@@ -2,7 +2,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local OrbServer = require(script.OrbServer)
-local Rxi = require(ReplicatedStorage.Rxi)
+local Rxi = require(ReplicatedStorage.OS.Rxi)
 local OrbPlayer = require(script.OrbPlayer)
 local Ring = require(script.Ring)
 

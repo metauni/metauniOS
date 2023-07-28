@@ -10,13 +10,13 @@ local Value = Fusion.Value
 local Children = Fusion.Children
 local Computed = Fusion.Computed
 
-local Destructor = require(ReplicatedStorage.Destructor)
-local Rx = require(ReplicatedStorage.Rx)
-local Rxi = require(ReplicatedStorage.Rxi)
-local Rxf = require(ReplicatedStorage.Rxf)
+local Destructor = require(ReplicatedStorage.OS.Destructor)
+local Rx = require(ReplicatedStorage.OS.Rx)
+local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Rxf = require(ReplicatedStorage.OS.Rxf)
 
-local Remotes = ReplicatedStorage.OrbController.Remotes
-local Config = require(ReplicatedStorage.OrbController.Config)
+local Remotes = ReplicatedStorage.OS.OrbController.Remotes
+local Config = require(ReplicatedStorage.OS.OrbController.Config)
 
 return function(player: Player)
 	
@@ -25,7 +25,7 @@ return function(player: Player)
 	local earHaloTemplate = script.Parent:WaitForChild("EarHalo")
 	local eyeHaloTemplate = script.Parent:WaitForChild("EyeHalo")
 
-	local PlayerToOrb: Folder = ReplicatedStorage.OrbController.PlayerToOrb
+	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
 	local observeAttachedOrb =
 		Rx.of(PlayerToOrb):Pipe {
