@@ -6,7 +6,12 @@ The metauni Operating System.
 aftman install
 wally install
 rojo serve
+
+# Now sync with Rojo plugin in Roblox Studio
 ```
+
+If wally.toml is updated, stop the rojo server, then `wally install` before
+restarting the rojo server.
 
 ## Publishing
 metauniOS is versioned via the current commit hash and branch - these are printed
@@ -14,12 +19,14 @@ to the console on game startup, unless the code has been rojo synced via Roblox
 Studio, in which case it will just say "dev".
 It's best to commit and push all changes before publishing to all the pockets.
 
+We publish using the [lune luau runtime](https://lune-org.github.io/docs)
+(previously used remodel, which is now deprecated).
 ```bash
-# Publish to every place in placeIds.lua
-remodel run publish.lua all
+# Publish to every place in lune/placeIds.lua
+lune publish all
 
 # Publish to specific places
-remodel run publish.lua TheRisingSea MoonlightForest
+lune publish TheRisingSea MoonlightForest
 ```
 
 ## Dev (metaboard)
