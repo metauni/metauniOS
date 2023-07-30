@@ -9,7 +9,7 @@ local Computed = Fusion.Computed
 local Children = Fusion.Children
 local Tween = Fusion.Tween
 
-local UI = require(script.Parent.UI)
+local UI = require(ReplicatedStorage.OS.UI)
 local EmojiList = require(script.Parent.EmojiList)
 
 return function(props)

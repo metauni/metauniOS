@@ -213,14 +213,7 @@ local function ImageLabel(props)
 		BackgroundTransparency = 1,
 	}
 
-	local finalProps = (Sift.Dictionary.merge(defaultProps, props, {
-		[Children] = Sift.Dictionary.merge(props[Children], {
-			UICorner = New "UICorner" {
-				CornerRadius = props.CornerRadius or UDim.new(0,5)
-			}
-		}),
-		CornerRadius = Sift.None,
-	}))
+	local finalProps = Sift.Dictionary.merge(defaultProps, props)
 
 	return New "ImageLabel" (finalProps)
 end
