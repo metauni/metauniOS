@@ -10,6 +10,12 @@
 			"$path": "src/ServerScriptService"
 		},
 
+		"ReplicatedFirst": {
+			"$className": "ReplicatedFirst",
+			"$ignoreUnknownInstances": true,
+			"$path": "src/ReplicatedFirst"
+		},
+
 		"ReplicatedStorage": {
 			"$className": "ReplicatedStorage",
 			"$ignoreUnknownInstances": true,
