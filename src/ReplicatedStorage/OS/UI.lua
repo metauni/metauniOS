@@ -218,6 +218,78 @@ local function ImageLabel(props)
 	return New "ImageLabel" (finalProps)
 end
 
+local function HighlightTextButton(props)
+
+	local Selected = props.Selected
+	local TextColors = props.TextColors or {Color3.fromHex("F2F2F3"), Color3.fromHex("060607")}
+	local BackgroundColors = props.BackgroundColors or {Color3.fromHex("060607"), Color3.fromHex("F2F2F3")}
+	local isHovering = Value(false)
+	
+	local isHoveringOrSelected = Computed(function()
+		return isHovering:get() or Selected:get()
+	end)
+
+	-- props overrides any of these default values
+	local defaultProps = {
+
+		Name = props.Text,
+
+		TextColor3 = Computed(function()
+			if isHoveringOrSelected:get() then
+				return TextColors[1]
+			else
+				return TextColors[2]
+			end
+		end),
+
+		BackgroundColor3 = Computed(function()
+			if isHoveringOrSelected:get() then
+				return BackgroundColors[1]
+			else
+				return BackgroundColors[2]
+			end
+		end),
+
+		AnchorPoint = Vector2.new(0.5,0.5),
+		Position = UDim2.fromScale(0.5,0.5),
+	
+		[OnEvent "MouseEnter"] = function()
+			isHovering:set(true)
+			if props[OnEvent "MouseEnter"] then
+				props[OnEvent "MouseEnter"]()
+			end
+		end,
+	
+		[OnEvent "MouseLeave"] = function()
+			isHovering:set(false)
+			if props[OnEvent "MouseLeave"] then
+				props[OnEvent "MouseLeave"]()
+			end
+		end,
+	}
+
+
+	-- Temp - this is just from the toolbox. Use something else!
+	local clickSound: Sound
+	clickSound = Fusion.New "Sound" {
+		SoundId = "rbxassetid://876939830",
+		Volume = 0.2,
+
+		[Fusion.Cleanup] = Fusion.Observer(isHoveringOrSelected):onChange(function()
+			clickSound.TimePosition = 0.03
+			clickSound:Play()
+		end),
+	} :: Sound
+
+	local finalProps = Sift.Dictionary.merge(defaultProps, props, {
+		[Children] = Sift.Dictionary.merge(props[Children], {
+			_ClickSound = clickSound
+		}),
+	})
+
+	return New "TextButton" (finalProps)
+end
+
 return {
 	ImageButton = ImageButton,
 	Button = TextButton,
@@ -226,4 +298,5 @@ return {
 	TextLabel = TextLabel,
 	ImageLabel = ImageLabel,
 	Div = Div,
+	HighlightTextButton = HighlightTextButton,
 }
