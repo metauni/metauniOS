@@ -20,19 +20,16 @@ function LegacyGuiService.Init()
 	for _, gui in self._guis do
 		gui:SetAttribute("LegacyGuiService", true)
 		if shouldResetOnSpawn(gui) then
-			print("ShouldReset", gui.Name)
 			table.insert(self._guisResetOnSpawn, gui)
 		end
 	end
 
 	local function setupPlayer(player: Player)
-		print("Giving guis")
 		self:_giveGuis(player)
 	
 		if player.Character then
-			print("had character immediately")
 			player.CharacterAdded:Connect(function()
-				print("Already had character at first, this is a newer character")
+				-- Use task.defer because this seems to fire before PlayerGui is cleared
 				task.defer(function()
 					self:_replaceResetGuis(player)
 				end)
@@ -41,9 +38,7 @@ function LegacyGuiService.Init()
 			-- We only want to replace the ResetOnSpawn guis
 			-- on subsequent recents (not the first).
 			player.CharacterAdded:Once(function()
-				print("Ignoring first character added")
 				player.CharacterAdded:Connect(function()
-					print("Not ignoring later character added")
 					task.defer(function()
 						self:_replaceResetGuis(player)
 					end)
@@ -69,13 +64,12 @@ function LegacyGuiService:_replaceResetGuis(player: Player)
 	for _, gui in player.PlayerGui:GetChildren() do
 		if gui:GetAttribute("LegacyGuiService") then
 			if shouldResetOnSpawn(gui) then
-				print("DELETING", gui.Name, "which should be gone already but w/e")
+				-- This should have been deleted already ¯\_(ツ)_/¯
 				gui:Destroy()
 			end
 		end
 	end
 	for _, gui in self._guisResetOnSpawn do
-		print("Cloning new", gui.Name, "for reset")
 		gui:Clone().Parent = player.PlayerGui
 	end
 end
