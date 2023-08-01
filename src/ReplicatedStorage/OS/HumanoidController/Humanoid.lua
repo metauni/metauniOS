@@ -22,7 +22,7 @@ function Humanoid:InitSounds()
 	local RUNNING_SOUND_ID = "rbxassetid://14260445447"
 	-- Normalised to WalkSpeed = 16
 	local RUNNING_PLAYBACK_FACTOR = 2.3
-	local RUNNING_VOLUME = 0.3
+	local RUNNING_VOLUME = 0.1
 
 	local runningMaid = Maid.new()
 	self._maid._runningMaid = runningMaid
