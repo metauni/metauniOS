@@ -34,11 +34,13 @@ NPCService.NPCs = {}
 NPCService.NPCFromInstance = {}
 NPCService.ReferenceList = {}
 
-local npcStorageFolder = ReplicatedStorage:FindFirstChild("NPCs")
-assert(npcStorageFolder, "[NPCService] Missing NPC storage folder")
+local npcStorageFolder = ReplicatedStorage:FindFirstChild("NPCs") or Instance.new("Folder")
+npcStorageFolder.Name = "NPCs"
+npcStorageFolder.Parent = ReplicatedStorage
 
-local npcWorkspaceFolder = game.Workspace:FindFirstChild("NPCs")
-assert(npcWorkspaceFolder, "[NPCService] Missing NPC workspace folder")
+local npcWorkspaceFolder = game.Workspace:FindFirstChild("NPCs") or Instance.new("Folder")
+npcWorkspaceFolder.Name = "NPCs"
+npcWorkspaceFolder.Parent = workspace
 
 -- Utils
 local GRID_SIZE = 3
