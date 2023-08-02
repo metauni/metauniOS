@@ -5,21 +5,25 @@ local Players = game:GetService("Players")
 
 local Pocket = ReplicatedStorage.OS.Pocket
 local PocketMenu = require(Pocket.UI.PocketMenu)
-local PocketImages = require(Pocket.Config).PocketTeleportBackgrounds
+local PocketConfig = require(Pocket.Config)
 
-local pocketMenu = PocketMenu.new()
 
-pocketMenu:SetPockets({
-	{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
-	{Name = "Symbolic Wilds 37", Image = PocketImages["Symbolic Wilds"]},
-	{Name = "Moonlight Forest 8", Image = PocketImages["Moonlight Forest"]},
-	{Name = "Delta Plains 41", Image = PocketImages["Delta Plains"]},
-	{Name = "Storyboard 1", Image = PocketImages["Storyboard"]},
-	{Name = "Big Sir 2", Image = PocketImages["Big Sir"]},
-	{Name = "Overland 1", Image = PocketImages["Overland"]},
-} :: {PocketMenu.PocketData})
-
-pocketMenu:render().Parent = Players.LocalPlayer.PlayerGui
+if game.PlaceId == PocketConfig.RootPlaceId then
+	
+	local pocketMenu = PocketMenu.new()
+	
+	pocketMenu:SetPockets({
+		{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
+		{Name = "Symbolic Wilds 37", Image = PocketConfig.PocketTeleportBackgrounds["Symbolic Wilds"]},
+		{Name = "Moonlight Forest 8", Image = PocketConfig.PocketTeleportBackgrounds["Moonlight Forest"]},
+		{Name = "Delta Plains 41", Image = PocketConfig.PocketTeleportBackgrounds["Delta Plains"]},
+		{Name = "Storyboard 1", Image = PocketConfig.PocketTeleportBackgrounds["Storyboard"]},
+		{Name = "Big Sir 2", Image = PocketConfig.PocketTeleportBackgrounds["Big Sir"]},
+		{Name = "Overland 1", Image = PocketConfig.PocketTeleportBackgrounds["Overland"]},
+	} :: {PocketMenu.PocketData})
+	
+	pocketMenu:render().Parent = Players.LocalPlayer.PlayerGui
+end
 
 if not RunService:IsStudio() then
 	
