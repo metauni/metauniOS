@@ -4,6 +4,7 @@ local process = require "@lune/process"
 local stdio = require "@lune/stdio"
 local task = require "@lune/task"
 local assetApi = require "assetApi"
+local install = require "install"
 
 local placeIds = require "placeIds"
 
@@ -97,8 +98,8 @@ if uncommittedChanges or outOfSyncWithRemote then
 	end
 end
 
-local buildFileName = "metauniOS.rbxm"
-local cmd, args = "rojo", {"build", "release.project.json", "-o", buildFileName}
+local buildFileName = "metauniOS.rbxl"
+local cmd, args = "rojo", {"build", "default.project.json", "-o", buildFileName}
 print(">", cmd, table.unpack(args))
 local result = process.spawn(cmd, args)
 if not result.ok then
@@ -107,11 +108,11 @@ if not result.ok then
 end
 
 local buildFile = fs.readFile(buildFileName)
-local build = roblox.deserializeModel(buildFile)[1]
+local build = roblox.deserializePlace(buildFile)
 local versionValue = roblox.Instance.new("StringValue")
 versionValue.Name = "version"
 versionValue.Value = hashVersion
-versionValue.Parent = build
+versionValue.Parent = build.ServerScriptService.metauniOS
 
 for placeName, placeId in placeIdsToUpdate do
 
@@ -122,7 +123,7 @@ for placeName, placeId in placeIdsToUpdate do
 	print("Downloading placeId "..placeId)
 	local game = assetApi.downloadPlace(placeId)
 
-	-- Remove existing metauniOS(s)
+	-- Find existing metauniOS(s)
 
 	local existingVersions = {}
 
@@ -132,27 +133,13 @@ for placeName, placeId in placeIdsToUpdate do
 			
 			local existingVersionValue = child:FindFirstChild("version")
 			if existingVersionValue then
-				
 				table.insert(existingVersions, existingVersionValue.Value)
 			end
-
-			child.Parent = nil
 		end
 	end
 
-	-- Replace with new metauniOS
-
-	build.Parent = game.ServerScriptService
-
-	-- Remove duplicate version values 
-
-	for _, child in ipairs(game.ServerScriptService:GetChildren()) do
-		
-		if child.ClassName == "StringValue" and child.Name == "version" then
-			
-			child.Parent = nil
-		end
-	end
+	-- Install new metauniOS (first removes old metauniOS files)
+	install(build, game)
 
 	stdio.write("Updating: "..table.concat(existingVersions, ", ").." => "..hashVersion)
 
