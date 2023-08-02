@@ -24,6 +24,8 @@ else
 	for _, arg in ipairs(process.args) do
 		if placeIds[arg] then
 			placeIdsToUpdate[arg] = placeIds[arg]
+		elseif tonumber(arg) then
+			placeIdsToUpdate[arg] = tonumber(arg)
 		else
 			error(arg.." not listed in placeIds")
 		end
