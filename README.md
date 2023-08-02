@@ -29,27 +29,6 @@ lune publish all
 lune publish TheRisingSea MoonlightForest
 ```
 
-## Dev (metaboard)
-
-To test local changes to metaboard within metauniOS, duplicate the `dev-template.project.json` file and rename
-it to `dev-local.project.json` (then it will be automatically gitignored).
-Edit that project file so it has the correct path to your local metaboard repository.
-It must be an absolute path.
-
-Then to switch from using the published metaboard version to using your local metaboard
-repo, temporarily comment out the metaboard dependency in `wally.toml`. Then rojo sync the
-`dev-local.project.json` file.
-```bash
-rojo serve dev-local.project.json
-```
-
-Once you are happy with your changes
-1. Update the version in `metaboard/wally.toml`
-2. Run `wally publish` in the metaboard repo (You must have permission to publish under the `metauni/` scope)
-3. Update the metaboard dependency version in `metauniOS/wally.toml`
-4. Commit and push changes.
-5. Publish metauniOS.
-
 ## Purpose
 
 The primary purpose of metauniOS is to unite the separated system of packages (metaportal, orb, metaboard, metaadmin), so that deeper integration of these components is better and easier to maintain. Often, features we want to add to metauni require additions to multiple packages, and this multiplies the amount of git maintenance, package publishing and game publishing needed to work on a feature.
@@ -58,17 +37,34 @@ An intentional goal is for the structure to be as flexible and lightweight as po
 
 ## Structure
 
-metauniOS is the game code of The Rising Sea + Pockets. The project is structure to match the vanilla Roblox hierarchy as much as possible, where the top level folders are ServerScriptService, ReplicatedStorage, StarterPlayerScripts etc, as opposed to living within metauniOS subfolders inside these containers (as was the case with metaportal, metaboard etc).
+The overall structure that is synced by rojo looks like this
 
-However it is not feasible to rojo sync these containers directly into TRS or other Pockets, since many of these place files have differing contents in those containers, and there is no way to know what is part of metauniOS and what is not. Hence it's impossible to know what is old metauniOS contents that need deleting (maybe a file was renamed or moved), and what has been manually added to a particular place file.
+```
+ServerScriptService:
+	OS:
+		<src/ServerScriptService/OS/*>
+ReplicatedStorage:
+	Packages:
+		<packages from Wally>
+		<CompiledPackages/*>
+	OS:
+		<src/ServerScriptService/OS/*>
+StarterPlayer:
+	StarterPlayerScripts:
+		metauniOSClient
+```
 
-We instead compile everything under the metauniOS Server Script in ServerScriptService, which distributes everything on startup. The startup script then indicates that installation has finished with `ReplicatedStorage:SetAttribute("metauniOSInstalled", true)`.
+> Previously we had everything compiled under one folder in ServerScriptService, but this makes it impossible to use tools like Hoarcekat, or otherwise execute scripts outside of run-time (since the paths to the scripts change)
+
+Due to the nature of partially-managed rojo, if we remove/rename/move a "top-level" child of a container in the repository, rojo will not delete the instance in Roblox Studio (unless the server is already running). The same goes for our publish system, since we cannot distinguish "removed from the repo" and "non-source controlled instance" - i.e. something that was made just in one place file. Hence we must be conservative with top-level instances. Indirect descendents can be deleted/renamed/moved freely.
+
+## Lune
+
+Lune is a luau runtime that makes it much easier to inspect instances across all pockets. See lune/inspector.lua for a helpful module.
 
 ## Services + Controllers
 
 Previous integration between packages was DataModel only, however, some data, like the board data of a metaboard, cannot be stored in the DataModel for performance reasons. So it must be passed via ModuleScripts. To faciliate this, we convert would-be server Scripts to ModuleScripts, which supply optional `:Init()` and `:Start()` methods + whatever other data to interface with.
-
-> **ATTENTION**: The point is *not* to replace DataModel communication with ModuleScript communication. In fact, DataModel communication is often better, since all DataModel data comes with changed-signals for free.
 
 Any ModuleScript which is a descendant of ServerScriptService or ReplicatedStorage with a name ending with `Service` will be treated as a service. This gives flexibility in code structure. On startup, once everything is properly distributed, the `:Init()` method of every service is called. Then the same for the `:Start()` method.
 
