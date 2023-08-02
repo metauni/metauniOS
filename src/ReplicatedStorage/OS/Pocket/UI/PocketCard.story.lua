@@ -1,5 +1,4 @@
-local Pocket = require(script.Parent.Pocket)
-local UI = require(game.ReplicatedStorage.OS.UI)
+local PocketCard = require(script.Parent.PocketCard)
 
 local trsImages = {
 	"rbxassetid://10571155928",
@@ -9,24 +8,18 @@ local trsImages = {
 }
 
 return function(target)
-	local pocket = Pocket {
+	local card = PocketCard {
 		PocketName = "The Rising Sea",
 		PocketImage = trsImages[3],
-		NumActive = 3,
+		ActiveUsers = "3",
 		OnClickJoin = function()
 			print("Join!")
 		end,
 	}
 
-	local ui = UI.Div {
-		BackgroundColor3 = Color3.fromHex("F0F0F0"),
-		BackgroundTransparency = 0,
-	}
-
-	pocket.Parent = ui
-	ui.Parent = target
+	card.Parent = target
 
 	return function()
-		ui:Destroy()
+		card:Destroy()
 	end
 end

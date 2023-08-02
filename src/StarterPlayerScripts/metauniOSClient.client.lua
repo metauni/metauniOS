@@ -1,6 +1,25 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ScriptContext = game:GetService("ScriptContext")
+local Players = game:GetService("Players")
+
+local Pocket = ReplicatedStorage.OS.Pocket
+local PocketMenu = require(Pocket.UI.PocketMenu)
+local PocketImages = require(Pocket.Config).PocketTeleportBackgrounds
+
+local pocketMenu = PocketMenu.new()
+
+pocketMenu:SetPockets({
+	{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
+	{Name = "Symbolic Wilds 37", Image = PocketImages["Symbolic Wilds"]},
+	{Name = "Moonlight Forest 8", Image = PocketImages["Moonlight Forest"]},
+	{Name = "Delta Plains 41", Image = PocketImages["Delta Plains"]},
+	{Name = "Storyboard 1", Image = PocketImages["Storyboard"]},
+	{Name = "Big Sir 2", Image = PocketImages["Big Sir"]},
+	{Name = "Overland 1", Image = PocketImages["Overland"]},
+} :: {PocketMenu.PocketData})
+
+pocketMenu:render().Parent = Players.LocalPlayer.PlayerGui
 
 if not RunService:IsStudio() then
 	

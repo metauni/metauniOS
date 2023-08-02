@@ -136,7 +136,7 @@ local function TextButton(props)
 		[Children] = Sift.Dictionary.merge(props[Children], {
 			["_UICorner"] = New "UICorner" {
 				CornerRadius = props.CornerRadius or UDim.new(0,5)
-			}
+			},
 		}),
 		CornerRadius = Sift.None,
 	}
@@ -148,6 +148,7 @@ end
 
 local function Div(props)
 	local defaultProps = {
+		Name = "Div",
 		AnchorPoint = Vector2.new(0.5,0.5),
 		Position = UDim2.fromScale(0.5,0.5),
 		Size = UDim2.fromScale(1,1),
@@ -158,6 +159,34 @@ local function Div(props)
 	local finalProps = Sift.Dictionary.merge(defaultProps, props)
 
 	return New "Frame" (finalProps)
+end
+
+-- Makes it visible for positioning & sizing
+local function _Div(props)
+	local BorderColor = Fusion.Value(Color3.new(0,0,0))
+	
+	props.BackgroundColor3 = Color3.new(1,0,0)
+	props.BackgroundTransparency = 0.5
+	props.BorderSizePixel = 1
+	props.BorderColor3 = BorderColor
+
+	props[Fusion.Cleanup] = {
+		game:GetService("RunService").RenderStepped:Connect(function()
+			local t = 0.5 * (math.sin(10 * os.clock()) + 1)
+			BorderColor:set(Color3.new(t,t,t))
+		end),
+		props[Fusion.Cleanup],
+	}
+	return Div(props)
+end
+
+local function Padding(props)
+	return Fusion.New "UIPadding" {
+		PaddingBottom = UDim.new(0, props.Bottom or props.Offset or 0),
+		PaddingTop = UDim.new(0, props.Top or props.Offset or 0),
+		PaddingLeft = UDim.new(0, props.Left or props.Offset or 0),
+		PaddingRight = UDim.new(0, props.Left or props.Offset or 0),
+	}
 end
 
 local function RoundedFrame(props)
@@ -222,7 +251,11 @@ local function HighlightTextButton(props)
 
 	local Selected = props.Selected
 	local TextColors = props.TextColors or {Color3.fromHex("F2F2F3"), Color3.fromHex("060607")}
+	props.TextColors = nil
 	local BackgroundColors = props.BackgroundColors or {Color3.fromHex("060607"), Color3.fromHex("F2F2F3")}
+	props.BackgroundColors = nil
+	local Transparencies = props.Transparencies or {0,0}
+	props.Transparencies = nil
 	local isHovering = Value(false)
 	
 	local isHoveringOrSelected = Computed(function()
@@ -250,6 +283,14 @@ local function HighlightTextButton(props)
 			end
 		end),
 
+		BackgroundTransparency = Computed(function()
+			if isHoveringOrSelected:get() then
+				return Transparencies[1]
+			else
+				return Transparencies[2]
+			end
+		end),
+
 		AnchorPoint = Vector2.new(0.5,0.5),
 		Position = UDim2.fromScale(0.5,0.5),
 	
@@ -267,7 +308,6 @@ local function HighlightTextButton(props)
 			end
 		end,
 	}
-
 
 	-- Temp - this is just from the toolbox. Use something else!
 	local clickSound: Sound
@@ -290,6 +330,28 @@ local function HighlightTextButton(props)
 	return New "TextButton" (finalProps)
 end
 
+local function X(props)
+	assert(props.Color, "X component missing .Color")
+	props[Fusion.Children] = {
+		Div {
+			Size = UDim2.new(1,0, 0, 2),
+			BackgroundTransparency = 0,
+			BackgroundColor3 = props.Color,
+			Rotation = 45,
+		},
+		Div {
+			Size = UDim2.new(1,0, 0, 2),
+			BackgroundTransparency = 0,
+			BackgroundColor3 = props.Color,
+			Rotation = -45,
+		},
+	}
+
+	props.Color = nil
+
+	return Div(props)
+end
+
 return {
 	ImageButton = ImageButton,
 	Button = TextButton,
@@ -299,4 +361,9 @@ return {
 	ImageLabel = ImageLabel,
 	Div = Div,
 	HighlightTextButton = HighlightTextButton,
+	Padding = Padding,
+	X = X,
+
+	_Div = _Div,
+	_ = _Div {},
 }
