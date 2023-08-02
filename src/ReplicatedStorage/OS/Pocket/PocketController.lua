@@ -405,8 +405,8 @@ return {
 		end
 		
 		local function CreateTopbarItems()
-				local Icon = require(game:GetService("ReplicatedStorage").OS.Icon)
-			local Themes =  require(game:GetService("ReplicatedStorage").OS.Icon.Themes)
+				local Icon = require(game:GetService("ReplicatedStorage").Packages.Icon)
+			local Themes =  require(game:GetService("ReplicatedStorage").Packages.Icon.Themes)
 			
 			if Pocket:GetAttribute("IsPocket") == nil then
 				Pocket:GetAttributeChangedSignal("IsPocket"):Wait()

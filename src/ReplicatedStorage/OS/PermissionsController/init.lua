@@ -26,7 +26,7 @@ function PermissionsController:Start()
 	task.spawn(function()
 		while true do
 			if StarterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Chat) then
-				local IconController = require(ReplicatedStorage.OS.Icon.IconController)
+				local IconController = require(ReplicatedStorage.Packages.Icon.IconController)
 				IconController.updateTopbar() -- Fixes positioning
 				return
 			end

@@ -6,7 +6,7 @@ local task = require "@lune/task"
 local assetApi = require "assetApi"
 local install = require "install"
 
-local placeIds = require "placeIds"
+local metauni = require "metauni"
 
 local placeIdsToUpdate = {}
 
@@ -19,11 +19,11 @@ if #process.args == 0 then
 end
 
 if table.find(process.args, "all") then
-	placeIdsToUpdate = placeIds
+	placeIdsToUpdate = metauni.PlaceIds
 else
 	for _, arg in ipairs(process.args) do
-		if placeIds[arg] then
-			placeIdsToUpdate[arg] = placeIds[arg]
+		if metauni.PlaceIds[arg] then
+			placeIdsToUpdate[arg] = metauni.PlaceIds[arg]
 		elseif tonumber(arg) then
 			placeIdsToUpdate[arg] = tonumber(arg)
 		else
@@ -136,7 +136,7 @@ for placeName, placeId in placeIdsToUpdate do
 		end
 	end
 
-	-- Install new metauniOS (first removes old metauniOS files)
+	-- -- Install new metauniOS (first removes old metauniOS files)
 	install(build, game)
 
 	stdio.write("Updating: "..table.concat(existingVersions, ", ").." => "..hashVersion)

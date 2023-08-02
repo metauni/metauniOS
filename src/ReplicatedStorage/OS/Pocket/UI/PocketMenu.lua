@@ -234,7 +234,12 @@ function PocketMenu:render()
 	return Fusion.New "ScreenGui" {
 		Name = "PocketMenu",
 		IgnoreGuiInset = true,
-		[Fusion.Children] = wholeMenu,
+		[Fusion.Children] = {
+			wholeMenu,
+			Fusion.New "UIScale" {
+				Scale = math.min(1, workspace.CurrentCamera.ViewportSize.Y / 850),
+			}
+		},
 	}
 end
 

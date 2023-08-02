@@ -91,8 +91,8 @@ function TransportOrbController:CreateTopbarIcon()
 	-- luggage is https://fonts.google.com/icons?icon.query=luggage
 	local luggageAssetId = "rbxassetid://9679458066"
 
-	local Icon = require(game:GetService("ReplicatedStorage").OS.Icon)
-	local Themes =  require(game:GetService("ReplicatedStorage").OS.Icon.Themes)
+	local Icon = require(game:GetService("ReplicatedStorage").Packages.Icon)
+	local Themes =  require(game:GetService("ReplicatedStorage").Packages.Icon.Themes)
 	
 	self.LuggageIcon = Icon.new()
 		:setImage(luggageAssetId)

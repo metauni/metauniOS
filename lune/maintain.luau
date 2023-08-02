@@ -5,7 +5,7 @@ local stdio = require "@lune/stdio"
 local task = require "@lune/task"
 local assetApi = require "assetApi"
 
-local placeIds = require "placeIds"
+local metauni = require "metauni"
 
 local placeIdsToUpdate = {}
 
@@ -19,11 +19,11 @@ if #process.args == 0 then
 end
 
 if table.find(process.args, "all") then
-	placeIdsToUpdate = placeIds
+	placeIdsToUpdate = metauni.PlaceIds
 else
 	for _, arg in ipairs(process.args) do
-		if placeIds[arg] then
-			placeIdsToUpdate[arg] = placeIds[arg]
+		if metauni.PlaceIds[arg] then
+			placeIdsToUpdate[arg] = metauni.PlaceIds[arg]
 		else
 			error(arg.." not listed in placeIds")
 		end

@@ -2,6 +2,8 @@
 local net = require("@lune/net")
 local roblox = require("@lune/roblox")
 local serde = require("@lune/serde")
+local process = require("@lune/process")
+local metauni = require("metauni")
 
 local assetApi = {}
 
@@ -90,8 +92,31 @@ local function downloadAssetId(assetId: number)
 	return cdnResponse.body
 end
 
+local function uploadPlaceId(place: roblox.DataModel, placeId: number): net.FetchResponse
+	
+	local apiKey = process.env["METAUNIOS_PUBLISH_KEY"]
+	local universeId = metauni.UniverseId
+	-- local contents = roblox.serializePlace(place) BAD DOESN'T WORK WITH CURRENT LUNE
 
-local function uploadAssetId(contents: string, assetId: number): net.FetchResponse
+	local contents = roblox.serializePlace(place, true)
+
+	return net.request({
+		url = `https://apis.roblox.com/universes/v1/{universeId}/places/{placeId}/versions`,
+		headers = {
+				["x-api-key"] = apiKey,
+				["Content-Type"] = "application/xml",
+				-- ["Content-Type"] = "applicsation/octet-stream", BAD DOESN'T WORK WITH CURRENT LUNE
+		},
+		query = {
+				versionType = "Published",
+		},
+		method = "POST",
+		body = contents,
+	})
+end
+
+
+local function legacyUploadAssetId(contents: string, assetId: number): net.FetchResponse
 	-- 1. Try to find the auth cookie for the current user
 	local cookie = roblox.getAuthCookie()
  
@@ -137,9 +162,11 @@ function assetApi.downloadPlace(placeId: number)
 	return place
 end
 
-function assetApi.publishExistingPlace(dataModel: roblox.DataModel, placeId: number): net.FetchResponse
-	local contents = roblox.serializePlace(dataModel, true)
-	local uploadResponse = uploadAssetId(contents, placeId)
+assetApi._downloadAssetId = downloadAssetId
+
+
+function assetApi.publishExistingPlace(place: roblox.DataModel, placeId: number): net.FetchResponse
+	local uploadResponse = uploadPlaceId(place, placeId)
 	return uploadResponse
 end
 

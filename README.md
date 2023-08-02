@@ -22,11 +22,14 @@ It's best to commit and push all changes before publishing to all the pockets.
 We publish using the [lune luau runtime](https://lune-org.github.io/docs)
 (previously used remodel, which is now deprecated).
 ```bash
-# Publish to every place in lune/placeIds.lua
+# Publish to every place in lune/metauni.lua
 lune publish all
 
 # Publish to specific places
 lune publish TheRisingSea MoonlightForest
+
+# Publish to PlaceId
+lune publish 12345678
 ```
 
 ## Purpose

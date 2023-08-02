@@ -19,10 +19,7 @@ return function(target)
 
 	menu:SetPockets(pockets)
 
-	local instance = menu:render():GetChildren()[1]
-	local uiScale = Instance.new("UIScale")
-	uiScale.Scale = .75
-	uiScale.Parent = instance
+	local instance = menu:render()
 	instance.Parent = target
 
 	return function()

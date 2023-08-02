@@ -259,8 +259,8 @@ local function StartBoardSelectMode(onBoardSelected, displayType)
 end
 
 local function CreateTopbarItems()
-	local Icon = require(game:GetService("ReplicatedStorage").OS.Icon)
-	local Themes =  require(game:GetService("ReplicatedStorage").OS.Icon.Themes)
+	local Icon = require(game:GetService("ReplicatedStorage").Packages.Icon)
+	local Themes =  require(game:GetService("ReplicatedStorage").Packages.Icon.Themes)
 
     -- Knot menu
 	local icon = Icon.new()

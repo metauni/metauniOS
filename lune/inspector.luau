@@ -4,7 +4,7 @@ local roblox = require "@lune/roblox"
 local stdio = require "@lune/stdio"
 local task = require "@lune/task"
 local assetApi = require "assetApi"
-local placeIds = require "placeIds"
+local metauni = require "metauni"
 
 local inspector = {}
 
@@ -16,7 +16,7 @@ function inspector.iterPlaces()
 	-- if true then
 	-- end
 	local co = coroutine.create(function () 
-		for placeName, placeId in placeIds do
+		for placeName, placeId in metauni.PlaceIds do
 			local game = assetApi.downloadPlace(placeId)
 			coroutine.yield(placeName, game)
 		end
@@ -31,7 +31,7 @@ function inspector.iterPlaces()
 end
 
 function inspector.forPlaces(callback: (string, roblox.DataModel) -> ())
-	for placeName, placeId in placeIds do
+	for placeName, placeId in metauni.PlaceIds do
 		local game = assetApi.downloadPlace(placeId)
 		callback(placeName, game)
 	end
