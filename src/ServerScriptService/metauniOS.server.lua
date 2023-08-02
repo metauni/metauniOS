@@ -101,7 +101,7 @@ end
 local function awaitAll(promises)
 	for instance, promise in promises do
 		local timeoutMsg = `{instance:GetFullName()} took too long to import`
-		local success, result = promise:timeout(3, timeoutMsg):await()
+		local success, result = promise:timeout(10, timeoutMsg):await()
 		if not success then
 			warn(result)
 		end
