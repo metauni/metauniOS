@@ -14,7 +14,7 @@ if game.PlaceId == PocketConfig.RootPlaceId then
 	
 	pocketMenu:SetPockets({
 		{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
-		{Name = "Symbolic Wilds 37", Image = PocketConfig.PocketTeleportBackgrounds["Symbolic Wilds"]},
+		{Name = "Symbolic Wilds 36", Image = PocketConfig.PocketTeleportBackgrounds["Symbolic Wilds"]},
 		{Name = "Moonlight Forest 8", Image = PocketConfig.PocketTeleportBackgrounds["Moonlight Forest"]},
 		{Name = "Delta Plains 41", Image = PocketConfig.PocketTeleportBackgrounds["Delta Plains"]},
 		{Name = "Storyboard 1", Image = PocketConfig.PocketTeleportBackgrounds["Storyboard"]},
