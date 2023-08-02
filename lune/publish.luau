@@ -30,10 +30,6 @@ else
 	end
 end
 
-placeIdsToUpdate = {
-	["metauni-dev"] = 10325447437,
-}
-
 local function executeAndShow(command: string): ()
 	print("> " ..  command)
 	local words = command:split(" ")
