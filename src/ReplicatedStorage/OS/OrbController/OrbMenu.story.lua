@@ -19,8 +19,8 @@ return function (target)
 		Parent = target,
 
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 30, 1, -30),
-		Size = UDim2.fromOffset(300, 150),
+		Position = UDim2.new(0, 15, 1, -15),
+		Size = UDim2.fromOffset(250, 125),
 
 		BackgroundTransparency = 1,
 

@@ -22,8 +22,8 @@ return function(props)
 			return ActiveMenu:get() == "Controls"
 		end),
 
-		AnchorPoint = Vector2.new(0,0.5),
-		Position = UDim2.new(0,180,0.5,0),
+		AnchorPoint = Vector2.new(0,1),
+		Position = UDim2.new(0,150,1,0),
 		Size = UDim2.fromOffset(200,180),
 
 		BackgroundColor3 = BrickColor.new("Gray").Color,
@@ -268,8 +268,8 @@ return function(props)
 				return ActiveMenu:get() == "Emoji"
 			end),
 	
-			AnchorPoint = Vector2.new(0,0.5),
-			Position = UDim2.new(0,180,0.5,0),
+			AnchorPoint = Vector2.new(0,1),
+			Position = UDim2.new(0,150,1,0),
 			Size = UDim2.fromOffset(170,140),
 	
 			BackgroundColor3 = BrickColor.new("Gray").Color,
@@ -377,9 +377,10 @@ return function(props)
 	local Cam = Value()
 	
 	local orbcamButton =  New "TextButton" {
-		AnchorPoint = Vector2.new(0.5,0.5),
-		Position = UDim2.new(0, 60, 1, -60),
-		Size = UDim2.fromOffset(130, 130),
+		AnchorPoint = Vector2.new(0,1),
+		Position = UDim2.new(0, 0, 1, 0),
+		-- Size = UDim2.fromOffset(130, 130),
+		Size = UDim2.fromOffset(90, 90),
 
 		BackgroundTransparency = 1,
 
@@ -416,7 +417,7 @@ return function(props)
 						CornerRadius = UDim.new(0.5,0),
 					},
 					New "UIStroke" {
-						Thickness = 10,
+						Thickness = 8,
 						Transparency = 0.2,
 					}
 				}
@@ -426,7 +427,7 @@ return function(props)
 				Name = "WhiteRing",
 				AnchorPoint = Vector2.new(0.5,0.5),
 				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.65,0.65),
+				Size = UDim2.fromScale(0.62,0.62),
 
 				ZIndex = 2,
 
@@ -438,7 +439,7 @@ return function(props)
 						CornerRadius = UDim.new(0.5,0),
 					},
 					New "UIStroke" {
-						Thickness = 10,
+						Thickness = 8,
 						Color = Color3.new(1,1,1),
 						Transparency = 0.2,
 					}
@@ -491,8 +492,8 @@ return function(props)
 					},
 	
 					UI.ImageLabel {
-						Position = UDim2.new(0.5,0,0.5,-10),
-						Size = UDim2.fromOffset(35,35),
+						Position = UDim2.new(0.5,0,0.5,-8),
+						Size = UDim2.fromOffset(28,28),
 	
 						Image = "rbxassetid://13185764466",
 						ImageTransparency = Computed(function()
@@ -512,15 +513,15 @@ return function(props)
 					},
 					UI.TextLabel {
 						Name = "Orbcam",
-						Position = UDim2.new(0.5,0,0.5,15),
+						Position = UDim2.new(0.5,0,0.5,8),
 						Size = UDim2.fromOffset(50,50),
 	
-						Text = `<b>Orbcam</b>`,
+						Text = "Orbcam",
 						RichText = true,
 						TextStrokeTransparency = 0,
 						TextColor3 = Color3.fromHex("#F0F0F0"),
-						Font = Enum.Font.SciFi,
-						TextSize = 14,
+						FontFace = Font.fromId(11702779517, Enum.FontWeight.Bold),
+						TextSize = 12,
 					}
 				}
 			},
@@ -572,7 +573,6 @@ return function(props)
 		},
 
 		[Children] = {
-
 			orbcamButton,
 
 			UI.ImageButton {
@@ -582,7 +582,7 @@ return function(props)
 					props.Detach()
 					ActiveMenu:set(nil)
 				end,
-				Position = UDim2.fromOffset(115,30),
+				Position = UDim2.fromOffset(90,35),
 				Size = UDim2.fromOffset(30,30)
 			},
 
@@ -590,8 +590,8 @@ return function(props)
 			emojiMenu,
 
 			UI.Div {
-				AnchorPoint = Vector2.new(0,0.5),
-				Position = UDim2.new(0, 140,0.5,0),
+				AnchorPoint = Vector2.new(0,1),
+				Position = UDim2.new(0, 110,1,0),
 				Size = UDim2.fromOffset(120,140),
 
 				[Children] = {
