@@ -405,7 +405,7 @@ return function(props)
 				Name = "BlackRing",
 				AnchorPoint = Vector2.new(0.5,0.5),
 				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.84,0.84),
+				Size = UDim2.fromOffset(76,76),
 				
 				Visible = props.OrbcamActive,
 				
@@ -417,7 +417,7 @@ return function(props)
 						CornerRadius = UDim.new(0.5,0),
 					},
 					New "UIStroke" {
-						Thickness = 8,
+						Thickness = 7,
 						Transparency = 0.2,
 					}
 				}
@@ -427,7 +427,7 @@ return function(props)
 				Name = "WhiteRing",
 				AnchorPoint = Vector2.new(0.5,0.5),
 				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromScale(0.62,0.62),
+				Size = UDim2.fromOffset(58,58),
 
 				ZIndex = 2,
 
@@ -439,7 +439,7 @@ return function(props)
 						CornerRadius = UDim.new(0.5,0),
 					},
 					New "UIStroke" {
-						Thickness = 8,
+						Thickness = 7,
 						Color = Color3.new(1,1,1),
 						Transparency = 0.2,
 					}
@@ -493,7 +493,7 @@ return function(props)
 	
 					UI.ImageLabel {
 						Position = UDim2.new(0.5,0,0.5,-8),
-						Size = UDim2.fromOffset(28,28),
+						Size = UDim2.fromOffset(25,25),
 	
 						Image = "rbxassetid://13185764466",
 						ImageTransparency = Computed(function()
