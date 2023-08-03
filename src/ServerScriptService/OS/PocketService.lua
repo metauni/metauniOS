@@ -272,18 +272,6 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
 		
 		AddGhostEvent:FireAllClients(ghost, pocketName, pocketCounter)
 
-		local sound = Instance.new("Sound")
-		sound.Name = "Sound"
-		sound.Playing = false
-		sound.RollOffMaxDistance = 100
-		sound.RollOffMinDistance = 10
-		sound.RollOffMode = Enum.RollOffMode.LinearSquare
-		sound.SoundId = "rbxassetid://7864771146"
-		sound.Volume = 0.3
-		sound.Parent = ghost.PrimaryPart
-
-		sound:Play()
-
 		task.delay(60, function() ghost:Destroy() end)
 	end
 
