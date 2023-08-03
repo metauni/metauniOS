@@ -242,7 +242,7 @@ function OrbServer.new(orbPart: Part)
 
 	local viewModeValue = NewTracked "StringValue" {
 		Name = "ViewMode",
-		Value = "double",
+		Value = "single",
 		Parent = orbPart,
 	}
 	local observeViewMode: Observable<String> = 
@@ -443,7 +443,7 @@ function OrbServer.new(orbPart: Part)
 				All calculations are XZ-plane relative.
 			--]]
 
-			local BUFFER = 6
+			local BUFFER = 10
 			local function speakerInFrontOfFocal(camPos: Vector3, focalPos: Vector3)
 				local camToSpeaker = (speakerPosition - camPos) * Vector3.new(1,0,1)
 				local camToFocal = (focalPos - camPos) * Vector3.new(1,0,1)
@@ -460,7 +460,7 @@ function OrbServer.new(orbPart: Part)
 			
 			local function speakerInCamView(camPos: Vector3, focalPos: Vector3)
 				local camToFocal = (focalPos - camPos) * Vector3.new(1,0,1)
-				local horizontalFOVRad = 2 * math.atan(Config.AssumedAspectRatio * math.tan(math.rad(Config.OrbcamFOV)/2))
+				local horizontalFOVRad = 2 * math.atan(Config.AssumedViewportSize.X / Config.AssumedViewportSize.Y * math.tan(math.rad(Config.OrbcamFOV)/2))
 				local cosAngleToSpeaker = ((speakerPosition - camPos).Unit):Dot(camToFocal.Unit)
 
 				local ANGLE_BUFFER = math.rad(10)
@@ -528,7 +528,7 @@ function OrbServer.new(orbPart: Part)
 				CameraUtils.ViewBoardsAtFOV(
 					{firstBoard, secondBoard},
 					Config.OrbcamFOV,
-					Config.AssumedAspectRatio,
+					Config.AssumedViewportSize,
 					Config.OrbcamBuffer
 				)
 			local closeEnough = speakerCloseToWaypoint(camCFrame.Position, focalPosition)

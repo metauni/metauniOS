@@ -1,7 +1,7 @@
 return {
-	AssumedAspectRatio = 16/9,
+	AssumedViewportSize = Vector2.new(1920,1080),
 	OrbcamFOV = 55,
-	OrbcamBuffer = Vector2.new(2,2),
+	OrbcamBuffer = Vector2.new(10,40),
 	HaloOffset = 1.2,
 	GhostSpawnRadius = 50,
 	GhostMinOrbRadius = 10,

@@ -1,16 +1,16 @@
 local CameraUtils = {}
 
-function CameraUtils.ViewBoardsAtFOV(boards: {Board}, verticalFOV: number, aspectRatio: number, buffer: Vector2)
+function CameraUtils.ViewBoardsAtFOV(boards: {Board}, verticalFOV: number, viewportSize: Vector2, buffer: Vector2)
 	local targets = table.create(#boards)
 	local surfaceCFrames = table.create(#boards)
 	for _, board in ipairs(boards) do
 		table.insert(targets, board._instance)
 		table.insert(surfaceCFrames, board.SurfaceCFrame)
 	end
-	return CameraUtils.ViewTargetSurfacesAtFOV(targets, surfaceCFrames, verticalFOV, aspectRatio, buffer)
+	return CameraUtils.ViewTargetSurfacesAtFOV(targets, surfaceCFrames, verticalFOV, viewportSize, buffer)
 end
 
-function CameraUtils.ViewTargetSurfacesAtFOV(targets: {Part}, surfaceCFrames: {Vector3}, verticalFOV: number, aspectRatio: number, buffer: Vector2)
+function CameraUtils.ViewTargetSurfacesAtFOV(targets: {Part}, surfaceCFrames: {Vector3}, verticalFOV: number, viewportSize: Vector2, buffer: Vector2)
 	assert(#targets > 0, "Expected at least one target")
 	assert(#targets == #surfaceCFrames, "Expected targets to correspond to targetCFrames")
 	
@@ -55,13 +55,14 @@ function CameraUtils.ViewTargetSurfacesAtFOV(targets: {Part}, surfaceCFrames: {V
 		local v = (point - centre.Position)
 		local zDelta = v:Dot(centre.LookVector.Unit)
 		do -- Vertical
-			local halfHeight = math.abs(v:Dot(centre.UpVector.Unit)) + buffer.Y
+			-- local halfHeight = math.abs(v:Dot(centre.UpVector.Unit))
+			local halfHeight = math.abs(v:Dot(centre.UpVector.Unit)) * (1 + buffer.Y / (0.5 * viewportSize.Y))
 			local zDistance = halfHeight / math.tan(math.rad(verticalFOV/2))
 			maxZDistanceToCentre = math.max(maxZDistanceToCentre, zDistance + zDelta)
 		end
 		do -- Horizontal
-			local halfWidth = math.abs(v:Dot(centre.RightVector.Unit)) + buffer.X
-			local halfHeight = halfWidth / aspectRatio
+			local halfWidth = math.abs(v:Dot(centre.RightVector.Unit)) * (1 + buffer.X / (0.5 * viewportSize.X))
+			local halfHeight = halfWidth / (viewportSize.X / viewportSize.Y)
 			local zDistance = halfHeight / math.tan(math.rad(verticalFOV/2))
 			maxZDistanceToCentre = math.max(maxZDistanceToCentre, zDistance + zDelta)
 		end
@@ -72,7 +73,7 @@ function CameraUtils.ViewTargetSurfacesAtFOV(targets: {Part}, surfaceCFrames: {V
 	return centre * CFrame.new(0, 0, -maxZDistanceToCentre) * CFrame.Angles(0, math.pi, 0), centre.Position
 end
 
-function CameraUtils.FitTargetsAlongCFrameRay(cframeRay: CFrame, targets: {Part}, verticalFOV: number, aspectRatio: number, buffer: number)
+function CameraUtils.FitTargetsAlongCFrameRay(cframeRay: CFrame, targets: {Part}, verticalFOV: number, viewportSize: Vector2, buffer: Vector2)
 	assert(#targets > 0, "Expected at least one target")
 
 	-- The positions of the part vertices
@@ -99,13 +100,13 @@ function CameraUtils.FitTargetsAlongCFrameRay(cframeRay: CFrame, targets: {Part}
 		local v = (point - cframeRay.Position)
 		local zDelta = -v:Dot(cframeRay.LookVector.Unit)
 		do -- Vertical
-			local halfHeight = math.abs(v:Dot(cframeRay.UpVector.Unit)) + buffer.Y
+			local halfHeight = math.abs(v:Dot(cframeRay.UpVector.Unit)) * (1 + buffer.Y / (0.5 * viewportSize.Y))
 			local zDistance = halfHeight / math.tan(math.rad(verticalFOV/2))
 			maxZDistanceToCentre = math.max(maxZDistanceToCentre, zDistance + zDelta)
 		end
 		do -- Horizontal
-			local halfWidth = math.abs(v:Dot(cframeRay.RightVector.Unit)) + buffer.X
-			local halfHeight = halfWidth / aspectRatio
+			local halfWidth = math.abs(v:Dot(cframeRay.RightVector.Unit)) * (1 + buffer.X / (0.5 * viewportSize.X))
+			local halfHeight = halfWidth / (viewportSize.X / viewportSize.Y)
 			local zDistance = halfHeight / math.tan(math.rad(verticalFOV/2))
 			maxZDistanceToCentre = math.max(maxZDistanceToCentre, zDistance + zDelta)
 		end

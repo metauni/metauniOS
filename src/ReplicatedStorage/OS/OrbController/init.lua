@@ -273,7 +273,7 @@ function OrbController:Start()
 			
 			-- Allow code to steer orbcam
 			camera.CameraType = Enum.CameraType.Scriptable
-			camera.FieldOfView = 55
+			camera.FieldOfView = Config.OrbcamFOV
 			camera.CFrame = CFrame.lookAt(PositionSpring:get(), LookAtSpring:get())
 		elseif camera then
 			if playerCamFOV and playerCamCFrame then
@@ -342,7 +342,7 @@ function OrbController:Start()
 			runConnection = RunService.RenderStepped:Connect(function()
 	
 				local camera = workspace.CurrentCamera
-				if viewMode == nil or viewMode == "Freecam" or camera.CameraType ~= Enum.CameraType.Scriptable then
+				if viewMode == nil or viewMode == "freecam" or camera.CameraType ~= Enum.CameraType.Scriptable then
 					return
 				end
 	
@@ -394,8 +394,7 @@ function OrbController:Start()
 			return
 		end
 
-		local aspectRatio = viewportSize.X / viewportSize.Y
-		local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, 55, aspectRatio, Config.OrbcamBuffer)
+		local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, Config.OrbcamFOV, viewportSize, Config.OrbcamBuffer)
 		
 		if showAudience then
 			
@@ -445,7 +444,7 @@ function OrbController:Start()
 				return 
 			end
 
-			local cframeWithAudience = CameraUtils.FitTargetsAlongCFrameRay(cframe, targets, 55, aspectRatio, Config.OrbcamBuffer)
+			local cframeWithAudience = CameraUtils.FitTargetsAlongCFrameRay(cframe, targets, Config.OrbcamFOV, viewportSize, Config.OrbcamBuffer)
 			local lookTargetWithAudience = Vector3.zero
 			for _, target in targets do
 				lookTargetWithAudience += target.Position
@@ -553,7 +552,7 @@ function OrbController:Start()
 		end
 		
 		local lookVector = camLookAtGoal - camPositionGoal
-		local horizontalFOVRad = 2 * math.atan(Config.AssumedAspectRatio * math.tan(math.rad(Config.OrbcamFOV)/2))
+		local horizontalFOVRad = 2 * math.atan(Config.AssumedViewportSize.X / Config.AssumedViewportSize.Y * math.tan(math.rad(Config.OrbcamFOV)/2))
 		local cosAngleToSpeaker = ((rootPart.Position - camPositionGoal).Unit):Dot(lookVector.Unit)
 		local distanceToFocalPoint = (camLookAtGoal - camPositionGoal).Magnitude
 		local distanceToCharacter = (rootPart.Position - camPositionGoal).Magnitude
