@@ -25,7 +25,7 @@ function HumanoidController:Start()
 	end)
 
 	Players.PlayerAdded:Connect(function(player: Player)
-		self:removePlayer(player)
+		self:_removePlayer(player)
 	end)
 end
 
