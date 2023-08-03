@@ -46,7 +46,11 @@ function BoardDecalService.Init()
     remoteEvent.Name = "AddDecalToBoard"
     remoteEvent.Parent = ReplicatedStorage
 
-    remoteEvent.OnServerEvent:Connect(function(plr, board, assetId)
+    BoardDecalService._addDecalToBoard = remoteEvent
+end
+
+function BoardDecalService.Start()
+    BoardDecalService._addDecalToBoard.OnServerEvent:Connect(function(plr, board, assetId)
         local perm = plr:GetAttribute("metaadmin_isscribe")
         if not perm then
             warn("[Metaboard] Player does not have permission to add decal")
@@ -59,14 +63,11 @@ function BoardDecalService.Init()
         if Pocket:GetAttribute("IsPocket") then
             dataStoreName = "Pocket-" .. Pocket:GetAttribute("PocketId")
         end
-
+    
         local DataStore = DataStoreService:GetDataStore(dataStoreName)
         local decalKey = decalKeyForBoard(board)
         DataStore:SetAsync(decalKey, assetId)
     end)
-end
-
-function BoardDecalService.Start()
     local dataStoreName = "boarddecals"
 
     if Pocket:GetAttribute("IsPocket") then
@@ -76,6 +77,7 @@ function BoardDecalService.Start()
 
 	    dataStoreName = "Pocket-" .. Pocket:GetAttribute("PocketId")
     end
+    print("[BoardDecalService] Datastore name:", dataStoreName)
 	local DataStore = DataStoreService:GetDataStore(dataStoreName)
 	
 	local boards = CollectionService:GetTagged("metaboard")
@@ -90,6 +92,7 @@ function BoardDecalService.Start()
 
             local success, assetId = pcall(function()
                 waitForBudget(Enum.DataStoreRequestType.GetAsync)
+                print("[DecalService] DataStore key fetch", decalKey)
                 return DataStore:GetAsync(decalKey)
             end)
             if not success then
