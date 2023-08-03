@@ -92,7 +92,6 @@ function BoardDecalService.Start()
 
             local success, assetId = pcall(function()
                 waitForBudget(Enum.DataStoreRequestType.GetAsync)
-                print("[DecalService] DataStore key fetch", decalKey)
                 return DataStore:GetAsync(decalKey)
             end)
             if not success then
