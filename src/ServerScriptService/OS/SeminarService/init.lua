@@ -4,11 +4,24 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local yaml = require(ReplicatedStorage.Packages.yaml)
 local t = require(ReplicatedStorage.Packages.t)
 local Promise = require(ReplicatedStorage.Packages.Promise)
+local Remotes = ReplicatedStorage.OS.Remotes
 
 local SeminarService = {}
 SeminarService.__index = SeminarService
 
 local DEBUG = false
+
+function SeminarService:Init()
+	self = SeminarService
+
+	Remotes.GetSeminarSchedule.OnServerInvoke = function(_player: Player)
+		local seminars
+		pcall(function()
+			seminars = self:GetCurrentSeminars()
+		end)
+		return seminars or {}
+	end
+end
 
 function SeminarService:_fetchSchedule()
 	local url = "https://raw.githubusercontent.com/metauni/metauni.github.io/main/schedule/schedule.yml"

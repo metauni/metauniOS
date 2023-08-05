@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local Pocket = ReplicatedStorage.OS.Pocket
 local PocketMenu = require(Pocket.UI.PocketMenu)
 local PocketConfig = require(Pocket.Config)
+local Remotes = ReplicatedStorage.OS.Remotes
 
 
 if game.PlaceId == PocketConfig.RootPlaceId then
@@ -21,6 +22,10 @@ if game.PlaceId == PocketConfig.RootPlaceId then
 		{Name = "Big Sir 2", Image = PocketConfig.PocketTeleportBackgrounds["Big Sir"]},
 		{Name = "Overland 1", Image = PocketConfig.PocketTeleportBackgrounds["Overland"]},
 	} :: {PocketMenu.PocketData})
+
+	task.spawn(function()
+		pocketMenu:SetSchedule(Remotes.GetSeminarSchedule:InvokeServer())
+	end)
 	
 	pocketMenu:render().Parent = Players.LocalPlayer.PlayerGui
 end
