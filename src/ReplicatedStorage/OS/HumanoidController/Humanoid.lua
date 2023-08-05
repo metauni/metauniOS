@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ContextActionService = game:GetService("ContextActionService")
 local Rx = require(ReplicatedStorage.OS.Rx)
 local Rxi = require(ReplicatedStorage.OS.Rxi)
 local BaseObject = require(ReplicatedStorage.OS.BaseObject)
@@ -9,16 +10,18 @@ Humanoid.__index = Humanoid
 
 function Humanoid.new(humanoid: Humanoid)
 	local self = setmetatable(BaseObject.new(humanoid), Humanoid)
-	
+
 	return self
 end
 
-export type StateName = 
-"Climbing" | "Died" | "FreeFalling" |
-"GettingUp" | "Jumping" | "Landing" |
-"Running" | "Splash" | "Swimming"
+function Humanoid:Init()
+	self._animator = self._obj:WaitForChild("Animator") :: Animator
 
-function Humanoid:InitSounds()
+	self:_initSounds()
+	self:_initControls()
+end
+
+function Humanoid:_initSounds()
 	local RUNNING_SOUND_ID = "rbxassetid://14260445447"
 	-- Normalised to WalkSpeed = 16
 	local RUNNING_PLAYBACK_FACTOR = 2.3
@@ -44,7 +47,7 @@ function Humanoid:InitSounds()
 	}:Subscribe(function(state)
 		if state.Sound and state.WalkSpeed then
 			local nonlinear = math.sqrt(state.WalkSpeed/16)
-			state.Sound.PlaybackSpeed = nonlinear * RUNNING_PLAYBACK_FACTOR
+			state.Sound.PlaybackSpeed = math.max(nonlinear, 1) * RUNNING_PLAYBACK_FACTOR
 			state.Sound.Volume = nonlinear * RUNNING_VOLUME
 		end
 	end)
@@ -61,6 +64,53 @@ function Humanoid:InitSounds()
 		end
 	end)
 end
+
+function Humanoid:SetWalkSpeed(speed: number)
+	assert(type(speed) == "number", "Bad speed")
+	assert(speed > 0, "Bad speed")
+	self._walkSpeed = speed
+	if not self._sprinting then
+		self._obj.WalkSpeed = self._walkSpeed
+	end
+end
+
+function Humanoid:SetSprintSpeed(speed: number)
+	assert(type(speed) == "number", "Bad speed")
+	assert(speed > 0, "Bad speed")
+	self._sprintSpeed = speed
+	if self._sprinting then
+		self._obj.WalkSpeed = self._sprintSpeed
+	end
+end
+
+function Humanoid:_initControls()
+	self._sprinting = false
+	self:SetWalkSpeed(16)
+	self:SetSprintSpeed(24)
+
+	local function handler(BindName, InputState)
+		if InputState == Enum.UserInputState.Begin and BindName == 'RunBind' then
+			self._sprinting = true
+			self._obj.WalkSpeed = self._sprintSpeed
+		elseif InputState == Enum.UserInputState.End and BindName == 'RunBind' then
+			self._sprinting = false
+			self._obj.WalkSpeed = self._walkSpeed 
+		end
+	end
+	
+	ContextActionService:BindAction('RunBind', handler, true, Enum.KeyCode.LeftShift)
+
+	self._maid._ = function()
+		ContextActionService:UnbindAction("RunBind")
+	end
+end
+
+
+export type StateName = 
+"Climbing" | "Died" | "FreeFalling" |
+"GettingUp" | "Jumping" | "Landing" |
+"Running" | "Splash" | "Swimming"
+
 
 function Humanoid:_observeSound(stateName: StateName)
 	return Rx.of(self._obj):Pipe {

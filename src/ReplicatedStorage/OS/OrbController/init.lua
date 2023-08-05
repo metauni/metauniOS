@@ -24,6 +24,7 @@ local Spring = Fusion.Spring
 local BoardController = require(ReplicatedStorage.OS.BoardController)
 local CameraUtils = require(script.CameraUtils)
 local OrbMenu = require(script.OrbMenu)
+local HumanoidController = require(ReplicatedStorage.OS.HumanoidController)
 
 local Remotes = script.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
@@ -477,18 +478,17 @@ function OrbController:Start()
 	Rx.combineLatest {
 		Poi1 = observePoi1,
 		Poi2 = observePoi2,
-		Humanoid = Rx.of(Players.LocalPlayer):Pipe {
-			Rxi.property("Character"),
-			Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
-		},
+		Humanoid = HumanoidController:ObserveHumanoid(Players.LocalPlayer),
 		Speaker = observeSpeaker,
 	}:Subscribe(function(data)
 
 		-- Walk slowly while orbcam looking at poi
 		if data.Speaker == Players.LocalPlayer and data.Humanoid and (data.Poi1 or data.Poi2) then
-			data.Humanoid.WalkSpeed = 10
+			data.Humanoid:SetWalkSpeed(10)
+			data.Humanoid:SetSprintSpeed(16)
 		elseif data.Humanoid then
-			data.Humanoid.WalkSpeed = 16
+			data.Humanoid:SetWalkSpeed(16)
+			data.Humanoid:SetSprintSpeed(24)
 		end
 	end)
 

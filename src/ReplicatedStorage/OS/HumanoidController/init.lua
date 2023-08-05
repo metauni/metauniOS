@@ -5,6 +5,7 @@ local Humanoid = require(script.Humanoid)
 local Rx = require(ReplicatedStorage.OS.Rx)
 local Rxi = require(ReplicatedStorage.OS.Rxi)
 local Maid = require(ReplicatedStorage.OS.Maid)
+local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
 
 local HumanoidController = {}
 
@@ -13,6 +14,7 @@ function HumanoidController:Init()
 
 	self._maid = Maid.new()
 	self._playerHumanoid = {}
+	self._humanoidChanged = GoodSignal.new()
 end
 
 function HumanoidController:Start()
@@ -24,13 +26,13 @@ function HumanoidController:Start()
 		self:_addPlayer(player)
 	end)
 
-	Players.PlayerAdded:Connect(function(player: Player)
+	Players.PlayerRemoving:Connect(function(player: Player)
 		self:_removePlayer(player)
 	end)
 end
 
 function HumanoidController:_addPlayer(player: Player)
-	self._maid:Assign(player, self:_observeHumanoid(player):Subscribe(function(humanoid: Humanoid?)
+	self._maid:Assign(player, self:_observeHumanoidObject(player):Subscribe(function(humanoid: Humanoid?)
 		if self._playerHumanoid[player] then
 			self._playerHumanoid[player]:Destroy()
 			self._playerHumanoid[player] = nil
@@ -38,8 +40,10 @@ function HumanoidController:_addPlayer(player: Player)
 		
 		if humanoid then
 			self._playerHumanoid[player] = Humanoid.new(humanoid)
-			self._playerHumanoid[player]:InitSounds()
+			self._playerHumanoid[player]:Init()
 		end
+
+		self._humanoidChanged:Fire(player, self._playerHumanoid[player])
 	end))
 end
 
@@ -47,11 +51,22 @@ function HumanoidController:_removePlayer(player: Player)
 	self._maid:Clean(player)
 end
 
-function HumanoidController:_observeHumanoid(player: Player)
+function HumanoidController:_observeHumanoidObject(player: Player)
 	return Rx.of(player):Pipe({
 		Rxi.property("Character"),
 		Rxi.findFirstChild("Humanoid"),
 	})
+end
+
+function HumanoidController:ObserveHumanoid(player: Player)
+	return Rx.fromSignal(self._humanoidChanged):Pipe {
+		Rx.where(function(plr: Player, _humanoid)
+			return plr == player
+		end),
+		Rx.map(function(_plr, humanoid)
+			return humanoid
+		end)
+	}
 end
 
 return HumanoidController
