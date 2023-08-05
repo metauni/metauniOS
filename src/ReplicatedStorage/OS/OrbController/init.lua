@@ -185,7 +185,7 @@ function OrbController:Start()
 	local CamFOVGoal = Value(workspace.CurrentCamera.FieldOfView)
 	local PositionSpring = Spring(CamPositionGoal, SPEED, DAMPING)
 	local LookAtSpring = Spring(CamLookAtGoal, SPEED, DAMPING)
-	local FOVSpring = Spring(CamFOVGoal, 2.5*SPEED, DAMPING)
+	local FOVSpring = Spring(CamFOVGoal, 1.5*SPEED, DAMPING)
 
 	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
