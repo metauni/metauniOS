@@ -63,9 +63,9 @@ function PocketMenu:_renderSchedule()
 
 				Fusion.New "Frame" {
 					Name = "VLine",
-					AnchorPoint = Vector2.new(0.5,0),
-					Position = UDim2.fromScale(0.3, 0),
-					Size = UDim2.new(0, 1, 1, 0),
+					AnchorPoint = Vector2.new(0.5,0.5),
+					Position = UDim2.fromScale(0.3, 0.5),
+					Size = UDim2.new(0, 2, 0, 25),
 	
 					BackgroundColor3 = Color3.fromHex("A3A3A6"),
 				},
@@ -82,9 +82,9 @@ function PocketMenu:_renderSchedule()
 
 				Fusion.New "Frame" {
 					Name = "VLine",
-					AnchorPoint = Vector2.new(0.5,0),
-					Position = UDim2.fromScale(0.6, 0),
-					Size = UDim2.new(0, 1, 1, 0),
+					AnchorPoint = Vector2.new(0.5,0.5),
+					Position = UDim2.fromScale(0.6, 0.5),
+					Size = UDim2.new(0, 2, 0, 25),
 	
 					BackgroundColor3 = Color3.fromHex("A3A3A6"),
 				},
@@ -98,11 +98,14 @@ function PocketMenu:_renderSchedule()
 					BackgroundColor3 = BrickColor.Green().Color,
 					AnchorPoint = Vector2.new(0.5,0.5),
 					Position = UDim2.fromScale(0.8,0.5),
-					Size = UDim2.fromOffset(100, ROW_HEIGHT-5),
+					Size = UDim2.fromOffset(100, 25),
+
+					BackgroundTransparency = rowProps.PocketName == "The Rising Sea" and 0.8 or 0,
+					TextTransparency = rowProps.PocketName == "The Rising Sea" and 0.8 or 0,
 					
-					[Fusion.OnEvent "Activated"] = function()
+					[Fusion.OnEvent "Activated"] = rowProps.PocketName ~= "The Rising Sea" and function()
 						Remotes.Goto:FireServer(rowProps.PocketName)
-					end,
+					end or nil,
 				},
 			}
 		}
