@@ -151,12 +151,8 @@ function SeminarService:GetCurrentSeminars()
 		seminar.StartTime = self:_decodeTime(dateStr, utcOffsetStr, startTimeStr)
 		seminar.EndTime = self:_decodeTime(dateStr, utcOffsetStr, endTimeStr)
 
-		local url = nil
-		pcall(function()
-			url = HttpService:UrlDecode(data.location)
-		end)
-		
-		if url then
+		if data.location then
+			local url: string = data.location:gsub("%%20", " "):gsub("%%3A", ":")
 			local pocketMatch = url:match("pocket:(.+)$")
 			if pocketMatch then
 				seminar.PocketName = pocketMatch

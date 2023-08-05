@@ -1,8 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Pocket = ReplicatedStorage.OS.Pocket
 local PocketMenu = require(Pocket.UI.PocketMenu)
 local PocketImages = require(Pocket.Config).PocketTeleportBackgrounds
+local SeminarService = require(ServerScriptService.OS.SeminarService)
 
 return function(target)
 	local menu = PocketMenu.new()
@@ -18,6 +20,7 @@ return function(target)
 	} :: {PocketMenu.PocketData}
 
 	menu:SetPockets(pockets)
+	menu:SetSchedule(SeminarService:GetCurrentSeminars())
 
 	local instance = menu:render()
 	instance.Parent = target
