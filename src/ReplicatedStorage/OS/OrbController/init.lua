@@ -181,8 +181,10 @@ function OrbController:Start()
 	local SPEED = 1/3 * 2 * math.pi -- speed = frequency * 2π
 	local CamPositionGoal = Value(workspace.CurrentCamera.CFrame.Position)
 	local CamLookAtGoal = Value(workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector)
+	local CamFOVGoal = Value(workspace.CurrentCamera.FieldOfView)
 	local PositionSpring = Spring(CamPositionGoal, SPEED, DAMPING)
 	local LookAtSpring = Spring(CamLookAtGoal, SPEED, DAMPING)
+	local FOVSpring = Spring(CamFOVGoal, 2.5*SPEED, DAMPING)
 
 	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
@@ -270,10 +272,12 @@ function OrbController:Start()
 			PositionSpring:setVelocity(Vector3.zero)
 			LookAtSpring:setPosition(CamLookAtGoal:get())
 			LookAtSpring:setVelocity(Vector3.zero)
+			FOVSpring:setPosition(CamFOVGoal:get())
+			FOVSpring:setVelocity(0)
 			
 			-- Allow code to steer orbcam
 			camera.CameraType = Enum.CameraType.Scriptable
-			camera.FieldOfView = Config.OrbcamFOV
+			camera.FieldOfView = FOVSpring:get()
 			camera.CFrame = CFrame.lookAt(PositionSpring:get(), LookAtSpring:get())
 		elseif camera then
 			if playerCamFOV and playerCamCFrame then
@@ -370,9 +374,11 @@ function OrbController:Start()
 					end
 					CamPositionGoal:set(camPos)
 					CamLookAtGoal:set(chaseTarget)
+					CamFOVGoal:set(Config.OrbcamFOV)
 				end
 	
 				workspace.CurrentCamera.CFrame = CFrame.lookAt(PositionSpring:get(), LookAtSpring:get())
+				workspace.CurrentCamera.FieldOfView = FOVSpring:get()
 			end)
 		end
 
@@ -383,6 +389,7 @@ function OrbController:Start()
 			local camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0,5,0)
 			CamPositionGoal:set(camPos)
 			CamLookAtGoal:set(chaseTarget)
+			CamFOVGoal:set(Config.OrbcamFOV)
 			return
 		end
 
@@ -394,7 +401,8 @@ function OrbController:Start()
 			return
 		end
 
-		local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, Config.OrbcamFOV, viewportSize, Config.OrbcamBuffer)
+		local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, Config.OrbcamFOV, Config.AssumedViewportSize, Config.OrbcamBuffer)
+		local fov = CameraUtils.GetFOVForBoards(cframe, boards, viewportSize, Config.OrbcamBuffer)
 		
 		if showAudience then
 			
@@ -441,6 +449,7 @@ function OrbController:Start()
 			if audienceEmpty then
 				CamPositionGoal:set(cframe.Position)
 				CamLookAtGoal:set(lookTarget)
+				CamFOVGoal:set(fov)
 				return 
 			end
 
@@ -453,9 +462,11 @@ function OrbController:Start()
 			
 			CamPositionGoal:set(cframeWithAudience.Position + Vector3.new(0, 5, 0))
 			CamLookAtGoal:set(lookTargetWithAudience)
+			CamFOVGoal:set(Config.OrbcamFOV)
 		else
 			CamPositionGoal:set(cframe.Position)
 			CamLookAtGoal:set(lookTarget)
+			CamFOVGoal:set(fov)
 		end
 		
 	end)
@@ -516,13 +527,15 @@ function OrbController:Start()
 		},
 		CamPositionGoal = Rxf.fromState(CamPositionGoal),
 		CamLookAtGoal = Rxf.fromState(CamLookAtGoal),
+		CamFOVGoal = Rxf.fromState(CamFOVGoal),
 	}:Subscribe(function(data)
 		local poi1: Part? = data.Poi1
 		local rootPart: Part? = data.RootPart
 		local humanoidState: Enum.HumanoidStateType? = data.HumanoidState
 		local moveDirection: Vector3? = data.MoveDirection
-		local camPositionGoal: Vector3? = data.CamPositionGoal
-		local camLookAtGoal: Vector3? = data.CamLookAtGoal
+		local camPositionGoal: Vector3 = data.CamPositionGoal
+		local camLookAtGoal: Vector3 = data.CamLookAtGoal
+		local camFOVGoal: number = data.CamFOVGoal
 
 		-- We're either about to tween elsewhere or not tween at all
 		if turnTween then
@@ -567,7 +580,7 @@ function OrbController:Start()
 			turnTween = TweenService:Create(rootPart, tweenInfo, {
 				CFrame = CFrame.lookAt(rootPart.Position, target)
 			})
-			turnTween:Play()
+			;(turnTween :: Tween):Play()
 		end
 	end)
 

@@ -115,4 +115,55 @@ function CameraUtils.FitTargetsAlongCFrameRay(cframeRay: CFrame, targets: {Part}
 	return cframeRay * CFrame.new(0, 0, maxZDistanceToCentre)
 end
 
+function CameraUtils.GetFOVForTargets(camCFrame: CFrame, targets: {Part}, viewportSize: Vector2, buffer: Vector2)
+	assert(#targets > 0, "Expected at least one target")
+
+	-- The positions of the part vertices
+	local extremities = {}
+	for _, target in ipairs(targets) do
+		local halfSize = 0.5 * target.Size
+		local cframe = target.CFrame
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1, 1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1,-1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1, 1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1,-1, 1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1, 1,-1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new( 1,-1,-1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1, 1,-1))).Position)
+		table.insert(extremities, (cframe * CFrame.new(halfSize * Vector3.new(-1,-1,-1))).Position)
+	end
+
+	local maxVerticalFOV = 0
+	
+	for _, point in ipairs(extremities) do
+		local v = (point - camCFrame.Position)
+		do -- Vertical
+			local halfHeight = math.abs(v:Dot(camCFrame.UpVector.Unit)) * (1 + buffer.Y / (0.5 * viewportSize.Y))
+			local zDistance = v:Dot(camCFrame.LookVector.Unit)
+			local verticalFOV = 2 * math.deg(math.atan(halfHeight/zDistance))
+			maxVerticalFOV = math.max(verticalFOV, maxVerticalFOV)
+		end
+		do -- Horizontal
+			local halfWidth = math.abs(v:Dot(camCFrame.RightVector.Unit)) * (1 + buffer.X / (0.5 * viewportSize.X))
+			-- Convert to vertical
+			local halfHeight = halfWidth / (viewportSize.X / viewportSize.Y)
+			local zDistance = v:Dot(camCFrame.LookVector.Unit)
+			local verticalFOV = 2 * math.deg(math.atan(halfHeight/zDistance))
+			maxVerticalFOV = math.max(verticalFOV, maxVerticalFOV)
+		end
+	end
+
+	return maxVerticalFOV
+end
+
+
+function CameraUtils.GetFOVForBoards(camCFrame: CFrame, boards: {any}, viewportSize: Vector2, buffer: Vector2)
+	local targets = table.create(#boards)
+	for _, board in ipairs(boards) do
+		table.insert(targets, board._instance)
+	end
+
+	return CameraUtils.GetFOVForTargets(camCFrame, targets, viewportSize, buffer)
+end
+
 return CameraUtils
