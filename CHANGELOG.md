@@ -8,6 +8,11 @@ date pushed, rather than date-commited.
 See #metauni-commits in the metauni discord to find commits by date
 
 ### 05/08/23
+- Added [Macro class](./src/ReplicatedStorage/OS/Macro.lua)
+- Added Shift + H toggle to hide (almost) everything for orbcam recording.
+	- Note: Cmd/Ctrl + Shift + G hides the Roblox menu too.
+
+### 05/08/23
 - Changed Orbcam so client zooms camera instead of moving when looking at boards
 	- Previously it moved forward/backward to account for the screen aspect ratio. The orb itself is (and was) positioned so that the hypothetical "server camera" would be correct according to an assumed aspect ratio (16:9), and the clients would do their own positioning calculation with their actual aspect ratio.
 	- This was a problem because someone with a narrow aspect ratio might see the speaker blocking the view, while the speaker is out of frame on their own client.
