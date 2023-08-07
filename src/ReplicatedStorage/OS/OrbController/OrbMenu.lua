@@ -11,6 +11,7 @@ local Tween = Fusion.Tween
 
 local UI = require(ReplicatedStorage.OS.UI)
 local EmojiList = require(script.Parent.EmojiList)
+local Macro = require(ReplicatedStorage.OS.Macro)
 
 return function(props)
 
@@ -529,46 +530,13 @@ return function(props)
 		}
 	}
 
-	local macros = {
-		{
-			Keys = {Enum.KeyCode.LeftShift, Enum.KeyCode.C},
-			Callback = function()
-				props.SetOrbcamActive(not props.OrbcamActive:get())
-			end,
-		},
-		{
-			Keys = {Enum.KeyCode.LeftShift, Enum.KeyCode.E},
-			Callback = function()
-				ActiveMenu:set("Emoji")
-			end,
-		},
-	}
+	local HideGui = Value(false)
 
 	return UI.Div {
 
-		Parent = props.Parent,
-
 		[Fusion.Cleanup] = {
-			-- Detect macro key presses and fire callback
-			UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessedEvent: boolean)
-				if gameProcessedEvent or input.KeyCode == nil then
-					return
-				end
-
-				for _, macro in ipairs(macros) do
-					if macro.Keys[#macro.Keys] == input.KeyCode then
-						local allHeld = true
-						for _, key in macro.Keys do
-							if not UserInputService:IsKeyDown(key) then
-								allHeld = false
-							end
-						end
-						if allHeld then
-							macro.Callback()
-						end
-					end
-				end
-				
+			Macro.new(Enum.KeyCode.LeftShift, Enum.KeyCode.E):Connect(function()
+				ActiveMenu:set("Emoji")
 			end),
 		},
 

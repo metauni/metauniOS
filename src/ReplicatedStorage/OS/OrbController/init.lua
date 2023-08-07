@@ -12,6 +12,7 @@ local Rxf = require(ReplicatedStorage.OS.Rxf)
 local Destructor = require(ReplicatedStorage.OS.Destructor)
 local IconController = require(ReplicatedStorage.Packages.Icon.IconController)
 local Themes = require(ReplicatedStorage.Packages.Icon.Themes)
+local Macro = require(ReplicatedStorage.OS.Macro)
 
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
@@ -656,11 +657,40 @@ function OrbController:Start()
 	PoiHighlight(observePoi2)
 
 	local AttachedOrb = observedValue(observeAttachedOrb)
+	local Visible = Value(true)
+
+	local function setAllGuiVisibility(visible: boolean)
+		game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, visible)
+		IconController.setTopbarEnabled(visible)
+	end
 
 	-- UI in bottom right when orbcam is active
 	New "ScreenGui" {
 
 		Parent = Players.LocalPlayer.PlayerGui,
+		Enabled = Visible,
+
+		[Fusion.Cleanup] = {
+			Macro.new(Enum.KeyCode.LeftShift, Enum.KeyCode.H):Connect(function()
+				local newVisible = not Visible:get()
+				setAllGuiVisibility(newVisible)
+				Visible:set(newVisible)
+			end),
+			
+			function() -- Unhide everything when exiting orbcam
+				setAllGuiVisibility(true)
+			end,
+
+			-- If someone unknowingly does Shift+H and panics with Reset Character,
+			-- this will show everything again!
+			Players.LocalPlayer.CharacterAdded:Connect(function()
+				setAllGuiVisibility(true)
+			end),
+
+			Macro.new(Enum.KeyCode.LeftShift, Enum.KeyCode.C):Connect(function()
+				OrbcamActive:set(not OrbcamActive:get())
+			end),
+		},
 
 		[Children] = 
 			Computed(function()
