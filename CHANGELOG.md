@@ -7,7 +7,7 @@ date pushed, rather than date-commited.
 
 See #metauni-commits in the metauni discord to find commits by date
 
-### 05/08/23
+### 07/08/23
 - Added [Macro class](./src/ReplicatedStorage/OS/Macro.lua)
 - Added Shift + H toggle to hide (almost) everything for orbcam recording.
 	- Note: Cmd/Ctrl + Shift + G hides the Roblox menu too.
