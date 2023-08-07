@@ -189,6 +189,38 @@ local function Padding(props)
 	}
 end
 
+local function VLine(props)
+
+	local defaultProps = {
+		Name = "VLine",
+		AnchorPoint = Vector2.new(0.5,0.5),
+		Position = UDim2.fromScale(0.5,0.5),
+		Size = UDim2.new(0,1 or props.Thickness,1,0),
+	}
+
+	local removeProps = {
+		Thickness = Sift.None,
+	}
+
+	return Fusion.New "Frame" (Sift.Dictionary.merge(defaultProps, props, removeProps))
+end
+
+local function HLine(props)
+
+	local defaultProps = {
+		Name = "VLine",
+		AnchorPoint = Vector2.new(0.5,0.5),
+		Position = UDim2.fromScale(0.5,0.5),
+		Size = UDim2.new(1,0,0,1 or props.Thickness),
+	}
+
+	local removeProps = {
+		Thickness = Sift.None,
+	}
+
+	return Fusion.New "Frame" (Sift.Dictionary.merge(defaultProps, props, removeProps))
+end
+
 local function RoundedFrame(props)
 	
 	local defaultProps = {
@@ -363,6 +395,9 @@ return {
 	HighlightTextButton = HighlightTextButton,
 	Padding = Padding,
 	X = X,
+
+	VLine = VLine,
+	HLine = HLine,
 
 	_Div = _Div,
 	_ = _Div {},

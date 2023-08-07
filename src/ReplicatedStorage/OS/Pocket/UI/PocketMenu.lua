@@ -42,12 +42,9 @@ function PocketMenu:_renderSchedule()
 			LayoutOrder = rowProps.LayoutOrder,
 
 			[Fusion.Children] = {
-				Fusion.New "Frame" {
-					Name = "HLine",
-					AnchorPoint = Vector2.new(0,0.5),
-					Position = UDim2.fromScale(0, 1),
+				UI.HLine {
+					Position = UDim2.fromScale(0.5, 1),
 					Size = UDim2.new(1,0,0,1),
-	
 					BackgroundColor3 = Color3.fromHex("F3F3F6"),
 				},
 
@@ -61,9 +58,7 @@ function PocketMenu:_renderSchedule()
 
 				},
 
-				Fusion.New "Frame" {
-					Name = "VLine",
-					AnchorPoint = Vector2.new(0.5,0.5),
+				UI.VLine {
 					Position = UDim2.fromScale(0.3, 0.5),
 					Size = UDim2.new(0, 2, 0, 25),
 	
@@ -80,9 +75,7 @@ function PocketMenu:_renderSchedule()
 
 				},
 
-				Fusion.New "Frame" {
-					Name = "VLine",
-					AnchorPoint = Vector2.new(0.5,0.5),
+				UI.VLine {
 					Position = UDim2.fromScale(0.6, 0.5),
 					Size = UDim2.new(0, 2, 0, 25),
 	

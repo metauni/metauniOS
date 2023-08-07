@@ -19,13 +19,16 @@ return function(target)
 		{Name = "Overland 1", Image = PocketImages["Overland"]},
 	} :: {PocketMenu.PocketData}
 
-	menu:SetPockets(pockets)
-	menu:SetSchedule(SeminarService:GetCurrentSeminars())
+	local fetch = task.spawn(function()
+		menu:SetPockets(pockets)
+		menu:SetSchedule(SeminarService:GetCurrentSeminars())
+	end)
 
 	local instance = menu:render()
 	instance.Parent = target
 
 	return function()
+		coroutine.close(fetch)
 		target:Destroy()
 	end
 end
