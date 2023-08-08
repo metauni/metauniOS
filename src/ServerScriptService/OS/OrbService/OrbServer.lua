@@ -133,7 +133,7 @@ function OrbServer.new(orbPart: Part)
 		RollOffMinDistance = 10,
 		Playing = false,
 		Looped = false,
-		Volume = 0.2,
+		Volume = 0.05,
 	}
 	
 	local detachSound = NewTracked "Sound" {
@@ -146,7 +146,7 @@ function OrbServer.new(orbPart: Part)
 		RollOffMinDistance = 10,
 		Playing = false,
 		Looped = false,
-		Volume = 0.2,
+		Volume = 0.05,
 	}
 
 	destructor:Add(
