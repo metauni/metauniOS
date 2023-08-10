@@ -1,0 +1,13 @@
+{
+	"name": "metauni Tools",
+	"tree": {
+		
+		"$className": "Folder",
+
+		"Packages": { "$path": "Packages" },
+
+		"Plugin": {
+			"$path": "src"
+		}
+	}
+}

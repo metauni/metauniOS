@@ -1,0 +1,11 @@
+[package]
+name = "metauni/metauni-tools"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+private = true
+
+[dependencies]
+Fusion = "elttob/fusion@0.2.0"
+t = "osyrisrblx/t@3.0.0"
+PluginEssentials = "aloroid/pluginessentials@0.1.2"
