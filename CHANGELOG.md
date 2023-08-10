@@ -7,6 +7,9 @@ date pushed, rather than date-commited.
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 10/08/23
+- Added plugin with curved board placement feature.
+
 ### 08/08/23
 - Quieter orb attach/detach sounds
 
