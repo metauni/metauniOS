@@ -42,6 +42,7 @@ local function downloadAssetId(assetId: number)
 			)
 		)
 	elseif type(assetApiBody.locations) ~= "table" then
+		--selene:allow(if_same_then_else)
 		error(
 			string.format(
 				"Asset delivery API returned an invalid response body!\n%s",
@@ -96,16 +97,13 @@ local function uploadPlaceId(place: roblox.DataModel, placeId: number): net.Fetc
 	
 	local apiKey = process.env["METAUNIOS_PUBLISH_KEY"]
 	local universeId = metauni.UniverseId
-	-- local contents = roblox.serializePlace(place) BAD DOESN'T WORK WITH CURRENT LUNE
-
-	local contents = roblox.serializePlace(place, true)
+	local contents = roblox.serializePlace(place)
 
 	return net.request({
 		url = `https://apis.roblox.com/universes/v1/{universeId}/places/{placeId}/versions`,
 		headers = {
 				["x-api-key"] = apiKey,
-				["Content-Type"] = "application/xml",
-				-- ["Content-Type"] = "applicsation/octet-stream", BAD DOESN'T WORK WITH CURRENT LUNE
+				["Content-Type"] = "applicsation/octet-stream",
 		},
 		query = {
 				versionType = "Published",
@@ -115,55 +113,11 @@ local function uploadPlaceId(place: roblox.DataModel, placeId: number): net.Fetc
 	})
 end
 
-
-local function legacyUploadAssetId(contents: string, assetId: number): net.FetchResponse
-	-- 1. Try to find the auth cookie for the current user
-	local cookie = roblox.getAuthCookie()
- 
-	-- 2. Create request headers in advance, we might re-use them for CSRF challenges
-	local headers = {
-		["User-Agent"] = "Roblox/WinInet",
-		["Content-Type"] = "application/xml",
-		-- ["Content-Type"] = "application/octet-stream",
-		Accept = "application/json",
-		Cookie = cookie,
-	}
- 
-	-- 3. Create and send a request to the upload url
-	local uploadResponse = net.request({
-		url = `https://data.roblox.com/Data/Upload.ashx?assetid={assetId}`,
-		body = contents,
-		method = "POST",
-		headers = headers,
-	})
- 
-	-- 4. Check if we got a valid response, we might have gotten a CSRF
-	--    challenge and need to send the request with a token included
-	if
-		not uploadResponse.ok
-		and uploadResponse.statusCode == 403
-		and uploadResponse.headers["x-csrf-token"] ~= nil
-	then
-		headers["X-CSRF-Token"] = uploadResponse.headers["x-csrf-token"]
-		uploadResponse = net.request({
-			url = `https://data.roblox.com/Data/Upload.ashx?assetid={assetId}`,
-			body = contents,
-			method = "POST",
-			headers = headers,
-		})
-	end
-
-	return uploadResponse
-end
-
 function assetApi.downloadPlace(placeId: number)
 	local contents = downloadAssetId(placeId)
 	local place = roblox.deserializePlace(contents)
 	return place
 end
-
-assetApi._downloadAssetId = downloadAssetId
-
 
 function assetApi.publishExistingPlace(place: roblox.DataModel, placeId: number): net.FetchResponse
 	local uploadResponse = uploadPlaceId(place, placeId)
