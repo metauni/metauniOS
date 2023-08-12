@@ -45,6 +45,21 @@ return function(player: Player)
 			Rxi.property("Value")
 		}
 
+	local function onResetOrRemove()
+		local orbValue = PlayerToOrb:FindFirstChild(tostring(player.UserId))
+		if not orbValue then
+			return
+		end
+
+		if orbValue.Value then
+			local speakerValue = orbValue.Value:FindFirstChild("Speaker")
+			if speakerValue and speakerValue.Value == player then
+				speakerValue.Value = nil
+			end
+		end
+		orbValue.Value = nil
+	end
+
 	-- Detach from Orb on reset
 	destructor:Add(
 		Rx.of(player):Pipe {
@@ -52,23 +67,15 @@ return function(player: Player)
 			Rxi.findFirstChild("Humanoid"),
 			Rxi.notNil(),
 			Rx.switchMap(function(humanoid: Humanoid)
-				return Rx.fromSignal(humanoid.Died)
+				return Rx.fromSignal(humanoid.StateChanged)
+			end),
+			Rx.where(function(_old, new)
+				return new == Enum.HumanoidStateType.Dead
 			end)
-		}:Subscribe(function()
-			local orbValue = PlayerToOrb:FindFirstChild(tostring(player.UserId))
-			if not orbValue then
-				return
-			end
-
-			if orbValue.Value then
-				local speakerValue = orbValue.Value:FindFirstChild("Speaker")
-				if speakerValue and speakerValue.Value == Players.LocalPlayer then
-					speakerValue.Value = nil
-				end
-			end
-			orbValue.Value = nil
-		end)
+		}:Subscribe(onResetOrRemove)
 	)
+
+	destructor:Add(Rx.fromSignal(player.CharacterRemoving):Subscribe(onResetOrRemove))
 
 	destructor:Add(
 		Rx.combineLatest{
@@ -422,7 +429,7 @@ return function(player: Player)
 				return
 			end
 
-			local ghost: Model = ghostHumanoid.Parent
+			local ghost = (ghostHumanoid.Parent :: Model)
 
 			if mode == "fading" then
 				return
