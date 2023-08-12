@@ -1195,7 +1195,9 @@ function export.combineLatestAll(): Transformer
 			local alive = true
 			local maid = {}
 
-			table.insert(maid, function() alive = false end)
+			table.insert(maid, function()
+				alive = false
+			end)
 			table.insert(maid, source:Subscribe(
 				function(value)
 					assert(isObservable(value))

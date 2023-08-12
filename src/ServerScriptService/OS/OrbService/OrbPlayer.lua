@@ -69,7 +69,7 @@ return function(player: Player)
 			Rx.switchMap(function(humanoid: Humanoid)
 				return Rx.fromSignal(humanoid.StateChanged)
 			end),
-			Rx.where(function(_old, new)
+			Rx.where(function(_old: Enum.HumanoidStateType, new: Enum.HumanoidStateType)
 				return new == Enum.HumanoidStateType.Dead
 			end)
 		}:Subscribe(onResetOrRemove)
@@ -143,7 +143,7 @@ return function(player: Player)
 
 	-- Emit the observed part's position (or nil) every second, but only when it has changed
 	local function throttledMovement(interval: number)
-		return function(source: Observable)
+		return function(source: Rx.Observable)
 			return source:Pipe {
 				Rx.switchMap(function(part: Part)
 					return Rx.timer(0, interval):Pipe({
@@ -158,8 +158,8 @@ return function(player: Player)
 	end
 
 	local Ghost = Value(nil)
-	export type Mode = "hidden" | "fading" | "seeking" | "standing"
-	local Mode: Value<Mode> = Value("hidden")
+	type Mode = "hidden" | "fading" | "seeking" | "standing"
+	local Mode: Fusion.Value<Mode> = Value("hidden")
 
 	local function buildGhost(character)
 		character.Archivable = true

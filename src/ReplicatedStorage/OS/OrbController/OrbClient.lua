@@ -16,7 +16,7 @@ local Remotes = script.Parent.Remotes
 local OrbClient = {}
 OrbClient.__index = OrbClient
 
-function OrbClient.new(orbPart: Part, observeAttached: Observable<boolean>): OrbClient
+function OrbClient.new(orbPart: Part, observeAttached: Rx.Observable)
 
 	local destructor = Destructor.new()
 
@@ -29,7 +29,7 @@ function OrbClient.new(orbPart: Part, observeAttached: Observable<boolean>): Orb
 
 	-- Transform an observable into a Fusion StateObject that
 	-- holds the latest observed value
-	local function observedValue(observable: Rx.Observable<T>): Value<T>
+	local function observedValue<T>(observable: Rx.Observable): Fusion.Value<T>
 		local value = Value()
 		destructor:Add(observable:Subscribe(function(newValue)
 			value:set(newValue)
