@@ -406,7 +406,7 @@ function OrbController:Start()
 		local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, Config.OrbcamFOV, Config.AssumedViewportSize, Config.OrbcamBuffer)
 		local fov = CameraUtils.GetFOVForBoards(cframe, boards, viewportSize, Config.OrbcamBuffer)
 		
-		if showAudience then
+		if showAudience and speakerCharacter then
 			
 			-- The boards + the audience characters
 			local targets = {poi1, poi2}
