@@ -7,6 +7,9 @@ date pushed, rather than date-commited.
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 12/08/23
+- Added persistId viewing/editing to plugin.
+
 ## 10/08/23
 - Added plugin with curved board placement feature.
 
