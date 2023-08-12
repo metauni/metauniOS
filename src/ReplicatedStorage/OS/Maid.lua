@@ -410,4 +410,14 @@ function Maid:__newindex(name: any, task: Task?)
 	end
 end
 
+-- Alias for compatibility
+function Maid.__index:GiveTask(task: Task)
+	self:AssignEach(task)
+end
+
+-- Alias for compatibility
+function Maid.__index:DoCleaning()
+	self:Destroy()
+end
+
 return table.freeze(export)
