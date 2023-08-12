@@ -56,7 +56,7 @@ function OrbClient.new(orbPart: Part, observeAttached: Observable<boolean>): Orb
 		ObjectText = "Orb",
 		RequiresLineOfSight = false,
 		Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow,
-		HoldDuration = 1,
+		HoldDuration = 0.6,
 		Parent = orbPart,
 	}
 
@@ -92,7 +92,7 @@ function OrbClient.new(orbPart: Part, observeAttached: Observable<boolean>): Orb
 
 		MaxActivationDistance = 24,
 		Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow,
-		HoldDuration = 1,
+		HoldDuration = 0.6,
 		ObjectText = "Orb",
 		RequiresLineOfSight = false,
 		
