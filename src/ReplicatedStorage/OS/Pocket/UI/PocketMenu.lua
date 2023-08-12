@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local UI = require(ReplicatedStorage.OS.UI)
+local Rx = require(ReplicatedStorage.OS.Rx)
+local Rxi = require(ReplicatedStorage.OS.Rxi)
 
 local PocketCard = require(script.Parent.PocketCard)
 local Remotes = ReplicatedStorage.OS.Pocket.Remotes
@@ -335,13 +337,30 @@ function PocketMenu:render()
 		},
 	}
 
+	local observeScale = Rx.of(workspace):Pipe {
+		Rxi.property("CurrentCamera"),
+		Rxi.property("ViewportSize"),
+		Rx.map(function(viewportSize: Vector2?)
+			if not viewportSize or viewportSize.X == 1 or viewportSize.Y == 1 then
+				return 1
+			else
+				return math.min(1, viewportSize.Y / 850)
+			end
+		end)
+	}
+
+	local Scale = Fusion.Value(0)
+
 	return Fusion.New "ScreenGui" {
 		Name = "PocketMenu",
 		IgnoreGuiInset = true,
 		[Fusion.Children] = {
 			wholeMenu,
 			Fusion.New "UIScale" {
-				Scale = math.min(1, workspace.CurrentCamera.ViewportSize.Y / 850),
+				Scale = Scale,
+				[Fusion.Cleanup] = observeScale:Subscribe(function(scale: number)
+					Scale:set(scale)
+				end)
 			}
 		},
 	}
