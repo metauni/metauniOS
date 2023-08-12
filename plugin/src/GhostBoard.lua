@@ -85,8 +85,22 @@ function GhostBoard:_updateSelectedBoard()
 end
 
 function GhostBoard:_setNewGhost()
+	local oldGhost = self._ghost:get()
+	if oldGhost then
+		oldGhost:Destroy()
+	end
+
 	local selectedBoard = self._selectedBoard:get(false)
 	local ghost = selectedBoard and selectedBoard:Clone() or nil
+
+	if ghost then
+		ghost.Name = "ghost-"..ghost.Name
+		-- This messes with the PersistId board binder
+		ghost:RemoveTag("metaboard")
+		if ghost:IsA("Model") and ghost.PrimaryPart then
+			ghost.PrimaryPart:RemoveTag("metaboard")
+		end
+	end
 
 	self._ghost:set(ghost)
 	

@@ -12,6 +12,7 @@ local TextInput = PluginEssentials.TextInput
 local Fusion = require(Packages.Fusion)
 
 local GhostBoard = require(script.Parent.GhostBoard)
+local PersistIdManager = require(script.Parent.PersistIdManager)
 local BaseObject = require(script.Parent.BaseObject)
 
 local App = setmetatable({}, BaseObject)
@@ -27,6 +28,8 @@ return function(pluginProps)
 		return Radius:get() and tonumber(Apart:get())
 	end)
 
+	local persistIdManager = PersistIdManager.new()
+
 	local ghostBoard = GhostBoard.new(Radius:get(false), Apart:get(false))
 
 	if pluginProps.WidgetEnabled:get(false) then
@@ -39,17 +42,20 @@ return function(pluginProps)
 		end),
 		Parent = game:GetService("CoreGui")
 	})
-	
+
 	local cleanup = {
 
 		ghostBoard,
 		viewer,
+		persistIdManager,
 
 		Fusion.Observer(pluginProps.WidgetEnabled):onChange(function()
 			if pluginProps.WidgetEnabled:get() then
 				ghostBoard:Start()
+				persistIdManager:Start()
 			else
 				ghostBoard:Stop()
+				persistIdManager:Stop()
 			end
 		end),
 
@@ -131,6 +137,11 @@ return function(pluginProps)
 					Position = UDim2.fromScale(0,0),
 					Size = UDim2.new(1,0,0, 30),
 					BackgroundTransparency = 1,
+
+					[Fusion.OnEvent "MouseLeave"] = function()
+						Side:set(nil)
+					end,
+
 					[Fusion.Children] = Fusion.Computed(function()
 						if not ghostBoard:State():get() then
 							return {Label {
@@ -152,12 +163,12 @@ return function(pluginProps)
 										[Fusion.OnEvent "MouseEnter"] = function()
 											Side:set(side)
 										end,
-										[Fusion.OnEvent "MouseLeave"] = function()
-											Side:set(nil)
-										end,
+										
 										[Fusion.OnEvent "Activated"] = function()
-											local clone = ghostBoard:CreateCopyAtGhost()
-											Selection:set({clone})
+											if Valid:get(false) then
+												local clone = ghostBoard:CreateCopyAtGhost()
+												Selection:set({clone})
+											end
 										end,
 									}
 								end, Fusion.cleanup)

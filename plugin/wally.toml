@@ -9,3 +9,5 @@ private = true
 Fusion = "elttob/fusion@0.2.0"
 t = "osyrisrblx/t@3.0.0"
 PluginEssentials = "aloroid/pluginessentials@0.1.2"
+Promise = "evaera/promise@4.0.0"
+GoodSignal = "stravant/goodsignal@0.2.1"

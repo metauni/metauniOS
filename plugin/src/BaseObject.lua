@@ -13,7 +13,7 @@ function BaseObject.new(obj: any)
 end
 
 function BaseObject:Destroy()
-	self._maid:Clean()
+	self._maid:Destroy()
 	-- Make it impossible to destroy twice (will cause erro)
 	setmetatable(self, nil)
 end

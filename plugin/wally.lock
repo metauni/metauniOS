@@ -13,11 +13,21 @@ version = "0.2.0"
 dependencies = []
 
 [[package]]
+name = "evaera/promise"
+version = "4.0.0"
+dependencies = []
+
+[[package]]
 name = "metauni/metauni-tools"
 version = "0.1.0"
-dependencies = [["Fusion", "elttob/fusion@0.2.0"], ["PluginEssentials", "aloroid/pluginessentials@0.1.2"], ["t", "osyrisrblx/t@3.0.0"]]
+dependencies = [["Fusion", "elttob/fusion@0.2.0"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["PluginEssentials", "aloroid/pluginessentials@0.1.2"], ["Promise", "evaera/promise@4.0.0"], ["t", "osyrisrblx/t@3.0.0"]]
 
 [[package]]
 name = "osyrisrblx/t"
 version = "3.0.0"
+dependencies = []
+
+[[package]]
+name = "stravant/goodsignal"
+version = "0.2.1"
 dependencies = []
