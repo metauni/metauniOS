@@ -8,6 +8,14 @@ See #metauni-commits in the metauni discord to find commits by date
 
 ## 12/08/23
 - Added persistId viewing/editing to plugin.
+- Fixed error caused when speaker unattaches with audience mode on
+- Added alias methods GiveTask and DoCleaning to Maid for compatibility with BaseObject, Binder
+- Added tooling for exporting types with wally packages (wally-package-types)
+- Fixed orb attachment not resetting when player leaves (only worked on Reset Character before)
+	- Also immediately detaches when Humanoid enters dead state (i.e. when body parts detach), instead of .Died event, which is later. This means the orb doesn't move erradically when the speaker dies.
+- Changed proximity prompt speed for attaching from 1sec to 0.6sec
+- Fixed PocketMenu UI not scaling for mobile
+	- workspace.CurrentCamera.ViewportSize is not always correct on startup
 
 ## 10/08/23
 - Added plugin with curved board placement feature.
