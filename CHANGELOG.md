@@ -2,8 +2,7 @@
 
 ## About
 We don't have release versions (except the git hash of the latest commit),
-so changes are loosely divided by date (dd/mm/yy), usually corresponding to
-date pushed, rather than date-commited.
+so changes are loosely divided by date (dd/mm/yy), either corresponding to date-pushed or date committed.
 
 See #metauni-commits in the metauni discord to find commits by date
 
