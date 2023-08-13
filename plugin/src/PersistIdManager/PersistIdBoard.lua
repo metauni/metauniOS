@@ -100,7 +100,7 @@ function PersistIdBoard:_render()
 						end
 					end
 					-- This is reached only on the failure path
-					TextBox:get().Text = PersistId:get(false)
+					TextBox:get().Text = PersistId:get(false) or ""
 				end
 
 			}
