@@ -16,7 +16,7 @@ local function StartDecalEntryDisplay(board)
     if modalGuiActive then return end
     modalGuiActive = true
 
-    local remoteEvent = ReplicatedStorage.AddDecalToBoard
+    local remoteEvent = ReplicatedStorage.OS.Remotes.AddDecalToBoard
 
     local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "BoardDecalDisplay"
