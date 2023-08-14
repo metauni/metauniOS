@@ -6,6 +6,9 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 14/08/23
+- Fixed board decals not saving (duplicate legacy code hadn't been deleted from some place files)
+
 ## 12/08/23
 - Added persistId viewing/editing to plugin.
 - Fixed error caused when speaker unattaches with audience mode on

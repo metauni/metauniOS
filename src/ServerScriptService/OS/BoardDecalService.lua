@@ -49,32 +49,23 @@ function BoardDecalService.Init()
 end
 
 function BoardDecalService.Start()
-    print("Starting BoardDecalService")
     BoardDecalService._addDecalToBoard.OnServerEvent:Connect(function(plr, board, assetId)
-        print("A", board:GetFullName(), assetId)
         local perm = plr:GetAttribute("metaadmin_isscribe")
         if not perm then
             warn("[Metaboard] Player does not have permission to add decal")
             return
         end
         
-        print("B", board:GetFullName(), assetId)
         BoardDecalService.SetDecal(board, assetId)
         
-        print("C", board:GetFullName(), assetId)
         local dataStoreName = "boarddecals" -- for TRS
         if Pocket:GetAttribute("IsPocket") then
             dataStoreName = "Pocket-" .. Pocket:GetAttribute("PocketId")
         end
-        print("D", board:GetFullName(), assetId)
         
         local DataStore = DataStoreService:GetDataStore(dataStoreName)
-        print("E", board:GetFullName(), assetId)
         local decalKey = decalKeyForBoard(board)
-        print("F", board:GetFullName(), assetId)
-        print("[BoardDecalService] SetAsync:", decalKey, assetId)
         DataStore:SetAsync(decalKey, assetId)
-        print("G", board:GetFullName(), assetId)
     end)
     local dataStoreName = "boarddecals"
 
