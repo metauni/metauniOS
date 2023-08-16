@@ -478,7 +478,7 @@ function OrbServer.new(orbPart: Part)
 			end
 
 			local poiBoards = Sift.Dictionary.filter(BoardService.Boards, function(board)
-				return not board._instance:HasTag("metaboard_personal_board")
+				return not board._instance:HasTag("metaboard_personal_board") and not board._instance:HasTag("orbcam_ignore")
 			end)
 
 			local firstBoard, firstPart do
