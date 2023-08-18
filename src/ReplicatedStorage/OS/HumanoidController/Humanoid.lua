@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContextActionService = game:GetService("ContextActionService")
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
-local BaseObject = require(ReplicatedStorage.OS.BaseObject)
+local BaseObject = require(ReplicatedStorage.Util.BaseObject)
 local Maid = require(ReplicatedStorage.Util.Maid)
 
 local Humanoid = setmetatable({}, BaseObject)
