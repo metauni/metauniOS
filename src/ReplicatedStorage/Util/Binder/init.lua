@@ -30,6 +30,7 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Brio = require(script.Parent.Brio)
 local Maid = require(script.Parent.Maid)
 local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
 local Rx = require(script.Parent.Rx)
@@ -202,7 +203,7 @@ function Binder:GetConstructor()
 end
 
 --[=[
-	Observes the current value of the instance
+	Observes a bound class on a given instance
 
 	@param instance Instance
 	@return Observable<T | nil>
@@ -223,6 +224,38 @@ function Binder:Observe(instance)
 end
 
 --[=[
+	Observes a bound class on a given instance as a Brio that dies when the
+	instance loses it's tag (either was destroyed, streamed out, or untagged)
+
+	@param instance Instance
+	@return Observable<Brio<T>>
+]=]
+function Binder:ObserveBrio(instance)
+	assert(typeof(instance) == "Instance", "Bad instance")
+
+	return Rx.observable(function(sub)
+		local maid = Maid.new()
+
+		local function handleClassChanged(class)
+			if class then
+				local brio = Brio.new(class)
+				maid._lastBrio = brio
+
+				sub:Fire(brio)
+			else
+				maid._lastBrio = nil
+			end
+		end
+
+		maid:GiveTask(self:ObserveInstance(instance, handleClassChanged))
+		handleClassChanged(self:Get(instance))
+
+		return maid
+	end)
+end
+
+--[=[
+	Usage discouraged (use :Observe or :ObserveBrio instead)
 	Fired when added, and then after removal, but before destroy!
 
 	:::info
@@ -234,7 +267,7 @@ end
 	@param callback function
 	@return function -- Cleanup function
 ]=]
-function Binder:ObserveInstance(inst, callback)
+function Binder:_observeInstance(inst, callback)
 	self._listeners[inst] = self._listeners[inst] or {}
 	self._listeners[inst][callback] = true
 
