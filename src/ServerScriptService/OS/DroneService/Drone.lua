@@ -10,8 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
 local Destructor = require(ReplicatedStorage.OS.Destructor)
-local Rx = require(ReplicatedStorage.OS.Rx)
-local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 local Remotes = ReplicatedStorage.OS.Drone.Remotes
 
 local Drone = {}

@@ -1,5 +1,6 @@
 local Maid = require(script.Parent.Maid)
 local Rx = require(script.Parent.Rx)
+local Brio = require(script.Parent.Brio)
 
 -- Rxi provides Rx primitives for producing live queries of instances.
 --
@@ -86,6 +87,23 @@ local function hasProperty(instance, property)
 	return (pcall(instance.GetPropertyChangedSignal, instance, property))
 end
 
+-- Observes a property of a held instance (use Rxi.property to chain to observed instance)
+function export.propertyOf(instance: Instance, property: string): Rx.Observable
+	assert(typeof(instance) == "Instance", "Bad instance")
+	return Rx.observable(function(sub)
+		if not hasProperty(instance, property) then
+			sub:Fire()
+			sub:Complete()
+			return
+		end
+		local conn = instance:GetPropertyChangedSignal(property):Connect(function()
+			sub:Fire((instance::any)[property])
+		end)
+		sub:Fire((instance::any)[property])
+		return conn
+	end)
+end
+
 -- Observes from the first value the property named *property*. Emits nothing
 -- while getting the property produces an error, or the first value is not an
 -- Instance.
@@ -94,18 +112,7 @@ function export.property(property: string): Rx.Transformer
 		export.isTypeOf("Instance"),
 		Rx.switchMap(function(instance: Instance)
 			if not instance then return nilobs() end
-			return Rx.observable(function(sub)
-				if not hasProperty(instance, property) then
-					sub:Fire()
-					sub:Complete()
-					return
-				end
-				local conn = instance:GetPropertyChangedSignal(property):Connect(function()
-					sub:Fire((instance::any)[property])
-				end)
-				sub:Fire((instance::any)[property])
-				return conn
-			end)
+			return export.propertyOf(instance, property)
 		end),
 	}
 end
@@ -381,6 +388,59 @@ function export.playerLifetime(): Rx.Observable
 			},
 		}
 	}
+end
+
+--[=[
+	Observes the children with a specific name.
+
+	@param parent Instance
+	@param className string
+	@param name string
+	@return Observable<Brio<Instance>>
+]=]
+function export.childrenOfNameBrio(parent, className, name)
+	assert(typeof(parent) == "Instance", "Bad parent")
+	assert(type(className) == "string", "Bad className")
+	assert(type(name) == "string", "Bad name")
+
+	return Rx.observable(function(sub)
+		local topMaid = Maid.new()
+
+		local function handleChild(child)
+			if not child:IsA(className) then
+				return
+			end
+
+			local maid = Maid.new()
+
+			local function handleNameChanged()
+				if child.Name == name then
+					local brio = Brio.new(child)
+					maid._brio = brio
+
+					sub:Fire(brio)
+				else
+					maid._brio = nil
+				end
+			end
+
+			topMaid[child] = maid
+
+			maid:GiveTask(child:GetPropertyChangedSignal("Name"):Connect(handleNameChanged))
+			handleNameChanged()
+		end
+
+		topMaid:GiveTask(parent.ChildAdded:Connect(handleChild))
+		topMaid:GiveTask(parent.ChildRemoved:Connect(function(child)
+			topMaid[child] = nil
+		end))
+
+		for _, child in pairs(parent:GetChildren()) do
+			handleChild(child)
+		end
+
+		return topMaid
+	end)
 end
 
 return table.freeze(export)

@@ -1,4 +1,5 @@
 local Maid = require(script.Parent.Maid)
+local Promise = require(script.Parent.Promise)
 
 export type Task = Maid.Task
 export type Fire = (...any) -> ()
@@ -267,6 +268,49 @@ function export.from(item: {any}): Observable
 		-- TODO: Iterator?
 		error("[Rx.from] - cannot convert")
 	end
+end
+
+--[=[
+	Converts a Promise into an observable.
+	https://rxjs-dev.firebaseapp.com/api/index/function/from
+
+	@param promise Promise<T>
+	@return Observable<T>
+]=]
+function export.fromPromise(promise)
+	assert(Promise.is(promise))
+
+	return newObservable(function(sub)
+		if promise:getStatus() == Promise.Status.Resolved then
+			-- First return value of await() is `true`, indicating resolved status
+			sub:Fire(select(2, promise:await()))
+			sub:Complete()
+			return nil
+		end
+
+		local maid = Maid.new()
+
+		local pending = true
+		maid:GiveTask(function()
+			pending = false
+		end)
+
+		promise:Then(
+			function(...)
+				if pending then
+					sub:Fire(...)
+					sub:Complete()
+				end
+			end,
+			function(...)
+				if pending then
+					sub:Fail(...)
+					sub:Complete()
+				end
+			end)
+
+		return maid
+	end)
 end
 
 --[=[

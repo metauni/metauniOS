@@ -11,7 +11,7 @@ local Tween = Fusion.Tween
 
 local UI = require(ReplicatedStorage.OS.UI)
 local EmojiList = require(script.Parent.EmojiList)
-local Macro = require(ReplicatedStorage.OS.Macro)
+local Macro = require(ReplicatedStorage.Util.Macro)
 
 return function(props)
 

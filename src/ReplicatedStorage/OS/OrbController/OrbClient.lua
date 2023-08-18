@@ -8,8 +8,8 @@ local Value = Fusion.Value
 local OnEvent = Fusion.OnEvent
 
 local Destructor = require(ReplicatedStorage.OS.Destructor)
-local Rx = require(ReplicatedStorage.OS.Rx)
-local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 
 local Remotes = script.Parent.Remotes
 

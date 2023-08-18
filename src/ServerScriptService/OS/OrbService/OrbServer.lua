@@ -11,8 +11,8 @@ local Children = Fusion.Children
 
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Destructor = require(ReplicatedStorage.OS.Destructor)
-local Rx = require(ReplicatedStorage.OS.Rx)
-local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 local BoardService = require(ServerScriptService.OS.BoardService)
 local CameraUtils = require(ReplicatedStorage.OS.OrbController.CameraUtils)
 local Ring = require(script.Parent.Ring)

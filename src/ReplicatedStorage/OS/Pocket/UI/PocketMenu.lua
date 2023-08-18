@@ -1,8 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local UI = require(ReplicatedStorage.OS.UI)
-local Rx = require(ReplicatedStorage.OS.Rx)
-local Rxi = require(ReplicatedStorage.OS.Rxi)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 
 local PocketCard = require(script.Parent.PocketCard)
 local Remotes = ReplicatedStorage.OS.Pocket.Remotes

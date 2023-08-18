@@ -11,9 +11,9 @@ local Children = Fusion.Children
 local Computed = Fusion.Computed
 
 local Destructor = require(ReplicatedStorage.OS.Destructor)
-local Rx = require(ReplicatedStorage.OS.Rx)
-local Rxi = require(ReplicatedStorage.OS.Rxi)
-local Rxf = require(ReplicatedStorage.OS.Rxf)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
+local Rxf = require(ReplicatedStorage.Util.Rxf)
 
 local Remotes = ReplicatedStorage.OS.OrbController.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)

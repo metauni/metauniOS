@@ -30,9 +30,9 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Maid = require(ReplicatedStorage.OS.Maid)
+local Maid = require(script.Parent.Maid)
 local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
-local Rx = require(ReplicatedStorage.OS.Rx)
+local Rx = require(script.Parent.Rx)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 
 local Binder = {}

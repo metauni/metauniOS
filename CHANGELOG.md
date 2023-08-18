@@ -27,7 +27,7 @@ See #metauni-commits in the metauni discord to find commits by date
 - Quieter orb attach/detach sounds
 
 ### 07/08/23
-- Added [Macro class](./src/ReplicatedStorage/OS/Macro.lua)
+- Added [Macro class](./src/ReplicatedStorage/Util/Macro.lua)
 - Added Shift + H toggle to hide (almost) everything for orbcam recording.
 	- Note: Cmd/Ctrl + Shift + G hides the Roblox menu too.
 

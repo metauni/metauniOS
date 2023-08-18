@@ -2,9 +2,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Humanoid = require(script.Humanoid)
-local Rx = require(ReplicatedStorage.OS.Rx)
-local Rxi = require(ReplicatedStorage.OS.Rxi)
-local Maid = require(ReplicatedStorage.OS.Maid)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
+local Maid = require(ReplicatedStorage.Util.Maid)
 local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
 
 local HumanoidController = {}
