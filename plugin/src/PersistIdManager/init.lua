@@ -1,5 +1,5 @@
-local BaseObject = require(script.Parent.BaseObject)
-local Binder = require(script.Parent.Binder)
+local BaseObject = require(script.Parent.Util.BaseObject)
+local Binder = require(script.Parent.Util.Binder)
 local PersistIdBoard = require(script.PersistIdBoard)
 
 local PersistIdManager = setmetatable({}, BaseObject)

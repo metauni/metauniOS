@@ -1,7 +1,7 @@
 local Selection = game:GetService("Selection")
-local BaseObject = require(script.Parent.Parent.BaseObject)
-local Rx = require(script.Parent.Parent.Rx)
-local Rxi = require(script.Parent.Parent.Rxi)
+local BaseObject = require(script.Parent.Parent.Util.BaseObject)
+local Rx = require(script.Parent.Parent.Util.Rx)
+local Rxi = require(script.Parent.Parent.Util.Rxi)
 local Fusion = require(script.Parent.Parent.Parent.Packages.Fusion)
 
 local PersistIdBoard = setmetatable({}, BaseObject)

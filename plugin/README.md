@@ -14,7 +14,7 @@ To install, run
 ```bash
 cd plugin
 wally install
-rojo build default.project.json -o ~/Documents/Roblox/Plugins/metauni-tools.rbxm
+rojo build -o ~/Documents/Roblox/Plugins/metauni-tools.rbxm
 ```
 
 If you enable "Reload plugins on file changed" under Studio Settings > Studio > Directories,

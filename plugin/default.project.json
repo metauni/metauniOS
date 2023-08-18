@@ -7,7 +7,11 @@
 		"Packages": { "$path": "Packages" },
 
 		"Plugin": {
-			"$path": "src"
+			"$path": "src",
+
+			"Util": {
+				"$path": "../src/ReplicatedStorage/Util"
+			}
 		}
 	}
 }

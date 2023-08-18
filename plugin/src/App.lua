@@ -13,7 +13,7 @@ local Fusion = require(Packages.Fusion)
 
 local GhostBoard = require(script.Parent.GhostBoard)
 local PersistIdManager = require(script.Parent.PersistIdManager)
-local BaseObject = require(script.Parent.BaseObject)
+local BaseObject = require(script.Parent.Util.BaseObject)
 
 local App = setmetatable({}, BaseObject)
 App.__index = App

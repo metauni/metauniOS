@@ -1,5 +1,5 @@
 local Selection = game:GetService("Selection")
-local BaseObject = require(script.Parent.BaseObject)
+local BaseObject = require(script.Parent.Util.BaseObject)
 local Fusion = require(script.Parent.Parent.Packages.Fusion)
 
 local GhostBoard = setmetatable({}, BaseObject)
