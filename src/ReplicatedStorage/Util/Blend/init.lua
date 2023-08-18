@@ -14,6 +14,7 @@ local Promise = require(script.Parent.Promise)
 local Rx = require(script.Parent.Rx)
 local Rxi = require(script.Parent.Rxi)
 local Spring = require(script.Parent.Spring)
+local StepUtils = require(script.Parent.StepUtils)
 local ValueObject = require(script.Parent.ValueObject)
 
 local Blend = {}
@@ -328,57 +329,6 @@ function Blend.ComputedPairs(source, compute)
 end
 
 --[=[
-	Binds an update event to a signal until the update function stops returning a truthy
-	value.
-
-	@param update () -> boolean -- should return true while it needs to update
-	@return (...) -> () -- Connect function
-	@return () -> () -- Disconnect function
-]=]
-function bindToRenderStep(update)
-	if type(update) ~= "function" then
-		error(("update must be of type function, got %q"):format(type(update)))
-	end
-
-	local conn = nil
-	local function disconnect()
-		if conn then
-			conn:Disconnect()
-			conn = nil
-		end
-	end
-
-	local function connect(...)
-		-- Ignore if we have an existing connection
-		if conn and conn.Connected then
-			return
-		end
-
-		-- Check to see if we even need to bind an update
-		if not update(...) then
-			return
-		end
-
-		-- Avoid reentrance, if update() triggers another connection, we'll already be connected.
-		if conn and conn.Connected then
-			return
-		end
-
-		-- Usually contains just the self arg!
-		local args = {...}
-
-		-- Bind to render stepped
-		conn = game:GetService("RunService").RenderStepped:Connect(function()
-			if not update(unpack(args)) then
-				disconnect()
-			end
-		end)
-	end
-
-	return connect, disconnect
-end
-
---[=[
 	Like Blend.Spring, but for AccelTween
 
 	@param source any -- Source observable (or convertable)
@@ -413,7 +363,7 @@ function Blend.AccelTween(source, acceleration)
 		local accelTween
 		local maid = Maid.new()
 
-		local startAnimate, stopAnimate = bindToRenderStep(function()
+		local startAnimate, stopAnimate = StepUtils.bindToRenderStep(function()
 			sub:Fire(accelTween.p)
 			return accelTween.rtime > 0
 		end)
@@ -481,7 +431,7 @@ function Blend.Spring(source, speed, damper)
 		local spring
 		local maid = Maid.new()
 
-		local startAnimate, stopAnimate = bindToRenderStep(function()
+		local startAnimate, stopAnimate = StepUtils.bindToRenderStep(function()
 			local animating, position = spring:Animating()
 			sub:Fire(Spring.fromLinearIfNeeded(position))
 			return animating
