@@ -41,6 +41,7 @@ Each library is pretty well-documented internally.
 - AccelTween
 	- Author: TreyReynolds/AxisAngles
 - Brio: Wraps an object(s) with a maid and an alive/dead state. Represents a "lifetime", and is useful for handling resources emitted by observables. There is more explanation in the [api page](https://quenty.github.io/NevermoreEngine/api/Brio/)
+- ValueObject: Like the ValueBase Instances (IntValue, BoolValue, ObjectValue) but can store any type of value. Setting `valueObject.Value = newValue` property triggers `valueObject:SetValue(newValue)`, and therefore triggers the .Changed signal (just like ValueBase instances behave).
 
 ## Included from Wally
 
