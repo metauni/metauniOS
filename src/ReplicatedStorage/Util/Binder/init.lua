@@ -28,13 +28,12 @@
 
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Brio = require(script.Parent.Brio)
 local Maid = require(script.Parent.Maid)
-local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
+local GoodSignal = require(script.Parent.GoodSignal)
 local Rx = require(script.Parent.Rx)
-local Promise = require(ReplicatedStorage.Packages.Promise)
+local Promise = require(script.Parent.Promise)
 
 local Binder = {}
 Binder.__index = Binder
