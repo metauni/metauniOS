@@ -13,10 +13,20 @@ local Computed = Fusion.Computed
 local Destructor = require(ReplicatedStorage.OS.Destructor)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
-local Rxf = require(ReplicatedStorage.Util.Rxf)
 
 local Remotes = ReplicatedStorage.OS.OrbController.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
+
+-- Returns an observable that emits values from a Fusion StateObject
+local function fromState<T>(state: Fusion.StateObject<T>): Rx.Observable
+	return Rx.observable(function(sub)
+		sub:Fire(state:get(false))
+		local conn = Fusion.Observer(state):onChange(function()
+			sub:Fire(state:get())
+		end)
+		return conn
+	end)
+end
 
 return function(player: Player)
 	
@@ -186,7 +196,7 @@ return function(player: Player)
 					Transparency = 1,
 
 					[Fusion.Cleanup] = 
-						Rxf.fromState(Mode):Subscribe(function(mode: Mode)
+						fromState(Mode):Subscribe(function(mode: Mode)
 							if mode == "hidden" or mode == "fading" then
 								desc:SetAttribute("spooky_transparency", 1)
 							else
@@ -278,23 +288,24 @@ return function(player: Player)
 
 	destructor:Add(
 		Rx.combineLatest{
-			Rxf.fromState(Mode),
-			Rxf.fromState(Ghost):Pipe {
+			fromState(Mode),
+			fromState(Ghost):Pipe {
 				Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
+				Rxi.findFirstChildWithClass("Animator", "Animator"),
 			},
-			Rxf.fromState(Ghost):Pipe {
+			fromState(Ghost):Pipe {
 				Rxi.property("Parent")
 			}
 		}:Pipe {
 			Rx.unpacked
-		}:Subscribe(function(mode: Mode, ghostHumanoid: Humanoid?, ghostParent: any)
-			if ghostHumanoid then
+		}:Subscribe(function(mode: Mode, ghostHumanoidAnimator: Animator?, ghostParent: any)
+			if ghostHumanoidAnimator then
 				if ghostParent == workspace and mode == "seeking" then
 					local animation = script.Parent.WalkAnim
-					local animationTrack = ghostHumanoid.Animator:LoadAnimation(animation)
+					local animationTrack = ghostHumanoidAnimator:LoadAnimation(animation)
 					animationTrack:Play()
 				elseif mode ~= "fading" then
-					for _, track in ghostHumanoid:GetPlayingAnimationTracks() do
+					for _, track in ghostHumanoidAnimator:GetPlayingAnimationTracks() do
 						track:Stop()
 					end
 				end
@@ -331,14 +342,14 @@ return function(player: Player)
 			},
 			Speaker = observeSpeaker,
 			AttachedOrb = observeAttachedOrb,
-			GhostHumanoid = Rxf.fromState(Ghost):Pipe {
+			GhostHumanoid = fromState(Ghost):Pipe {
 				Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
 			},
 			
 			-- Is the ghost seeking and making progress or is it probably stuck?
 			Progress = Rx.combineLatest {
-				Ghost = Rxf.fromState(Ghost),
-				Mode = Rxf.fromState(Mode),
+				Ghost = fromState(Ghost),
+				Mode = fromState(Mode),
 			}:Pipe {
 				Rx.switchMap(function(data)
 					local ghost: Model? = data.Ghost
@@ -348,8 +359,7 @@ return function(player: Player)
 						return Rx.of(true)
 					end
 
-					return Rx.of(ghost):Pipe {
-						Rxi.property("PrimaryPart"),
+					return Rxi.propertyOf(ghost, "PrimaryPart"):Pipe {
 						Rxi.notNil(),
 						Rx.switchMap(function(part: Part)
 							return Rx.timer(2, 0.5):Pipe {
@@ -388,7 +398,7 @@ return function(player: Player)
 					Rxi.property("PrimaryPart"),
 					throttledMovement(0.5),
 				},
-				Rxf.fromState(Ghost):Pipe {
+				fromState(Ghost):Pipe {
 					Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
 					Rxi.notNil(),
 					Rx.switchMap(function(humanoid: Humanoid)
@@ -416,7 +426,7 @@ return function(player: Player)
 				or
 				not waypoint
 				or
-				(character and (character.PrimaryPart.Position - waypoint.Position).Magnitude <= Config.GhostSpawnRadius)
+				(character and character.PrimaryPart and (character.PrimaryPart.Position - waypoint.Position).Magnitude <= Config.GhostSpawnRadius)
 			then
 				if mode ~= "fading" and mode ~= "hidden" then
 					Mode:set("fading")
@@ -514,19 +524,20 @@ return function(player: Player)
 			Rx.mapTo("teleport pls!"),
 			Rx.withLatestFrom {
 				observeAttachedOrb,
-				Rxf.fromState(Ghost),
-				Rxf.fromState(Mode),
+				fromState(Ghost),
+				fromState(Mode),
 				observeSpeaker,
 			},
 			Rx.unpacked,
 		}:Subscribe(function(_eventTrigger: any, attachedOrb: Part?, ghost: Model?, mode: Mode, speaker: Player?)
-			if ghost then
+			if ghost and player.Character then
+				local character = player.Character
 				if mode == "standing" and ghost then
 					local ghostCFrame = ghost:GetPivot()
 					Mode:set("hidden")
 					-- Replace ghost
-					player.Character:PivotTo(ghostCFrame)
-				else
+					character:PivotTo(ghostCFrame)
+				elseif attachedOrb then
 					for _, otherPlayer in Players:GetPlayers() do
 						local orbValue = PlayerToOrb:FindFirstChild(otherPlayer.UserId)
 						if 
@@ -537,7 +548,7 @@ return function(player: Player)
 							and orbValue.Value == attachedOrb
 						then
 							-- Land on top of an audience member
-							player.Character:PivotTo(otherPlayer.Character:GetPivot() + Vector3.new(0,10,0))
+							character:PivotTo(character:GetPivot() + Vector3.new(0,10,0))
 							return
 						end
 					end

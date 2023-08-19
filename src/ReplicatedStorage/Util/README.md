@@ -59,5 +59,3 @@ The project.json files need to be updated manually if the package versions are u
 - Maid: collects cleanup logic for a resource, that can be destroyed later.
 	- Also from stravant's Rx implementation.
 	- Added :DoCleaning() and :GiveTask() aliases for compatibility with Nevermore libraries above.
-- Rxf: observe Fusion state.
-	- Author: Billy Snikkers

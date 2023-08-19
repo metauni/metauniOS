@@ -16,7 +16,7 @@ local Remotes = script.Parent.Remotes
 local OrbClient = {}
 OrbClient.__index = OrbClient
 
-function OrbClient.new(orbPart: Part, observeAttached: Rx.Observable)
+function OrbClient.new(orbPart: BasePart, observeAttached: Rx.Observable)
 
 	local destructor = Destructor.new()
 

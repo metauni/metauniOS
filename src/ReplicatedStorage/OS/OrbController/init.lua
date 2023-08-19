@@ -8,7 +8,6 @@ local RunService = game:GetService("RunService")
 local OrbClient = require(script.OrbClient)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
-local Rxf = require(ReplicatedStorage.Util.Rxf)
 local Destructor = require(ReplicatedStorage.OS.Destructor)
 local IconController = require(ReplicatedStorage.Packages.Icon.IconController)
 local Themes = require(ReplicatedStorage.Packages.Icon.Themes)
@@ -39,12 +38,23 @@ function OrbController:Start()
 	-- Transform an observable into a Fusion StateObject that
 	-- holds the latest observed value
 	-- This version doesn't do garbage collection (for static usage)
-	local function observedValue(observable: Rx.Observable<T>): Value<T>
+	local function observedValue<T>(observable: Rx.Observable): Fusion.Value<T>
 		local value = Value()
 		observable:Subscribe(function(newValue)
 			value:set(newValue)
 		end)
 		return value 
+	end
+
+	-- Returns an observable that emits values from a Fusion StateObject
+	local function fromState<T>(state: Fusion.StateObject<T>): Rx.Observable
+		return Rx.observable(function(sub)
+			sub:Fire(state:get(false))
+			local conn = Fusion.Observer(state):onChange(function()
+				sub:Fire(state:get())
+			end)
+			return conn
+		end)
 	end
 
 	IconController.setGameTheme(Themes["BlueGradient"])
@@ -112,7 +122,7 @@ function OrbController:Start()
 		destructor:Add(
 			Rx.of(instance):Pipe {
 				Rxi.attribute("spooky_transparency"),
-			}:Subscribe(function(transparency: Number?)
+			}:Subscribe(function(transparency: number?)
 				if transparency then
 					TweenService:Create(instance, TweenInfo.new(
 						1.8, -- Time
@@ -134,46 +144,46 @@ function OrbController:Start()
 		end)
 	end)
 
-	local OrbcamActive: Value<boolean> = Value(false)
+	local OrbcamActive = Value(false)
 
-	local observeSpeaker: Observable<Player?> =
+	local observeSpeaker = -- Observable<Player?>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("ObjectValue", "Speaker"),
 			Rxi.property("Value"),
 		}
-	local observeLocalSpeaker: Observable<Player?> =
+	local observeLocalSpeaker = -- Observable<Player?>
 		observeSpeaker:Pipe{
 			Rx.whereElse(function(speaker: Player?)
-				return speaker == Players.LocalPlayer
+				return speaker == Players.LocalPlayer, nil
 			end)
 		}
 	export type ViewMode = "single" | "double" | "freecam"
-	local observeViewMode: Observable<ViewMode?> =
+	local observeViewMode = -- Observable<ViewMode>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("StringValue", "ViewMode"),
 			Rxi.property("Value"),
 		}
-	local observeShowAudience: Observable<ViewMode?> =
+	local observeShowAudience = -- Observable<boolean?>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("BoolValue", "ShowAudience"),
 			Rxi.property("Value"),
 		}
-	local observePoi1: Observable<Part?> =
+	local observePoi1 = -- Observable<BasePart?>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("ObjectValue", "poi1"),
 			Rxi.property("Value"),
 		}
-	local observeNearestBoard: Observable<Part?> =
+	local observeNearestBoard = -- Observable<BasePart?>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("ObjectValue", "NearestBoard"),
 			Rxi.property("Value"),
 		}
-	local observePoi2: Observable<Part?> =
+	local observePoi2 = -- Observable<BasePart?>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("ObjectValue", "poi2"),
 			Rxi.property("Value"),
 		}
-	local observeWaypointOnly: Observable<boolean?> =
+	local observeWaypointOnly = -- Observable<boolean?>
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("BoolValue", "WaypointOnly"),
 			Rxi.property("Value"),
@@ -256,11 +266,9 @@ function OrbController:Start()
 	-- Commandeer current camera
 	Rx.combineLatest{
 		AttachedOrb = observeAttachedOrb,
-		OrbcamActive = Rxf.fromState(OrbcamActive),
-		Camera = Rx.of(workspace):Pipe {
-			Rxi.property("CurrentCamera"),
-		},
-	}:Subscribe(function(data: table)
+		OrbcamActive = fromState(OrbcamActive),
+		Camera = Rxi.propertyOf(workspace, "CurrentCamera")
+	}:Subscribe(function(data)
 		local camera: Camera? = data.Camera
 
 		if data.OrbcamActive and data.AttachedOrb and camera then
@@ -296,7 +304,7 @@ function OrbController:Start()
 
 	Rx.combineLatest {
 		AttachedOrb = observeAttachedOrb,
-		OrbcamActive = Rxf.fromState(OrbcamActive),
+		OrbcamActive = fromState(OrbcamActive),
 		Poi1 = observePoi1,
 		Poi2 = observePoi2,
 		NearestBoard = observeNearestBoard,
@@ -304,10 +312,9 @@ function OrbController:Start()
 			Rxi.property("Character")
 		},
 		ViewMode = observeViewMode,
-		ViewportSize = Rx.of(workspace):Pipe {
-			Rxi.property("CurrentCamera"),
+		ViewportSize = Rxi.propertyOf(workspace, "CurrentCamera"):Pipe {
 			Rxi.property("ViewportSize"),
-			Rx.throttleTime(0.5),
+			Rx.throttleTime(0.5, {}),
 		},
 		ShowAudience = observeShowAudience,
 		AudienceMovement = observeShowAudience:Pipe {
@@ -526,9 +533,8 @@ function OrbController:Start()
 				end
 			end),
 		},
-		CamPositionGoal = Rxf.fromState(CamPositionGoal),
-		CamLookAtGoal = Rxf.fromState(CamLookAtGoal),
-		CamFOVGoal = Rxf.fromState(CamFOVGoal),
+		CamPositionGoal = fromState(CamPositionGoal),
+		CamLookAtGoal = fromState(CamLookAtGoal),
 	}:Subscribe(function(data)
 		local poi1: Part? = data.Poi1
 		local rootPart: Part? = data.RootPart
@@ -536,7 +542,6 @@ function OrbController:Start()
 		local moveDirection: Vector3? = data.MoveDirection
 		local camPositionGoal: Vector3 = data.CamPositionGoal
 		local camLookAtGoal: Vector3 = data.CamLookAtGoal
-		local camFOVGoal: number = data.CamFOVGoal
 
 		-- We're either about to tween elsewhere or not tween at all
 		if turnTween then
@@ -626,10 +631,10 @@ function OrbController:Start()
 					holdPromise = nil
 				end
 				holdPromise = 
-				Promise.delay(0.6)
-					:andThen(function()
-						Transparency:set(1)
-					end)
+					Promise.delay(0.6)
+						:andThen(function()
+							Transparency:set(1)
+						end)
 				Transparency:set(0)
 			end
 		end)
