@@ -18,7 +18,7 @@ local Remotes = ReplicatedStorage.OS.OrbController.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
 
 -- Returns an observable that emits values from a Fusion StateObject
-local function fromState<T>(state: Fusion.StateObject<T>): Rx.Observable
+local function observeState<T>(state: Fusion.StateObject<T>): Rx.Observable
 	return Rx.observable(function(sub)
 		sub:Fire(state:get(false))
 		local conn = Fusion.Observer(state):onChange(function()
@@ -196,7 +196,7 @@ return function(player: Player)
 					Transparency = 1,
 
 					[Fusion.Cleanup] = 
-						fromState(Mode):Subscribe(function(mode: Mode)
+						observeState(Mode):Subscribe(function(mode: Mode)
 							if mode == "hidden" or mode == "fading" then
 								desc:SetAttribute("spooky_transparency", 1)
 							else
@@ -288,12 +288,12 @@ return function(player: Player)
 
 	destructor:Add(
 		Rx.combineLatest{
-			fromState(Mode),
-			fromState(Ghost):Pipe {
+			observeState(Mode),
+			observeState(Ghost):Pipe {
 				Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
 				Rxi.findFirstChildWithClass("Animator", "Animator"),
 			},
-			fromState(Ghost):Pipe {
+			observeState(Ghost):Pipe {
 				Rxi.property("Parent")
 			}
 		}:Pipe {
@@ -342,14 +342,14 @@ return function(player: Player)
 			},
 			Speaker = observeSpeaker,
 			AttachedOrb = observeAttachedOrb,
-			GhostHumanoid = fromState(Ghost):Pipe {
+			GhostHumanoid = observeState(Ghost):Pipe {
 				Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
 			},
 			
 			-- Is the ghost seeking and making progress or is it probably stuck?
 			Progress = Rx.combineLatest {
-				Ghost = fromState(Ghost),
-				Mode = fromState(Mode),
+				Ghost = observeState(Ghost),
+				Mode = observeState(Mode),
 			}:Pipe {
 				Rx.switchMap(function(data)
 					local ghost: Model? = data.Ghost
@@ -398,7 +398,7 @@ return function(player: Player)
 					Rxi.property("PrimaryPart"),
 					throttledMovement(0.5),
 				},
-				fromState(Ghost):Pipe {
+				observeState(Ghost):Pipe {
 					Rxi.findFirstChildWithClass("Humanoid", "Humanoid"),
 					Rxi.notNil(),
 					Rx.switchMap(function(humanoid: Humanoid)
@@ -524,8 +524,8 @@ return function(player: Player)
 			Rx.mapTo("teleport pls!"),
 			Rx.withLatestFrom {
 				observeAttachedOrb,
-				fromState(Ghost),
-				fromState(Mode),
+				observeState(Ghost),
+				observeState(Mode),
 				observeSpeaker,
 			},
 			Rx.unpacked,

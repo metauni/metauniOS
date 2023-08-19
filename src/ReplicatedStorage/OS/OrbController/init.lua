@@ -47,7 +47,7 @@ function OrbController:Start()
 	end
 
 	-- Returns an observable that emits values from a Fusion StateObject
-	local function fromState<T>(state: Fusion.StateObject<T>): Rx.Observable
+	local function observeState<T>(state: Fusion.StateObject<T>): Rx.Observable
 		return Rx.observable(function(sub)
 			sub:Fire(state:get(false))
 			local conn = Fusion.Observer(state):onChange(function()
@@ -266,7 +266,7 @@ function OrbController:Start()
 	-- Commandeer current camera
 	Rx.combineLatest{
 		AttachedOrb = observeAttachedOrb,
-		OrbcamActive = fromState(OrbcamActive),
+		OrbcamActive = observeState(OrbcamActive),
 		Camera = Rxi.propertyOf(workspace, "CurrentCamera")
 	}:Subscribe(function(data)
 		local camera: Camera? = data.Camera
@@ -304,7 +304,7 @@ function OrbController:Start()
 
 	Rx.combineLatest {
 		AttachedOrb = observeAttachedOrb,
-		OrbcamActive = fromState(OrbcamActive),
+		OrbcamActive = observeState(OrbcamActive),
 		Poi1 = observePoi1,
 		Poi2 = observePoi2,
 		NearestBoard = observeNearestBoard,
@@ -533,8 +533,8 @@ function OrbController:Start()
 				end
 			end),
 		},
-		CamPositionGoal = fromState(CamPositionGoal),
-		CamLookAtGoal = fromState(CamLookAtGoal),
+		CamPositionGoal = observeState(CamPositionGoal),
+		CamLookAtGoal = observeState(CamLookAtGoal),
 	}:Subscribe(function(data)
 		local poi1: Part? = data.Poi1
 		local rootPart: Part? = data.RootPart
