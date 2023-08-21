@@ -894,6 +894,11 @@ function Blend._observeChildren(value, parent)
 				return maid
 			end
 
+			-- Handle Brio containing nil
+			if result == nil then
+				return nil
+			end
+
 			local observe = Blend._observeChildren(result, parent)
 			if observe then
 				local maid = value:ToMaid()
