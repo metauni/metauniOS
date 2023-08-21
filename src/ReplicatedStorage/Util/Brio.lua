@@ -138,11 +138,11 @@ function Brio:GetDiedSignal()
 	end
 
 	if self._diedEvent then
-		return self._diedEvent.Event
+		return self._diedEvent
 	end
 
 	self._diedEvent = GoodSignal.new()
-	return self._diedEvent.Event
+	return self._diedEvent
 end
 
 --[=[
