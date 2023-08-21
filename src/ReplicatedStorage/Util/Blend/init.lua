@@ -528,13 +528,13 @@ function Blend.toEventHandler(value)
 			end
 		end
 	elseif type(value) == "table" then
-		if value.Fire then
-			return function(...)
-				value:Fire(...)
-			end
-		elseif value.ClassName == "ValueObject" then
+		if ValueObject.isValueObject(value) then
 			return function(result)
 				value.Value = result
+			end
+		elseif value.Fire then
+			return function(...)
+				value:Fire(...)
 			end
 		end
 	end
@@ -1071,10 +1071,7 @@ function Blend.mount(instance, props)
 
 	-- Subscribe dependentObservables (which includes adding children)
 	for _, event in pairs(dependentObservables) do
-		local handler = Blend.toEventHandler(event[2])
-		if handler then
-			maid:GiveTask(event[1]:Subscribe(handler))
-		end
+		maid:GiveTask(event[1]:Subscribe(Blend.toEventHandler(event[2])))
 	end
 
 	if parent then
