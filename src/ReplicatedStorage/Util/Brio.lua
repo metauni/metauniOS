@@ -59,6 +59,7 @@
 	@class Brio
 ]=]
 
+local GoodSignal = require(script.Parent.GoodSignal)
 local Maid = require(script.Parent.Maid)
 
 local Brio = {}
@@ -140,7 +141,7 @@ function Brio:GetDiedSignal()
 		return self._diedEvent.Event
 	end
 
-	self._diedEvent = Instance.new("BindableEvent")
+	self._diedEvent = GoodSignal.new()
 	return self._diedEvent.Event
 end
 
