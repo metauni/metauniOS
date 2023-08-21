@@ -789,14 +789,13 @@ function Blend.Single(observable)
 				local copy = result:Clone()
 				maid._current = copy
 				sub:Fire(copy)
-				return copy
+			elseif result then
+				local current = Brio.new(result)
+				maid._current = current
+				sub:Fire(current)
+			else
+				maid._current = nil
 			end
-
-			local current = Brio.new(result)
-			maid._current = current
-			sub:Fire(current)
-
-			return current
 		end))
 
 		return maid
@@ -892,11 +891,6 @@ function Blend._observeChildren(value, parent)
 				sub:Fire(result)
 
 				return maid
-			end
-
-			-- Handle Brio containing nil
-			if result == nil then
-				return nil
 			end
 
 			local observe = Blend._observeChildren(result, parent)
