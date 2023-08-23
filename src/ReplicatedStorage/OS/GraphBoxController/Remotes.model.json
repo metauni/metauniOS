@@ -1,0 +1,21 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "SetUVMapStrings",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SetShowGrid",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "PlaceGraphBox",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "PickupGraphBox",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}
