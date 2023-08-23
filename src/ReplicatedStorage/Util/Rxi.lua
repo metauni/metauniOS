@@ -119,18 +119,24 @@ end
 
 -- Observes from the first value the attribute named *attribute*. Emits nothing
 -- while the first value is not an Instance.
+function export.attributeOf(instance: Instance, attribute: string): Rx.Observable
+	return Rx.observable(function(sub)
+		local conn = instance:GetAttributeChangedSignal(attribute):Connect(function()
+			sub:Fire(instance:GetAttribute(attribute))
+		end)
+		sub:Fire(instance:GetAttribute(attribute))
+		return conn
+	end)
+end
+
+-- Observes from the first value the attribute named *attribute*. Emits nothing
+-- while the first value is not an Instance.
 function export.attribute(attribute: string): Rx.Transformer
 	return Rx.pipe{
 		export.isTypeOf("Instance"),
 		Rx.switchMap(function(instance: Instance)
 			if not instance then return nilobs() end
-			return Rx.observable(function(sub)
-				local conn = instance:GetAttributeChangedSignal(attribute):Connect(function()
-					sub:Fire(instance:GetAttribute(attribute))
-				end)
-				sub:Fire(instance:GetAttribute(attribute))
-				return conn
-			end)
+			return export.attributeOf(instance, attribute)
 		end),
 	}
 end
