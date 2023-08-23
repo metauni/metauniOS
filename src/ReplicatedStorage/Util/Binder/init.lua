@@ -650,6 +650,74 @@ function Binder:_remove(inst)
 	end
 end
 
+--[[
+	Handle a remote event using the class of the instance argument.
+	Also passes player argument if on server.
+	Returns a connection.
+	
+	```lua
+	-- On Server
+	function Class:DoStuff(player, foo)
+		local instance = self._obj
+		print(`{player.Name}: {foo}, {instance}`)
+	end
+
+	binder = Binder.new(Class)
+	binder:AttachRemoteEvent(remoteEvent, "DoStuff")
+
+	-- On Client
+	remoteEvent:FireServer(instance, "Hi!") --> Server prints "<playerName>: Hi! <instance>"
+	```
+
+	When remoteEvent.OnServerEvent fires with (player, instance, ...)
+	will call `handler(class, player, ...)`
+
+	When remoteEvent.OnClientEvent fires with (instance, ...)
+	will call `handler(class, ...)`
+
+	If handler is a string, will treat it as a method name of the class.
+	So instead of `handler(class, player, ...)`, it will call `class[handler](class, player, ...)`.
+	Note that the first arg `class`, is passed implicitly as `self` if handler is a method.
+]]
+function Binder:AttachRemoteEvent(remoteEvent: RemoteEvent, handler: string | (...any) -> ()): Maid.Task
+	assert(typeof(remoteEvent) == "Instance" and remoteEvent:IsA("RemoteEvent"), "Bad remote event")
+	assert(typeof(handler) == "string" or typeof(handler) == "function", "Bad handler")
+
+	if RunService:IsServer() then
+		return remoteEvent.OnServerEvent:Connect(function(player, instance, ...)
+			assert(typeof(instance) == "Instance", "Bad instance argument to event")
+			local class = self:Get(instance)
+			if class then
+				if typeof(handler) == "string" then
+					-- Handler is a method name
+					class[handler](class, player, ...)
+				else
+					-- Handler is a function 
+					handler(class, player, ...)
+				end
+			else
+				warn(`RemoteEvent handler failed. No {self._tagName} class for instance {instance} found.`)
+			end
+		end)
+	else
+		return remoteEvent.OnClientEvent:Connect(function(instance, ...)
+			assert(typeof(instance) == "Instance", "Bad instance argument to event")
+			local class = self:Get(instance)
+			if class then
+				if typeof(handler) == "string" then
+					-- Handler is a method name
+					class[handler](class, ...)
+				else
+					-- Handler is a function
+					handler(class, ...)
+				end
+			else
+				warn(`RemoteEvent handler failed. No {self._tagName} class for instance {instance} found.`)
+			end
+		end)
+	end
+end
+
 --[=[
 	Cleans up all bound classes, and disconnects all events.
 ]=]
