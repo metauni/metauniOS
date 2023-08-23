@@ -1507,7 +1507,7 @@ function export.skip(toSkip: number): Transformer
 		return newObservable(function(sub)
 			local skipped = 0
 			return source:Subscribe(function(...)
-				if skipped <= toSkip then
+				if skipped < toSkip then
 					skipped = skipped + 1
 					return
 				end
