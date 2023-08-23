@@ -6,6 +6,18 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 18/08/23 - 23/08/23
+- Added/amalgamated utility libraries (see [README](./src/ReplicatedStorage/Util/README.md))
+- Added Rxi.propertyOf, Rxi.attributeOf
+- Added Binder:AttachRemoteEvent
+- Added GraphBox. Includes:
+	- Parser: Parses mathematical expressions
+	- ArrayExpr: Fast expression evaluator
+	- DifferentiableFnUtils: Differentiates expressions
+	- UVMap: DataType for uv-mappings, with position and normal map.
+	- GraphBoxClient, GraphBoxServer: Classes for "GraphBox" tag
+	- GraphMenu: UI for entering UV map.
+
 ## 14/08/23
 - Fixed board decals not saving (duplicate legacy code hadn't been deleted from some place files)
 
