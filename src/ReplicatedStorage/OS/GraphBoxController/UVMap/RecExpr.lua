@@ -47,6 +47,9 @@ function RecExpr.appTwoSimplify(op: string, first, second)
 			return 0
 		end
 	elseif op == "*" then
+		if first == 0 or second == 0 then
+			return 0
+		end
 		if first == 1 or second == 1 then
 			return if first == 1 then second else first
 		end
@@ -54,6 +57,9 @@ function RecExpr.appTwoSimplify(op: string, first, second)
 			return RecExpr.appTwo("^", first, 2)
 		end
 	elseif op == "/" then
+		if first == 0 then
+			return 0
+		end
 		if second == 1 then
 			return first
 		end
