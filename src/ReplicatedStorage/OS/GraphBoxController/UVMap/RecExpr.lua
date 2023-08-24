@@ -13,6 +13,67 @@ function RecExpr.appTwo(op: string, first, second)
 	return {op, first, second}
 end
 
+local OPERATOR_VALUES = {
+	["+"] = function(a,b) return a+b end,
+	["-"] = function(a,b) return a-b end,
+	["*"] = function(a,b) return a*b end,
+	["/"] = function(a,b) return a/b end,
+	["^"] = function(a,b) return a^b end,
+}
+
+function RecExpr.appTwoSimplify(op: string, first, second)
+	assert(typeof(op) == "string", "Bad op")
+	local opValue = OPERATOR_VALUES[op]
+	if not opValue then
+		error(`Bad op: {op}`)
+	end
+
+	if typeof(first) == "number" and typeof(second) == "number" then
+		return opValue(first, second)
+	end
+
+	if op == "+" then
+		if first == 0 or second == 0 then
+			return if first == 0 then second else first
+		end
+		if first == second then
+			return RecExpr.appTwo("*", 2, first)
+		end
+	elseif op == "-" then
+		if second == 0 then
+			return first
+		end
+		if first == second then
+			return 0
+		end
+	elseif op == "*" then
+		if first == 1 or second == 1 then
+			return if first == 1 then second else first
+		end
+		if first == second then
+			return RecExpr.appTwo("^", first, 2)
+		end
+	elseif op == "/" then
+		if second == 1 then
+			return first
+		end
+		if first == second then
+			return 1
+		end
+	elseif op == "^" then
+		if second == 0 then
+			-- lua says 0^0 == 1 so that's that
+			return 1
+		end
+		-- We don't simplify 0^second because it depends on second
+		if second == 1 then
+			return first
+		end
+	end
+
+	return RecExpr.appTwo(op, first, second)
+end
+
 -- local EPS = 1e-6
 -- function RecExpr.simplify(expr)
 

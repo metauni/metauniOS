@@ -51,60 +51,40 @@ function DifferentiableFnUtils.Differentiate(recExpr, var)
 			return 0
 		elseif typeof(innerExp) == "table" then
 	
+			--[[ 
+				ATTENTION
+				The u and v here are not as in the UV mapping, they are just the
+				arguments to the main operator (not the var being diff'd)
+
+				RecExpr.appTwoSimplify simplifies expressions w.r.t. the given operator's
+				identities, (i.e. x + 0 = x), and also evaluates when both args are numbers
+				(i.e. 1 + 2 = 3)
+			]]
 			local op = innerExp[1]
 			local u, v = innerExp[2], innerExp[3]
 			if op == "+" or op == "-" then
-				-- u+v, u-v
-				local du = diff(u)
-				local dv = diff(v)
-				if du == 0 then
-					return dv
-				end
-				if dv == 0 then
-					return du
-				end
-				return RecExpr.appTwo(op, diff(u), diff(v))
+				return RecExpr.appTwoSimplify(op, diff(u), diff(v))
 			elseif op == "*" then
 				-- u*v
-				local du = diff(u)
-				local dv = diff(v)
-
-				if du == 0 and dv == 0 then
-					return 0
-				end
-				if du == 0 then
-					if dv == 1 then
-						return u
-					end
-					return RecExpr.appTwo("*", u, dv)
-				end
-				if dv == 0 then
-					if du == 1 then
-						return v
-					end
-					return RecExpr.appTwo("*", du, v)
-				end
-
-				local duv = RecExpr.appTwo("*", du, v)
-				local udv = RecExpr.appTwo("*", u, dv)
-
-				if du == 1 and dv == 1 then
-					return RecExpr.appTwo("+", u, v)
-				end
-				if du == 1 then
-					return RecExpr.appTwo("+", udv, v)
-				end
-				if dv == 1 then
-					return RecExpr.appTwo("+", u, duv)
-				end
-
-				return RecExpr.appTwo("+", udv, duv)
+				local duv = RecExpr.appTwoSimplify("*", diff(u), v)
+				local udv = RecExpr.appTwoSimplify("*", u, diff(v))
+				return RecExpr.appTwoSimplify("+", udv, duv)
 			elseif op == "/" then
-				-- u/v
-				local vdu = RecExpr.appTwo("*", v, diff(u))
-				local udv = RecExpr.appTwo("*", u, diff(v))
-				local numerator = RecExpr.appTwo("-", vdu, udv)
-				local vsquared = RecExpr.appTwo("^", v, 2)
+				-- u/v -> (v*du - u*dv)/(v^2)
+				
+				if v == 0 then
+					error(`Cannot differentiate division by 0 {RecExpr.toString(innerExp)}`)
+				end
+
+				-- appTwoSimplify doesn't handle this case
+				if typeof(v) == "number" then
+					return RecExpr.appTwoSimplify("/", diff(u), v)
+				end
+
+				local vdu = RecExpr.appTwoSimplify("*", v, diff(u))
+				local udv = RecExpr.appTwoSimplify("*", u, diff(v))
+				local numerator = RecExpr.appTwoSimplify("-", vdu, udv)
+				local vsquared = RecExpr.appTwoSimplify("^", v, 2)
 				return RecExpr.appTwo("/", numerator, vsquared)
 			elseif op == "^" then
 				-- u^v
@@ -113,22 +93,26 @@ function DifferentiableFnUtils.Differentiate(recExpr, var)
 						return 0
 					end
 					local du = diff(u)
-					return RecExpr.appTwo("*", du, RecExpr.appTwo("^", u, v-1))
+					-- This will simplify u^0 = 1 for when v = 1
+					local lessOnePower = RecExpr.appTwoSimplify("^", u, v-1)
+					return RecExpr.appTwoSimplify("*", du, lessOnePower)
 				end
 
-				local upowv = innerExp -- u^v
-				local du = diff(u)
-				local dv = diff(v)
+				-- For general case: u^v * (du*log(u) + (v/u)*du)
+				-- u^v
+				local upowv = innerExp
+				-- log(u)
 				local logu = RecExpr.appOne("log", u)
-				local vdivu = RecExpr.appTwo("/", v, u)
-				local sum = RecExpr.appTwo("+", RecExpr.appTwo("*", dv, logu), RecExpr.appTwo("*", vdivu, du))
-
-				return RecExpr.appTwo("*", upowv, sum)
+				-- v/u
+				local vdivu = RecExpr.appTwoSimplify("/", v, u)
+				-- du*log(u) + (v/u)*du
+				local sum = RecExpr.appTwoSimplify("+", RecExpr.appTwoSimplify("*", diff(u), logu), RecExpr.appTwoSimplify("*", vdivu, diff(u)))
+				return RecExpr.appTwoSimplify("*", upowv, sum)
 			end
 
 			local func_derivative = FUNCTION_DERIVATIVE[op]
 			if func_derivative then
-				return RecExpr.appTwo("*", diff(u), func_derivative(u))
+				return RecExpr.appTwoSimplify("*", diff(u), func_derivative(u))
 			end
 
 			error(`Cannot differentiate function {op}`)

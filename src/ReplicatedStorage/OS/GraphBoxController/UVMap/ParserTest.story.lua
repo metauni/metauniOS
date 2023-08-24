@@ -55,7 +55,7 @@ return function(target)
 			print(RecExpr.toString(expr))
 
 			print("Diff:")
-			local diff = DifferentiableFnUtils.Differentiate(expr, "t")
+			local diff = DifferentiableFnUtils.Differentiate(expr, "u")
 			print(diff)
 			print(RecExpr.toString(diff))
 		end)
