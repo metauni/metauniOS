@@ -2,7 +2,6 @@
 	
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local BaseObject = require(ReplicatedStorage.Util.BaseObject)
 local Blend = require(ReplicatedStorage.Util.Blend)
@@ -24,16 +23,11 @@ function GraphMenu.new(props)
 	local self = setmetatable(BaseObject.new(), GraphMenu)
 
 	self._props = props
-	self._xMapStr = Blend.State(props.InitialUVMap.XMapStr)
-	self._yMapStr = Blend.State(props.InitialUVMap.YMapStr)
-	self._zMapStr = Blend.State(props.InitialUVMap.ZMapStr)
+	self._xMapStr = Blend.State("")
+	self._yMapStr = Blend.State("")
+	self._zMapStr = Blend.State("")
 
-	self._visible = Blend.State(false)
 	self._showHelp = Blend.State(false)
-
-	self._maid:GiveTask(self:_render())
-
-	self._visible.Value = true
 
 	return self
 end
@@ -47,50 +41,31 @@ function GraphMenu:_observeValidMapStr(axis)
 	}
 end
 
-function GraphMenu:_closeAfterSpring()
-	self._visible.Value = false
-	-- TODO: migrate to quenty promise and use SpringObject:PromiseFinished
-	task.delay(0.1, function()
-		if self._maid then
-			self._props.OnClose()
-		end
-	end)
-end
-
-function GraphMenu:_render()
-
-	local maid = Maid.new()
-
-	maid:GiveTask(UserInputService.InputBegan:Connect(
-		function(inputObject: InputObject, gameProcessedEvent: boolean)
-			if not gameProcessedEvent and inputObject.KeyCode == Enum.KeyCode.G then
-				self:_closeAfterSpring()
-			end
-		end)
-	)
+function GraphMenu:render()
 
 	local validObservers = {
 		X = Rx.cache()(self:_observeValidMapStr("x")),
 		Y = Rx.cache()(self:_observeValidMapStr("y")),
 		Z = Rx.cache()(self:_observeValidMapStr("z")),
 	}
-
+	
 	local observeAllValid = (Rx.combineLatest(validObservers):Pipe {
 		Rx.map(function(state)
 			return state.X and state.Y and state.Z
 		end)
 	})
-
-	local percentVisible = Blend.Spring(Blend.Computed(self._visible, function(visible)
+	
+	local percentVisible = Blend.Spring(Blend.Computed(self._props.Visible, function(visible)
 		return visible and 1 or 0
 	end), 35)
-
+	
 	local transparency = Blend.Computed(percentVisible, function(percent)
 		return 1 - percent
 	end)
-
+	
 	local menu = Template:Clone()
-
+	
+	local maid = Maid.new()
 	maid:GiveTask(Blend.mount(menu, {
 		Blend.New "UIScale" {
 			Scale = Blend.Computed(percentVisible, function(percent)
@@ -100,7 +75,7 @@ function GraphMenu:_render()
 
 		Blend.Find "Close" {
 			[Blend.OnEvent "Activated"] = function()
-				self:_closeAfterSpring()
+				self._props.OnClose()
 			end,
 		},
 
@@ -175,7 +150,12 @@ function GraphMenu:_render()
 					}
 				},
 				Blend.Find "Map" {
-					Text = mapStrValue.Value,
+					-- This will override whatever the user types in whenever the uv map
+					-- changes on the graphbox. A little offensive, but better than not
+					-- seeing the latest map when updated by someone else.
+					Text = Blend.Computed(self._props.UVMap, function(uvMap)
+						return uvMap[Axis.."MapStr"]
+					end),
 					[Blend.OnChange "Text"] = mapStrValue,
 					ClearTextOnFocus = false,
 				}
@@ -183,56 +163,53 @@ function GraphMenu:_render()
 		end)
 	}))
 
-	maid:GiveTask(
-		Blend.New "Folder" {
-			Name = "GraphMenu",
-			
-			Parent = self._props.Parent,
-			Blend.New "CanvasGroup" {
+	return Blend.New "Folder" {
+		Name = "GraphMenu",
+
+		[Blend.Attached(function() return maid end)] = true,
 		
-				GroupTransparency = transparency,
-				GroupColor3 = Blend.Spring(Blend.Computed(self._showHelp, function(showHelp)
-					return if showHelp then Color3.new(0.75,0.75, 0.75) else Color3.new(1,1,1)
-				end), 35),
-				BackgroundTransparency = 1,
-				Size = UDim2.fromScale(1,1),
-				Position = UDim2.fromScale(0,0),
+		Blend.New "CanvasGroup" {
 	
-				menu,
-			},
+			GroupTransparency = transparency,
+			GroupColor3 = Blend.Spring(Blend.Computed(self._showHelp, function(showHelp)
+				return if showHelp then Color3.new(0.75,0.75, 0.75) else Color3.new(1,1,1)
+			end), 35),
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1,1),
+			Position = UDim2.fromScale(0,0),
 
-			Blend.New "Frame" {
-				Name = "Help",
+			menu,
+		},
 
+		Blend.New "Frame" {
+			Name = "Help",
+
+			AnchorPoint = Vector2.new(0.5,0.5),
+			Position = UDim2.fromScale(0.5,0.5),
+			Size = UDim2.fromOffset(300, 210),
+			BackgroundColor3 = Color3.fromRGB(229, 229, 229),
+	
+			Visible = self._showHelp,
+	
+			Blend.New "UICorner" {},
+			Blend.New "UIStroke" { Thickness = 2, },
+
+			Blend.New "TextLabel" {
+				Text = HELP_TEXT,
+				TextWrap = true,
+				RichText = true,
+				TextSize = 16,
+				Font = Enum.Font.JosefinSans,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Top,
+
+				BackgroundTransparency = 1,
 				AnchorPoint = Vector2.new(0.5,0.5),
 				Position = UDim2.fromScale(0.5,0.5),
-				Size = UDim2.fromOffset(300, 210),
-				BackgroundColor3 = Color3.fromRGB(229, 229, 229),
-		
-				Visible = self._showHelp,
-		
-				Blend.New "UICorner" {},
-				Blend.New "UIStroke" { Thickness = 2, },
-
-				Blend.New "TextLabel" {
-					Text = HELP_TEXT,
-					TextWrap = true,
-					RichText = true,
-					TextSize = 16,
-					Font = Enum.Font.JosefinSans,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextYAlignment = Enum.TextYAlignment.Top,
-
-					BackgroundTransparency = 1,
-					AnchorPoint = Vector2.new(0.5,0.5),
-					Position = UDim2.fromScale(0.5,0.5),
-					Size = UDim2.new(1,-40, 1, -50),
-
-				}
+				Size = UDim2.new(1,-40, 1, -50),
 			}
-		}:Subscribe())
-
-	return maid
+		}
+	}
 end
 
 

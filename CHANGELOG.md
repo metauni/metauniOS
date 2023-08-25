@@ -6,6 +6,12 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 25/08/23
+- Centralised GraphMenu so only one exists
+	- Before each box would spawn their own menu. Now the GraphBoxController is passed as a service to the GraphBoxClient constructor, so they can all request to be the opened one.
+- Changed ZIndex of the GraphBox grid from -1 to 0
+- Changed default UVMap to torus.
+
 ## 18/08/23 - 23/08/23
 - Added/amalgamated utility libraries (see [README](./src/ReplicatedStorage/Util/README.md))
 - Added Rxi.propertyOf, Rxi.attributeOf

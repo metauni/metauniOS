@@ -2,7 +2,6 @@
 	
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local BaseObject = require(ReplicatedStorage.Util.BaseObject)
 local Blend = require(ReplicatedStorage.Util.Blend)
@@ -14,21 +13,20 @@ local Feather = require(ReplicatedStorage.Packages.Feather)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 local UVMap = require(script.Parent.UVMap)
-local GraphMenu = require(script.Parent.GraphMenu)
 local UVCanvas = require(script.UVCanvas)
-
-local Remotes = script.Parent.Remotes
 
 local GraphBoxClient = setmetatable({}, BaseObject)
 GraphBoxClient.__index = GraphBoxClient
 
-function GraphBoxClient.new(model: Model)
+function GraphBoxClient.new(model: Model, service)
 	if not model:IsDescendantOf(workspace) then
 		return nil
 	end
 
 	local self = setmetatable(BaseObject.new(model), GraphBoxClient)
 
+	self._service = service
+	
 	local boardObject = model:FindFirstChild("Board")
 	assert(boardObject, "Bad Board")
 	-- assert(boardObject:HasTag("metaboard"), "Board not tagged")
@@ -72,7 +70,7 @@ function GraphBoxClient.new(model: Model)
 		end):Subscribe()
 	)
 
-	self._maid:GiveTask(Blend.Computed(self._uvMap, self:_observeShowGrid(),
+	self._maid:GiveTask(Blend.Computed(self._uvMap, self:ObserveShowGrid(),
 		function(uvMap, showGrid)
 			if uvMap and showGrid then
 				self._maid._grid = self:_renderGrid({
@@ -86,7 +84,9 @@ function GraphBoxClient.new(model: Model)
 
 	self._maid:GiveTask(Blend.New "ProximityPrompt" {
 		Parent = Rxi.propertyOf(self._obj, "PrimaryPart"),
-		Enabled = self._showPrompt,
+		Enabled = Blend.Computed(self._service:ObserveEditingGraphBox(), function(graphBox)
+			return graphBox == nil
+		end),
 		ActionText = "",
 		KeyboardKeyCode = Enum.KeyCode.G,
 		UIOffset = Vector2.new(0,-25),
@@ -99,39 +99,26 @@ function GraphBoxClient.new(model: Model)
 				return
 			end
 
-			self._showPrompt.Value = false
-			self._maid._graphMenu = GraphMenu.new({
-				OnSetUVMapStrings = function(xMapStr, yMapStr, zMapStr)
-					Remotes.SetUVMapStrings:FireServer(self._obj, xMapStr, yMapStr, zMapStr)
-				end,
-				Parent = Blend.New "ScreenGui" {
-					Parent = Players.LocalPlayer.PlayerGui,
-				},
-				InitialUVMap = self._uvMap.Value,
-				OnClose = function()
-					self._showPrompt.Value = true
-					self._maid._graphMenu = nil
-				end,
-				ShowGrid = self:_observeShowGrid(),
-				OnToggleShowGrid = function()
-					Remotes.SetShowGrid:FireServer(self._obj, not self:_getShowGrid())
-				end,
-			})
+			self._service:OpenMenuWith(self)
 		end,
 	}:Subscribe())
 
 	return self
 end
 
+function GraphBoxClient:ObserveUVMap()
+	return self._uvMap:Observe()
+end
+
 function GraphBoxClient:GetUVMap()
 	return self._uvMap.Value
 end
 
-function GraphBoxClient:_observeShowGrid()
+function GraphBoxClient:ObserveShowGrid()
 	return Rxi.attributeOf(self._obj, "ShowGrid")
 end
 
-function GraphBoxClient:_getShowGrid()
+function GraphBoxClient:GetShowGrid()
 	return self._obj:GetAttribute("ShowGrid") == true
 end
 
@@ -154,7 +141,7 @@ function GraphBoxClient:_renderGrid(props)
 				Points = hPoints,
 				Width = 0.01,
 				Color = Color3.fromRGB(229, 229, 229),
-				ZIndex = -1,
+				ZIndex = 0,
 			}
 			gridFigures[`vertical{i}`] = {
 				Id = `vertical{i}`,
@@ -162,7 +149,7 @@ function GraphBoxClient:_renderGrid(props)
 				Points = vPoints,
 				Width = 0.01,
 				Color = Color3.fromRGB(229, 229, 229),
-				ZIndex = -1,
+				ZIndex = 0,
 			}
 		end
 

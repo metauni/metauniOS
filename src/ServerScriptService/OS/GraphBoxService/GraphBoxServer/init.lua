@@ -9,6 +9,14 @@ local UVMap = require(ReplicatedStorage.OS.GraphBoxController.UVMap)
 
 local Pocket = ReplicatedStorage.OS.Pocket
 
+local DEFAULT_DATA = {
+	-- It's a torus
+	XMapStr = "(1 + 0.5cos(piv))*cos(piu)",
+	YMapStr = "(1 + 0.5cos(piv))*sin(piu)",
+	ZMapStr = "1 + 0.5sin(piv)",
+	ShowGrid = true,
+}
+
 --[[
 	Server class for GraphBox
 ]]
@@ -31,6 +39,10 @@ function GraphBoxServer.new(model: Model)
 			self:_spawnSaver(persistIdValue.Value)
 		end)
 		:catch(warn)
+	else
+		local data = DEFAULT_DATA
+		self:SetValidUVMapStrings(data.XMapStr, data.YMapStr, data.ZMapStr)
+		self:SetShowGrid(data.ShowGrid)
 	end
 
 	return self
@@ -52,13 +64,6 @@ function GraphBoxServer:_spawnSaver(persistId: number)
 		end)
 		:catch(warn)
 end
-
-local DEFAULT_DATA = {
-	XMapStr = "u",
-	YMapStr = "v",
-	ZMapStr = "0.1+0.05cos(3piu)+0.05sin(4piv)",
-	ShowGrid = true,
-}
 
 function GraphBoxServer:_promiseDataStore()
 	return Promise.new(function(resolve, reject)
