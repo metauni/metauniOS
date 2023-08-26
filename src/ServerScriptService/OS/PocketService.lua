@@ -415,6 +415,14 @@ end
 function MetaPortal.GotoPocketHandler(plr, pocketText, passThrough, targetBoardPersistId)
 	if pocketText == "The Rising Sea" then
 		MetaPortal.ReturnToRoot(plr)
+	elseif pocketText == "metauni-dev" then
+		local placeId = 10325447437
+		local success, errormessage = pcall(function()
+			return TeleportService:TeleportAsync(placeId, {plr})
+		end)
+		if not success then
+			warn("[MetaPortal] TeleportAsync failed: ".. errormessage)
+		end
 	end
 
 	if passThrough == nil then passThrough = false end

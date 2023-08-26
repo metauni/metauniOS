@@ -13,7 +13,7 @@ if game.PlaceId == PocketConfig.RootPlaceId then
 	
 	local pocketMenu = PocketMenu.new()
 	
-	pocketMenu:SetPockets({
+	local pockets = {
 		{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
 		{Name = "Symbolic Wilds 36", Image = PocketConfig.PocketTeleportBackgrounds["Symbolic Wilds"]},
 		{Name = "Moonlight Forest 8", Image = PocketConfig.PocketTeleportBackgrounds["Moonlight Forest"]},
@@ -21,7 +21,14 @@ if game.PlaceId == PocketConfig.RootPlaceId then
 		{Name = "Storyboard 1", Image = PocketConfig.PocketTeleportBackgrounds["Storyboard"]},
 		{Name = "Big Sir 2", Image = PocketConfig.PocketTeleportBackgrounds["Big Sir"]},
 		{Name = "Overland 1", Image = PocketConfig.PocketTeleportBackgrounds["Overland"]},
-	} :: {PocketMenu.PocketData})
+	}
+
+	-- Add metauni-dev world for Billy and Dan
+	if Players.LocalPlayer.UserId == 2293079954 or Players.LocalPlayer.UserId == 2211421151 then
+		table.insert(pockets, {Name = "metauni-dev", Image = "rbxassetid://10571156964"})
+	end
+
+	pocketMenu:SetPockets(pockets :: {PocketMenu.PocketData})
 
 	task.spawn(function()
 		pocketMenu:SetSchedule(Remotes.GetSeminarSchedule:InvokeServer())
