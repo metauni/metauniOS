@@ -15,6 +15,7 @@ function Humanoid.new(humanoid: Humanoid)
 end
 
 function Humanoid:Init()
+	-- TODO: Humanoid gets destroyed sometimes before rest of code runs
 	self._animator = self._obj:WaitForChild("Animator") :: Animator
 
 	self:_initSounds()

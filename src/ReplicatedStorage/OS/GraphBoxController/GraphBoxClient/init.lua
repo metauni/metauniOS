@@ -35,7 +35,8 @@ function GraphBoxClient.new(model: Model, service)
 	self._showPrompt = Instance.new("BoolValue")
 	self._showPrompt.Value = true
 
-	self._uvMap = ValueObject.fromObservable(Rx.combineLatest {
+	self._uvMap = ValueObject.new()
+	self._maid:GiveTask(Rx.combineLatest {
 		xMap = Rxi.attributeOf(self._obj, "xMap"):Pipe{Rxi.notNil(), Rx.defaultsTo("u")},
 		yMap = Rxi.attributeOf(self._obj, "yMap"):Pipe{Rxi.notNil(), Rx.defaultsTo("v")},
 		zMap = Rxi.attributeOf(self._obj, "zMap"):Pipe{Rxi.notNil(), Rx.defaultsTo("0.1+0.05cos(3piu)+0.05sin(4piv)")},
@@ -54,9 +55,6 @@ function GraphBoxClient.new(model: Model, service)
 			end
 		end)
 	})
-
-	-- Mounted ValueObjects need cleanup
-	self._maid:GiveTask(self._uvMap)
 
 	self._maid:GiveTask(Blend.Computed(self._uvMap,
 		function(uvMap)

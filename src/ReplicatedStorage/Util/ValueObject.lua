@@ -94,6 +94,7 @@ function ValueObject:_toMountableObservable(value)
 	return nil
 end
 --[=[
+	TODO: Our maid class prevents maid key lookups
 	Mounts the value to the observable. Overrides the last mount.
 
 	@param value Observable | T
