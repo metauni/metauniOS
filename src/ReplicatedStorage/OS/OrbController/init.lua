@@ -751,6 +751,30 @@ function OrbController:Start()
 				}
 			end, Fusion.cleanup)
 	}
+
+	Rx.combineLatest {
+		OrbPart = observeAttachedOrb,
+		BoardAncestorValue = Rx.of(ReplicatedStorage):Pipe {
+			Rxi.findFirstChild("BoardAncestor"),
+		},
+	}:Subscribe(function(state)
+		if state.OrbPart and state.BoardAncestorValue then
+			local BoardGroupAncestor do
+				local parent: Instance? = state.OrbPart.Parent
+				while true do
+					-- not reactive to BoardGroup changes
+					if not parent or parent:HasTag("BoardGroup") then
+						break
+					end
+					parent = (parent :: Instance).Parent
+				end
+				BoardGroupAncestor = parent
+			end
+			state.BoardAncestorValue.Value = BoardGroupAncestor -- Instance or nil
+		elseif state.BoardAncestorValue then
+			state.BoardAncestorValue.Value = nil
+		end
+	end)
 end
 
 return OrbController
