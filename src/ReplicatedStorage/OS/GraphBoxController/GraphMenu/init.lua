@@ -67,6 +67,11 @@ function GraphMenu:render()
 	
 	local maid = Maid.new()
 	maid:GiveTask(Blend.mount(menu, {
+
+		Visible = Blend.Computed(percentVisible, function(percent)
+			return percent > 0.1
+		end),
+
 		Blend.New "UIScale" {
 			Scale = Blend.Computed(percentVisible, function(percent)
 				return 0.8 + 0.2*percent
