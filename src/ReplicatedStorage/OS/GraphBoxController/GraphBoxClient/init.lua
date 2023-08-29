@@ -40,21 +40,18 @@ function GraphBoxClient.new(model: Model, service)
 		xMap = Rxi.attributeOf(self._obj, "xMap"):Pipe{Rxi.notNil(), Rx.defaultsTo("u")},
 		yMap = Rxi.attributeOf(self._obj, "yMap"):Pipe{Rxi.notNil(), Rx.defaultsTo("v")},
 		zMap = Rxi.attributeOf(self._obj, "zMap"):Pipe{Rxi.notNil(), Rx.defaultsTo("0.1+0.05cos(3piu)+0.05sin(4piv)")},
-	}:Pipe {
-		Rx.map(function(state)
-			local uvMap
-			local success, msg = pcall(function()
-				uvMap = UVMap.newSymbolic(state.xMap, state.yMap, state.zMap)
-			end)
-	
-			if success then
-				return uvMap
-			else
-				warn(msg)
-				return nil
-			end
+	}:Subscribe(function(state)
+		local uvMap
+		local success, msg = pcall(function()
+			uvMap = UVMap.newSymbolic(state.xMap, state.yMap, state.zMap)
 		end)
-	})
+
+		if success then
+			self._uvMap.Value = uvMap
+		else
+			warn(msg)
+		end
+	end))
 
 	self._maid:GiveTask(Blend.Computed(self._uvMap,
 		function(uvMap)

@@ -3,7 +3,7 @@
 This is collection of libraries that structure game code around observable streams, binders, value objects and resource cleanup.
 
 Most libraries are adapted from [Quenty's](https://github.com/Quenty) [NevermoreEngine](https://github.com/Quenty/NevermoreEngine).
-NevermoreEngine is a comprehensive monorepo with libraries for pretty much everything, from which I've extracted the "core" libraries.
+NevermoreEngine is a comprehensive monorepo with libraries for pretty much everything, from which I've extracted the "core" libraries. They were extracted on 18/08/23, so from commit 40f9a1fad543e137f1e639cafc45a98cb439b0b6.
 
 NevermoreEngine is distributed under the MIT License.
 
