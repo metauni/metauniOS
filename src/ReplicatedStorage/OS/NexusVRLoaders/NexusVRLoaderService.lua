@@ -31,6 +31,14 @@ local Configuration = {
 
 			--Default camera option.
 			DefaultCameraOption = "Default",
+
+            --If true, Workspace.CurrentCamera.HeadLocked will be locked to false.
+            --A Roblox engineer requested keeping HeadLocked on (DisableHeadLocked = false). To keep backwards compatibility, this defaults to true.
+            DisableHeadLocked = false,
+
+            --Disables FadeOutViewOnCollision (black screen when in parts).
+            --This is provided as a workaround for games where this is a problem. Only enable if players are complaining.
+            DisableFadeOutViewOnCollision = false,
 	},
 	Movement = {
 			--Movement methods that can be enabled by the user.
@@ -41,7 +49,7 @@ local Configuration = {
 			},
 
 			--Default movement method.
-			DefaultMovementMethod = "Teleport",
+			DefaultMovementMethod = "SmoothLocomotion",
 
 			--Blur effect for snap turning and teleports.
 			SnapTeleportBlur = true,
@@ -72,6 +80,8 @@ local Configuration = {
 			--will be inserted into the game and loaded. This replaces
 			--the default Roblox backpack.
 			NexusVRBackpackEnabled = false, -- false because we manually install
+
+            TEMPORARY_UseIKControl = false,
 	},
 }
 
