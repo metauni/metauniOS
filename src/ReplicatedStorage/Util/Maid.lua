@@ -5,7 +5,10 @@
 	Changelog
 
 	17/10/23
-	-- Added types
+	- Added types
+	- Added Maid.cleanTask for cleaning a single task
+		- Recursively cleans up tables of tasks (must have no metatable)
+		- Refactored DoCleaning and __newIndex to use cleanTask
 ]]
 
 --[=[
@@ -34,7 +37,7 @@ local Maid = {}
 Maid.ClassName = "Maid"
 
 export type Maid = typeof(setmetatable({}, Maid))
-export type Task = any -- Try typing this properly later?
+export type Task = () -> () | thread | RBXScriptConnection | {Destroy: (self: any) -> ()} | {}
 
 --[=[
 	Constructs a new Maid object
@@ -123,26 +126,7 @@ function Maid:__newindex(index, newTask)
 	tasks[index] = newTask
 
 	if oldTask then
-		if type(oldTask) == "function" then
-			oldTask()
-		elseif type(oldTask) == "thread" then
-			local cancelled
-			if coroutine.running() ~= oldTask then
-				cancelled = pcall(function()
-					task.cancel(oldTask)
-				end)
-			end
-
-			if not cancelled then
-				task.defer(function()
-					task.cancel(oldTask)
-				end)
-			end
-		elseif typeof(oldTask) == "RBXScriptConnection" then
-			oldTask:Disconnect()
-		elseif oldTask.Destroy then
-			oldTask:Destroy()
-		end
+		Maid.cleanTask(oldTask)
 	end
 end
 
@@ -240,28 +224,75 @@ function Maid:DoCleaning()
 	local index, job = next(tasks)
 	while job ~= nil do
 		tasks[index] = nil
-		if type(job) == "function" then
-			job()
-		elseif type(job) == "thread" then
-			local cancelled
-			if coroutine.running() ~= job then
-				cancelled = pcall(function()
-					task.cancel(job)
-				end)
-			end
-
-			if not cancelled then
-				local toCancel = job
-				task.defer(function()
-					task.cancel(toCancel)
-				end)
-			end
-		elseif typeof(job) == "RBXScriptConnection" then
-			job:Disconnect()
-		elseif job.Destroy then
-			job:Destroy()
-		end
+		Maid.cleanTask(job)
 		index, job = next(tasks)
+	end
+end
+
+--[=[
+	Static class function that cleans up a single task given as argument.
+	Can be a function, thread, event connection, maid, a numeric-table of tasks or
+	a table with a Destroy method.
+
+	The key "Destroy" in a table is always assumed to point to a function or nil.
+	An error will be thrown if there is a non-function stored - this is intentional.
+	Do not use this key for anything other than a cleanup method.
+
+	If the task is a table with a destroy method, that will be called, otherwise
+	if it also has no metatable and only numeric keys, it is treated as a list
+	of tasks, and all the values will be recursively cleaned as tasks, and the
+	table will be cleared if it's not frozen.
+
+	A table with any non-numeric keys, but no destroy method, will not be cleaned
+	(nor will its values be recursively cleaned). This allows class objects to be
+	cleaned only once by dropping their Destroy method after Destroy is called.
+]=]
+function Maid.cleanTask(job: Task, refs: {[any]:true}?)
+	if type(job) == "function" then
+		job()
+	elseif type(job) == "thread" then
+		local cancelled
+		if coroutine.running() ~= job then
+			cancelled = pcall(function()
+				task.cancel(job)
+			end)
+		end
+
+		if not cancelled then
+			local toCancel = job
+			task.defer(function()
+				task.cancel(toCancel)
+			end)
+		end
+	elseif typeof(job) == "RBXScriptConnection" then
+		job:Disconnect()
+	elseif typeof(job) == "table" then
+		local taskTable = job :: any
+
+		if taskTable.Destroy then
+			taskTable:Destroy()
+		elseif getmetatable(taskTable) == nil then
+			for key in taskTable do
+				if typeof(key) ~= "number" then
+					warn("[Maid] Aborted cleaning non-numeric task table - might be an already destroyed object")
+					return
+				end
+			end
+			if refs then
+				if refs[job] then
+					return
+				end
+				refs[job] = true
+			else
+				refs = {[job]=true}
+			end
+			for k, v in taskTable do
+				Maid.cleanTask(v, refs)
+			end
+			if not table.isfrozen(job) then
+				table.clear(job)
+			end
+		end
 	end
 end
 

@@ -1,9 +1,23 @@
+--[[
+	Creates a UserInputService connection that triggers callback when all
+	keys of a macro are being pressed.
+
+	Changelog:
+	12/10/23
+	- Added types and ClassName
+]]
+
 local UserInputService = game:GetService("UserInputService")
 
 local Macro = {}
 Macro.__index = Macro
+Macro.ClassName = "Macro"
 
-function Macro.new(... : Enum.KeyCode)
+export type Macro = {
+	Connect: (self: Macro, callback: () -> ()) -> RBXScriptConnection,
+}
+
+function Macro.new(... : Enum.KeyCode): Macro
 	local keys = {...}
 	assert(typeof(keys) == "table", "Bad keys")
 	
@@ -18,7 +32,7 @@ function Macro.new(... : Enum.KeyCode)
 	return self
 end
 
-function Macro:Connect(callback: () -> ())
+function Macro:Connect(callback: () -> ()): RBXScriptConnection
 	assert(typeof(callback) == "function", "Bad callback")
 	
 	return UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessedEvent: boolean)

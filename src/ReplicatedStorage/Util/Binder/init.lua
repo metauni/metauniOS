@@ -642,7 +642,7 @@ function Binder:_remove(inst)
 	end
 
 	-- Clean it up, e.g. call :Destroy() if it's a class with :Destroy()
-	Maid.clean(class)
+	Maid.cleanTask(class)
 
 	-- Fire off events
 	if self._classRemovedSignal then

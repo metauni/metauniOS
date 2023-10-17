@@ -26,9 +26,9 @@ local CANCELLED: "cancelled" = "cancelled"
 -- Clean up task belonging to subscriber.
 local function doCleanup(self: _Subscriber)
 	if self._cleanupTask then
-		local task = self._cleanupTask
+		local job = self._cleanupTask
 		self._cleanupTask = nil
-		Maid.clean(task)
+		Maid.cleanTask(job)
 	end
 end
 
@@ -920,7 +920,7 @@ function export.mergeAll(): Transformer
 			local pendingCount = 0
 			local topComplete = false
 
-			maid._ = source:Subscribe(
+			maid:GiveTask(source:Subscribe(
 				function(observable)
 					assert(isObservable(observable), "Observable expected")
 
@@ -957,6 +957,7 @@ function export.mergeAll(): Transformer
 						maid:Destroy()
 					end
 				end)
+			)
 
 			return maid
 		end)
@@ -984,13 +985,13 @@ function export.switchAll(): Transformer
 			local insideComplete = false
 			local currentInside = nil
 
-			outerMaid._ = function()
+			outerMaid:GiveTask(function()
 				-- Ensure inner subscription is disconnected first. This prevents
 				-- the inner sub from firing while the outer is subscribed,
 				-- throwing a warning.
 				outerMaid._innerSub = nil
 				outerMaid._outerSuber = nil
-			end
+			end)
 
 			outerMaid._outerSuber = source:Subscribe(
 				function(observable)
@@ -1055,7 +1056,7 @@ function export.flatMap(project: (any) -> Observable, resultSelector: ((any, any
 			local pendingCount = 0
 			local topComplete = false
 
-			maid._ = source:Subscribe(
+			maid:GiveTask(source:Subscribe(
 				function(...)
 					local outerValue = ...
 
@@ -1066,7 +1067,7 @@ function export.flatMap(project: (any) -> Observable, resultSelector: ((any, any
 
 					local innerMaid = Maid.new()
 
-					innerMaid._ = observable:Subscribe(
+					innerMaid:GiveTask(observable:Subscribe(
 						function(...)
 							-- Merge each inner observable
 							if resultSelector then
@@ -1086,8 +1087,9 @@ function export.flatMap(project: (any) -> Observable, resultSelector: ((any, any
 								maid:Destroy()
 							end
 						end)
+					)
 
-					maid._ = innerMaid
+					maid:GiveTask(innerMaid)
 				end,
 				function(...)
 					sub:Fail(...) -- Also reflect failures up to the top!
@@ -1100,6 +1102,7 @@ function export.flatMap(project: (any) -> Observable, resultSelector: ((any, any
 						maid:Destroy()
 					end
 				end)
+			)
 
 			return maid
 		end)
@@ -1129,7 +1132,7 @@ function export.takeUntil(notifier: Observable): Transformer
 			end
 
 			-- Any value emitted will cancel (complete without any values allows all values to pass)
-			maid._ = notifier:Subscribe(cancel, cancel, nil)
+			maid:GiveTask(notifier:Subscribe(cancel, cancel, nil))
 
 			-- Cancelled immediately? Oh boy.
 			if cancelled then
@@ -1138,7 +1141,7 @@ function export.takeUntil(notifier: Observable): Transformer
 			end
 
 			-- Subscribe!
-			maid._ = source:Subscribe(sub:GetFireFailComplete())
+			maid:GiveTask(source:Subscribe(sub:GetFireFailComplete()))
 
 			return maid
 		end)
@@ -1564,14 +1567,14 @@ function export.delay(seconds: number): Transformer
 		return newObservable(function(sub)
 			local maid = Maid.new()
 
-			maid._ = source:Subscribe(function(...)
+			maid:GiveTask(source:Subscribe(function(...)
 				local args = table.pack(...)
 
 				maid[args] = task.delay(seconds, function()
 					maid[args] = nil
 					sub:Fire(table.unpack(args, 1, args.n))
 				end)
-			end, sub:GetFailComplete())
+			end, sub:GetFailComplete()))
 
 			return maid
 		end)
@@ -1833,7 +1836,7 @@ function export.throttleDefer(): Transformer
 
 			local lastResult
 
-			maid._ = source:Subscribe(function(...)
+			maid:GiveTask(source:Subscribe(function(...)
 				if not lastResult then
 					lastResult = table.pack(...)
 
@@ -1849,7 +1852,7 @@ function export.throttleDefer(): Transformer
 				else
 					lastResult = table.pack(...)
 				end
-			end, sub:GetFailComplete())
+			end, sub:GetFailComplete()))
 
 			return maid
 		end)

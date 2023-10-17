@@ -32,7 +32,7 @@ function HumanoidController:Start()
 end
 
 function HumanoidController:_addPlayer(player: Player)
-	self._maid:Assign(player, self:_observeHumanoidObject(player):Subscribe(function(humanoid: Humanoid?)
+	self._maid[player] = self:_observeHumanoidObject(player):Subscribe(function(humanoid: Humanoid?)
 		if self._playerHumanoid[player] then
 			self._playerHumanoid[player]:Destroy()
 			self._playerHumanoid[player] = nil
@@ -44,11 +44,11 @@ function HumanoidController:_addPlayer(player: Player)
 		end
 
 		self._humanoidChanged:Fire(player, self._playerHumanoid[player])
-	end))
+	end)
 end
 
 function HumanoidController:_removePlayer(player: Player)
-	self._maid:Clean(player)
+	self._maid[player] = nil
 end
 
 function HumanoidController:_observeHumanoidObject(player: Player)

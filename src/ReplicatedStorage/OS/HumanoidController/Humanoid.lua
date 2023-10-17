@@ -32,17 +32,19 @@ function Humanoid:_initSounds()
 	self._maid._runningMaid = runningMaid
 
 	-- Softer running sound
-	runningMaid._ = self:_observeSound("Running")
-		:Subscribe(function(sound: Sound?)
-			if sound then
-				-- chopped and EQ'd from https://www.fesliyanstudios.com/royalty-free-sound-effects-download/footsteps-on-grass-284
-				-- "Footsteps In Grass Slow A Sound Effect"
-				sound.SoundId = RUNNING_SOUND_ID
-			end
-		end)
+	runningMaid:GiveTask(
+		self:_observeSound("Running")
+			:Subscribe(function(sound: Sound?)
+				if sound then
+					-- chopped and EQ'd from https://www.fesliyanstudios.com/royalty-free-sound-effects-download/footsteps-on-grass-284
+					-- "Footsteps In Grass Slow A Sound Effect"
+					sound.SoundId = RUNNING_SOUND_ID
+				end
+			end)
+	)
 
 	-- Scale playback speed with walkspeed
-	runningMaid._ = Rx.combineLatest {
+	runningMaid:GiveTask(Rx.combineLatest {
 		Sound = self:_observeSound("Running"),
 		WalkSpeed = self:_observeWalkSpeed(),
 	}:Subscribe(function(state)
@@ -51,10 +53,10 @@ function Humanoid:_initSounds()
 			state.Sound.PlaybackSpeed = math.max(nonlinear, 1) * RUNNING_PLAYBACK_FACTOR
 			state.Sound.Volume = nonlinear * RUNNING_VOLUME
 		end
-	end)
+	end))
 
 	-- Restart sound when humanoid stops
-	runningMaid._ = Rx.combineLatest {
+	runningMaid:GiveTask(Rx.combineLatest {
 		Sound = self:_observeSound("Running"),
 		MoveDirection = self:_observeMoveDirection(),
 	}:Subscribe(function(state)
@@ -63,7 +65,7 @@ function Humanoid:_initSounds()
 				state.Sound.TimePosition = 0
 			end
 		end
-	end)
+	end))
 end
 
 function Humanoid:SetWalkSpeed(speed: number)
@@ -101,9 +103,9 @@ function Humanoid:_initControls()
 	
 	ContextActionService:BindAction('RunBind', handler, true, Enum.KeyCode.LeftShift)
 
-	self._maid._ = function()
+	self._maid:GiveTask(function()
 		ContextActionService:UnbindAction("RunBind")
-	end
+	end)
 end
 
 
