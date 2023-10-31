@@ -26,7 +26,8 @@ local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 -- Utils
 local function serialiseBoard(board)
     -- Commit all of the drawing task changes (like masks) to the figures
-	local figures = board:CommitAllDrawingTasks()
+    local state = board.State
+    local figures = metaboard.BoardState.commitAllDrawingTasks(state.DrawingTasks, state.Figures)
 	local removals = {}
 
 	-- Remove the figures that have been completely erased

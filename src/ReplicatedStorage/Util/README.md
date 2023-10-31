@@ -5,9 +5,11 @@ This is collection of libraries that structure game code around observable strea
 Most libraries are adapted from [Quenty's](https://github.com/Quenty) [NevermoreEngine](https://github.com/Quenty/NevermoreEngine).
 NevermoreEngine is a comprehensive monorepo with libraries for pretty much everything, from which I've extracted the "core" libraries. They were extracted on 18/08/23, so from commit 40f9a1fad543e137f1e639cafc45a98cb439b0b6.
 
-NevermoreEngine is distributed under the MIT License.
+Individual files may have a changelog in the initial comment.
 
 ## Nevermore License
+NevermoreEngine is distributed under the MIT License.
+
 ```
 MIT License
 
@@ -20,6 +22,33 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
+### Other licenses
+The BlendDefaultProps table from Blend.lua was credited to Elttob, and the MIT license is repeated here.
+```
+
+MIT License
+
+Copyright (c) 2021 Elttob
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Overview
 
 ### Libraries from Nevermore
@@ -29,6 +58,8 @@ Modifications have been made to every Nevermore library included, like using reg
 
 Each library is pretty well-documented internally.
 
+- Maid: Encapsulate cleanup logic for a resource to be destroyed later
+	- Our implementation of a maid task allows for numeric tables of tasks.
 - BaseObject: A table with a self._maid and a :Destroy() method
 - Binder: wraps tagged instances with a class/constructor using CollectionService, and provides boilerplate for observing/querying classes.
 - Binder/PlayerHumanoidBinder: creates a binder that applies tags to the humanoid of a player
@@ -57,6 +88,4 @@ The project.json files need to be updated manually if the package versions are u
 
 - Rx, Rxi: Standalone Rx implementation by stravant
 	- This was a onetime release and is not maintained. Bug fixes and extensions to these files have been made, and we will maintain/update these as needed.
-- Maid: collects cleanup logic for a resource, that can be destroyed later.
-	- Also from stravant's Rx implementation.
-	- Added :DoCleaning() and :GiveTask() aliases for compatibility with Nevermore libraries above.
+	- Updated maid usage to be compatible with our Maid.

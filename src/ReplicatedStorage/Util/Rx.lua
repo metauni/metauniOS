@@ -1,3 +1,16 @@
+--[[
+	Rx library adapted from https://gist.github.com/Anaminus/1f31af4e5280b9333f3f58e13840c670
+
+	Changelog (incomplete)
+	- 31/10/23
+		- Added .ClassName based typing for compatibility with duplicate Util libraries
+	- 23/10/23
+		- Updated to use Nevermore promise library
+		- add Rx.toPromise
+	- ??/??/23
+		- Updated to use Nevermore maid library
+]]
+
 local Maid = require(script.Parent.Maid)
 local Promise = require(script.Parent.Promise)
 
@@ -131,9 +144,12 @@ export type Observable = {
 }
 
 local Observable = {__index={}}
+Observable.ClassName = "Observable"
 
 function isObservable(v: any): boolean
+	-- Duck typing yeehaw
 	return getmetatable(v) == Observable
+		or (getmetatable(v) and getmetatable(v).ClassName == Observable.ClassName)
 end
 export.isObservable = isObservable
 
@@ -262,12 +278,30 @@ end
 	@return Observable
 ]=]
 function export.from(item: {any}): Observable
-	if type(item) == "table" then
+	if Promise.isPromise(item) then
+		return export.fromPromise(item)
+	elseif type(item) == "table" then
 		return export.of(table.unpack(item))
 	else
 		-- TODO: Iterator?
 		error("[Rx.from] - cannot convert")
 	end
+end
+
+--[=[
+	Converts a Signal into an observable.
+	https://rxjs-dev.firebaseapp.com/api/index/function/fromEvent
+
+	@param event Signal<T>
+	@return Observable<T>
+]=]
+function export.fromSignal(event: RBXScriptSignal): Observable
+	return newObservable(function(sub)
+		-- This stream never completes or fails!
+		return event:Connect(function(...)
+			sub:Fire(...)
+		end)
+	end)
 end
 
 --[=[
@@ -278,12 +312,11 @@ end
 	@return Observable<T>
 ]=]
 function export.fromPromise(promise)
-	assert(Promise.is(promise))
+	assert(Promise.isPromise(promise), "Bad promise")
 
 	return newObservable(function(sub)
-		if promise:getStatus() == Promise.Status.Resolved then
-			-- First return value of await() is `true`, indicating resolved status
-			sub:Fire(select(2, promise:await()))
+		if promise:IsFulfilled() then
+			sub:Fire(promise:Wait())
 			sub:Complete()
 			return nil
 		end
@@ -314,6 +347,27 @@ function export.fromPromise(promise)
 end
 
 --[=[
+	Converts an observable to a promise that will either resolve with the
+	first emitted value, or reject on complete or fail.
+	Does not have cancelToken functionality.
+	@param observable Observable<T>
+	@return Promise<T>
+]=]
+function export.toPromise(observable)
+	local maid = Maid.new()
+
+	local promise = Promise.new(function(resolve, reject)
+		maid:GiveTask(observable:Subscribe(resolve, reject, reject))
+	end)
+
+	promise:Finally(function()
+		maid:DoCleaning()
+	end)
+
+	return promise
+end
+
+--[=[
 	https://rxjs-dev.firebaseapp.com/api/operators/merge
 
 	@param observables { Observable }
@@ -332,22 +386,6 @@ function export.merge(observables: {Observable}): Observable
 			table.insert(maid, observable:Subscribe(sub:GetFireFailComplete()))
 		end
 		return maid
-	end)
-end
-
---[=[
-	Converts a Signal into an observable.
-	https://rxjs-dev.firebaseapp.com/api/index/function/fromEvent
-
-	@param event Signal<T>
-	@return Observable<T>
-]=]
-function export.fromSignal(event: RBXScriptSignal): Observable
-	return newObservable(function(sub)
-		-- This stream never completes or fails!
-		return event:Connect(function(...)
-			sub:Fire(...)
-		end)
 	end)
 end
 

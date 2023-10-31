@@ -4,7 +4,7 @@ registry = "test"
 
 [[package]]
 name = "blinkybool/feather"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = []
 
 [[package]]
@@ -29,13 +29,13 @@ dependencies = []
 
 [[package]]
 name = "metauni/metaboard"
-version = "1.4.2"
-dependencies = [["Feather", "blinkybool/feather@0.1.0"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"]]
+version = "1.5.0-rc1"
+dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"]]
 
 [[package]]
 name = "metauni/metaunios"
 version = "0.1.0"
-dependencies = [["Feather", "blinkybool/feather@0.1.0"], ["Fusion", "elttob/fusion@0.2.0"], ["GameAnalytics", "gameanalytics/gameanalytics-sdk@2.2.2"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["metaboard", "metauni/metaboard@1.4.2"], ["t", "osyrisrblx/t@3.0.0"]]
+dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Fusion", "elttob/fusion@0.2.0"], ["GameAnalytics", "gameanalytics/gameanalytics-sdk@2.2.2"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["metaboard", "metauni/metaboard@1.5.0-rc1"], ["t", "osyrisrblx/t@3.0.0"]]
 
 [[package]]
 name = "osyrisrblx/t"

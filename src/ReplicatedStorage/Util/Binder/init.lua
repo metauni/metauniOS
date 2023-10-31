@@ -1,5 +1,10 @@
 --[=[
-	-- ADAPTED from NevermoreEngine's Binder
+	-- ADAPTED from NevermoreEngine's Binder https://github.com/Quenty/NevermoreEngine/blob/0e78a1ce69e2469f61059b641b2000ddd0c7d758/src/binder/src/Shared/Binder.lua
+
+	Changelog:
+	- 23/10/23
+		- Added :ObserveAllBrio()
+		- Fixed _observeInstance naming
 
 	Bind class to Roblox Instance
 
@@ -93,7 +98,6 @@ function Binder.isBinder(value)
 		and type(value.Start) == "function"
 		and type(value.GetTag) == "function"
 		and type(value.GetConstructor) == "function"
-		and type(value.ObserveInstance) == "function"
 		and type(value.GetClassAddedSignal) == "function"
 		and type(value.GetClassRemovingSignal) == "function"
 		and type(value.GetClassRemovedSignal) == "function"
@@ -213,7 +217,7 @@ function Binder:Observe(instance)
 	return Rx.observable(function(sub)
 		local maid = Maid.new()
 
-		maid:GiveTask(self:ObserveInstance(instance, function(...)
+		maid:GiveTask(self:_observeInstance(instance, function(...)
 			sub:Fire(...)
 		end))
 		sub:Fire(self:Get(instance))
@@ -246,8 +250,38 @@ function Binder:ObserveBrio(instance)
 			end
 		end
 
-		maid:GiveTask(self:ObserveInstance(instance, handleClassChanged))
+		maid:GiveTask(self:_observeInstance(instance, handleClassChanged))
 		handleClassChanged(self:Get(instance))
+
+		return maid
+	end)
+end
+
+--[=[
+	Observes all entries in the binder
+
+	@return Observable<Brio<T>>
+]=]
+function Binder:ObserveAllBrio()
+	return Rx.observable(function(sub)
+		local maid = Maid.new()
+
+		local function handleNewClass(class)
+			local brio = Brio.new(class)
+			maid[class] = brio
+
+			sub:Fire(brio)
+		end
+
+		maid:GiveTask(self:GetClassAddedSignal():Connect(handleNewClass))
+
+		for _, item in pairs(self:GetAll()) do
+			handleNewClass(item)
+		end
+
+		maid:GiveTask(self:GetClassRemovingSignal():Connect(function(class)
+			maid[class] = nil
+		end))
 
 		return maid
 	end)
@@ -501,39 +535,31 @@ end
 	Returns a promise which will resolve when the instance is bound.
 
 	@param inst Instance -- Instance to check
-	@param cancelToken? CancelToken
 	@return Promise<T>
 ]=]
-function Binder:Promise(inst, cancelToken)
+function Binder:Promise(inst)
 	assert(typeof(inst) == "Instance", "'inst' must be instance")
 
 	local class = self:Get(inst)
 	if class then
-		return Promise.resolve(class)
+		return Promise.resolved(class)
 	end
 
 	local maid = Maid.new()
 	local promise = Promise.new()
 
-	if cancelToken then
-		cancelToken:ErrorIfCancelled()
-		maid:GivePromise(cancelToken.PromiseCancelled):Then(function()
-			promise:Reject()
-		end)
-	end
-
-	maid:GiveTask(self:ObserveInstance(inst, function(classAdded)
+	maid:GiveTask(self:_observeInstance(inst, function(classAdded)
 		if classAdded then
 			promise:Resolve(classAdded)
 		end
 	end))
 
-	task.delay(5, function()
+	maid:GiveTask(task.delay(5, function()
 		if promise:IsPending() then
-			warn(("[promiseBoundClass] - Infinite yield possible on %q for binder %q\n")
+			warn(("[Binder:Promise] - Infinite yield possible on %q for binder %q\n")
 				:format(inst:GetFullName(), self:GetTag()))
 		end
-	end)
+	end))
 
 	promise:Finally(function()
 		maid:Destroy()

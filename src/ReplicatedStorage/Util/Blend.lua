@@ -2,12 +2,15 @@
 	ADAPTED FROM NEVERMORE
 		- Uses adapted libraries
 
+	Changelog
+	- 23/10/23
+		- Merged BlendDefaultProps into this file (Elttob license in README)
+
 	Declarative UI system inspired by Fusion.
 	@class Blend
 ]=]
 
 local AccelTween = require(script.Parent.AccelTween)
-local BlendDefaultProps = require(script.BlendDefaultProps)
 local Brio = require(script.Parent.Brio)
 local Maid = require(script.Parent.Maid)
 local Promise = require(script.Parent.Promise)
@@ -16,6 +19,113 @@ local Rxi = require(script.Parent.Rxi)
 local Spring = require(script.Parent.Spring)
 local StepUtils = require(script.Parent.StepUtils)
 local ValueObject = require(script.Parent.ValueObject)
+
+--[[
+	Stores 'sensible default' properties to be applied to instances created by
+	the New function.
+	See README for license (credit Elttob)
+]]
+
+local BlendDefaultProps = {
+	ScreenGui = {
+		ResetOnSpawn = false,
+		ZIndexBehavior = "Sibling"
+	},
+
+	BillboardGui = {
+		ResetOnSpawn = false,
+		ZIndexBehavior = "Sibling"
+	},
+
+	SurfaceGui = {
+		ResetOnSpawn = false,
+		ZIndexBehavior = "Sibling",
+
+		SizingMode = "PixelsPerStud",
+		PixelsPerStud = 50
+	},
+
+	Frame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	ScrollingFrame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		ScrollBarImageColor3 = Color3.new(0, 0, 0)
+	},
+
+	TextLabel = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		Font = "SourceSans",
+		Text = "",
+		TextColor3 = Color3.new(0, 0, 0),
+		TextSize = 14
+	},
+
+	TextButton = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		AutoButtonColor = false,
+
+		Font = "SourceSans",
+		Text = "",
+		TextColor3 = Color3.new(0, 0, 0),
+		TextSize = 14
+	},
+
+	TextBox = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		ClearTextOnFocus = false,
+
+		Font = "SourceSans",
+		Text = "",
+		TextColor3 = Color3.new(0, 0, 0),
+		TextSize = 14
+	},
+
+	ImageLabel = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	ImageButton = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		AutoButtonColor = false
+	},
+
+	ViewportFrame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	VideoFrame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	UIListLayout = {
+		SortOrder = Enum.SortOrder.LayoutOrder;
+	},
+}
 
 local Blend = {}
 
@@ -114,7 +224,7 @@ function Blend.Dynamic(...)
 			-- This switch map is relatively expensive, so we don't do this for defaul computed
 			-- and instead force the user to switch to another promise
 			Rx.switchMap(function(promise, ...)
-				if Promise.is(promise) then
+				if Promise.isPromise(promise) then
 					return Rx.fromPromise(promise)
 				elseif Rx.isObservable(promise) then
 					return promise
@@ -470,7 +580,7 @@ function Blend.toPropertyObservable(value)
 	elseif type(value) == "table" then
 		if ValueObject.isValueObject(value) then
 			return value:Observe()
-		elseif Promise.is(value) then
+		elseif Promise.isPromise(value) then
 			return Rx.fromPromise(value)
 		elseif value.Observe then
 			return value:Observe()
@@ -918,7 +1028,7 @@ function Blend._observeChildren(value, parent)
 	end
 
 	-- Handle like observable
-	if Promise.is(value) then
+	if Promise.isPromise(value) then
 		value = Rx.fromPromise(value)
 	end
 

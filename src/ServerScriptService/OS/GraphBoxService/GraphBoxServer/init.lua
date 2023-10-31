@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 
 local BaseObject = require(ReplicatedStorage.Util.BaseObject)
-local Promise = require(ReplicatedStorage.Util.Promise)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 local UVMap = require(ReplicatedStorage.OS.GraphBoxController.UVMap)

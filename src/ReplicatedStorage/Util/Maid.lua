@@ -9,6 +9,9 @@
 	- Added Maid.cleanTask for cleaning a single task
 		- Recursively cleans up tables of tasks (must have no metatable)
 		- Refactored DoCleaning and __newIndex to use cleanTask
+
+	24/10/23
+	- Fixed bug not cleaning up instances
 ]]
 
 --[=[
@@ -65,8 +68,8 @@ end
 	@param value any
 	@return boolean
 ]=]
-function Maid.isMaid(value)
-	return type(value) == "table" and value.ClassName == "Maid"
+function Maid.isMaid(v)
+	return getmetatable(v) == Maid or getmetatable(v) and getmetatable(v).ClassName == Maid.ClassName
 end
 
 --[=[
@@ -231,8 +234,8 @@ end
 
 --[=[
 	Static class function that cleans up a single task given as argument.
-	Can be a function, thread, event connection, maid, a numeric-table of tasks or
-	a table with a Destroy method.
+	Can be a function, thread, event connection, instance, maid,
+	a numeric-table of tasks or a table with a Destroy method.
 
 	The key "Destroy" in a table is always assumed to point to a function or nil.
 	An error will be thrown if there is a non-function stored - this is intentional.
@@ -266,6 +269,8 @@ function Maid.cleanTask(job: Task, refs: {[any]:true}?)
 		end
 	elseif typeof(job) == "RBXScriptConnection" then
 		job:Disconnect()
+	elseif typeof(job) == "Instance" then
+		job:Destroy()
 	elseif typeof(job) == "table" then
 		local taskTable = job :: any
 
