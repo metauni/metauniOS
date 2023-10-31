@@ -2,10 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Feather = require(ReplicatedStorage.Packages.Feather)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
-local BoardState = require(ReplicatedStorage.Packages.metaboard.BoardState)
 local Blend = require(ReplicatedStorage.Util.Blend)
-local Brio = require(ReplicatedStorage.Util.Brio)
-local Maid = require(ReplicatedStorage.Util.Maid)
 local Rx = require(ReplicatedStorage.Util.Rx)
 
 -- Components
