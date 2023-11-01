@@ -4,8 +4,8 @@ function CameraUtils.ViewBoardsAtFOV(boards: {Board}, verticalFOV: number, viewp
 	local targets = table.create(#boards)
 	local surfaceCFrames = table.create(#boards)
 	for _, board in ipairs(boards) do
-		table.insert(targets, board._instance)
-		table.insert(surfaceCFrames, board.SurfaceCFrame)
+		table.insert(targets, board:GetPart())
+		table.insert(surfaceCFrames, board:GetSurfaceCFrame())
 	end
 	return CameraUtils.ViewTargetSurfacesAtFOV(targets, surfaceCFrames, verticalFOV, viewportSize, buffer)
 end
@@ -160,7 +160,7 @@ end
 function CameraUtils.GetFOVForBoards(camCFrame: CFrame, boards: {any}, viewportSize: Vector2, buffer: Vector2)
 	local targets = table.create(#boards)
 	for _, board in ipairs(boards) do
-		table.insert(targets, board._instance)
+		table.insert(targets, board:GetPart())
 	end
 
 	return CameraUtils.GetFOVForTargets(camCFrame, targets, viewportSize, buffer)

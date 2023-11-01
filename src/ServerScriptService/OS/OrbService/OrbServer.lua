@@ -477,17 +477,17 @@ function OrbServer.new(orbPart: Part)
 				end
 			end
 
-			local poiBoards = Sift.Dictionary.filter(BoardService.Boards, function(board)
-				return not board._instance:HasTag("metaboard_personal_board") and not board._instance:HasTag("orbcam_ignore")
+			local poiBoardsSet = Sift.Set.filter(BoardService.BoardServerBinder:GetAllSet(), function(board)
+				return not board:GetPart():HasTag("metaboard_personal_board") and not board:GetPart():HasTag("orbcam_ignore")
 			end)
 
 			local firstBoard, firstPart do
 				local minSoFar = math.huge
-				for _, board in poiBoards do
-					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
+				for board in poiBoardsSet do
+					local distance = (board:GetSurfaceCFrame().Position - speakerPosition).Magnitude
 					if distance < minSoFar then
 						firstBoard = board
-						firstPart = board._instance
+						firstPart = board:GetPart()
 						minSoFar = distance
 					end
 				end
@@ -509,16 +509,16 @@ function OrbServer.new(orbPart: Part)
 			local secondBoard, secondPart
 			if viewMode == "double" then
 				local minSoFar = math.huge
-				for _, board in poiBoards do
-					local distance = (board.SurfaceCFrame.Position - speakerPosition).Magnitude
-					local goodAngle = firstBoard.SurfaceCFrame.LookVector:Dot(board.SurfaceCFrame.LookVector) > 0
+				for board in poiBoardsSet do
+					local distance = (board:GetSurfaceCFrame().Position - speakerPosition).Magnitude
+					local goodAngle = firstBoard:GetSurfaceCFrame().LookVector:Dot(board:GetSurfaceCFrame().LookVector) > 0
 					
-					local betweenBoards = (board.SurfaceCFrame.Position - firstBoard.SurfaceCFrame.Position).Magnitude
+					local betweenBoards = (board:GetSurfaceCFrame().Position - firstBoard:GetSurfaceCFrame().Position).Magnitude
 					local maxAxisSizeFirstBoard = math.max(firstPart.Size.X, firstPart.Size.Y, firstPart.Size.Z)
 					local goodDistanceBetweenBoards = betweenBoards <= maxAxisSizeFirstBoard * 1.5
 					if distance < minSoFar and goodAngle and goodDistanceBetweenBoards and board ~= firstBoard then
 						secondBoard = board
-						secondPart = board._instance
+						secondPart = board:GetPart()
 						minSoFar = distance
 					end
 				end

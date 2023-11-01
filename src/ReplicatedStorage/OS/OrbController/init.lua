@@ -402,9 +402,9 @@ function OrbController:Start()
 			return
 		end
 
-		local boards = {BoardController.Boards[poi1]}
+		local boards = {BoardController.BoardClientBinder:Get(poi1)}
 		if poi2 then
-			table.insert(boards, BoardController.Boards[poi2])
+			table.insert(boards, BoardController.BoardClientBinder:Get(poi2))
 		end
 		if #boards == 0 then
 			return
