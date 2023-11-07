@@ -18,6 +18,10 @@
 
 		"Icon": {
 			"$path": "../../CompiledPackages/Icon.rbxm"
+		},
+
+		"BitBuffer": {
+			"$path": "../../CompiledPackages/BitBuffer.lua"
 		}
 	}
 }

@@ -747,6 +747,9 @@ function OrbController:Start()
 						SetWaypointOnly = function(waypointOnly: boolean)
 							Remotes.SetWaypointOnly:FireServer(attachedOrb, waypointOnly)
 						end,
+						OnClickReplayMenu = function()
+							self._showReplayMenu.Value = true
+						end
 					}
 				}
 			end, Fusion.cleanup)

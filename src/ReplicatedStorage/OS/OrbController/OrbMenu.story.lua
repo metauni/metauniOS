@@ -53,6 +53,9 @@ return function (target)
 			SetWaypointOnly = function(waypointOnly: boolean)
 				WaypointOnly:set(waypointOnly)
 			end,
+			OnClickReplayMenu = function()
+				print("Open Replay Menu!")
+			end
 		}
 	}
 

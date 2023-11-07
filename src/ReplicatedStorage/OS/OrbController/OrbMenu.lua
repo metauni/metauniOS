@@ -530,8 +530,6 @@ return function(props)
 		}
 	}
 
-	local HideGui = Value(false)
-
 	return UI.Div {
 
 		[Fusion.Cleanup] = {
@@ -568,13 +566,28 @@ return function(props)
 						VerticalAlignment = Enum.VerticalAlignment.Bottom,
 						Padding = UDim.new(0, 0),
 					},
+					-- Computed(function()
+					-- 	if props.IsSpeaker:get() then
+					-- 		return 
+					-- 			menuButton {
+					-- 				Text = "Replay",
+					-- 				Image = "rbxassetid://8215093320",
+					-- 				LayoutOrder = 1,
+					-- 				BackgroundTransparency = 0.8,
+					-- 				OnClick = function()
+					-- 					ActiveMenu:set(nil)
+					-- 					props.OnClickReplayMenu()
+					-- 				end,
+					-- 			}
+					-- 	end
+					-- end, Fusion.cleanup),
 					Computed(function()
 						if props.IsSpeaker:get() then
 							return 
 								menuButton {
 									Text = "Controls",
 									Image = "rbxassetid://13195262593",
-									LayoutOrder = 1,
+									LayoutOrder = 2,
 									BackgroundTransparency = 0.8,
 									OnClick = function()
 										if ActiveMenu:get() == "Controls" then
@@ -589,7 +602,7 @@ return function(props)
 					menuButton {
 						Text = "Emoji",
 						Image = "rbxassetid://13193313621",
-						LayoutOrder = 2,
+						LayoutOrder = 3,
 						BackgroundTransparency = 0.8,
 						OnClick = function()
 							if ActiveMenu:get() == "Emoji" then
@@ -605,7 +618,7 @@ return function(props)
 								menuButton {
 									Text = "Teleport",
 									Image = "rbxassetid://11877012097",
-									LayoutOrder = 3,
+									LayoutOrder = 4,
 									BackgroundTransparency = 0.8,
 									OnClick = function()
 										props.Teleport()
