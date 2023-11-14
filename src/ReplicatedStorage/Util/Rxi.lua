@@ -1,3 +1,10 @@
+--[[
+	Changelog
+
+	14/11/23
+	- Added playerOfUserId
+]]
+
 local Maid = require(script.Parent.Maid)
 local Rx = require(script.Parent.Rx)
 local Brio = require(script.Parent.Brio)
