@@ -27,13 +27,19 @@ local OrbMenu = require(script.OrbMenu)
 local HumanoidController = require(ReplicatedStorage.OS.HumanoidController)
 
 local Remotes = script.Remotes
+local ReplayRemotes = ReplicatedStorage.OS.Replay.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
+local ReplayMenu = require(ReplicatedStorage.OS.Replay.ReplayMenu)
+local Blend = require(ReplicatedStorage.Util.Blend)
+local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
 local OrbController = {
 	Orbs = {} :: {[Part]: Orb}
 }
 
 function OrbController:Start()
+
+	self._showReplayMenu = ValueObject.new(false, "boolean")
 
 	-- Transform an observable into a Fusion StateObject that
 	-- holds the latest observed value
@@ -778,6 +784,38 @@ function OrbController:Start()
 			state.BoardAncestorValue.Value = nil
 		end
 	end)
+
+	local menu = ReplayMenu({
+		OnRecord = function(recordingName: string)
+			local attachedOrb = AttachedOrb:get()
+			if attachedOrb then
+				ReplayRemotes.StartRecording:InvokeServer(attachedOrb, recordingName)
+			end
+			self._showReplayMenu.Value = false
+		end,
+		OnPlay = function(replay)
+			print("Play request")
+			print(replay)
+			ReplayRemotes.Play:FireServer(replay)
+			self._showReplayMenu.Value = false
+		end,
+	})
+
+	menu.SetReplayList(ReplayRemotes.GetReplays:InvokeServer(AttachedOrb:get()))
+	self._showReplayMenu.Changed:Connect(function()
+		if self._showReplayMenu.Value then
+			menu.SetReplayList(ReplayRemotes.GetReplays:InvokeServer(AttachedOrb:get()))
+		end
+	end)
+
+	Blend.mount(Players.LocalPlayer.PlayerGui, {
+		Blend.New "ScreenGui" {
+			Name = "ReplayMenu",
+			Enabled = self._showReplayMenu,
+			
+			menu:render(),
+		}
+	})
 end
 
 return OrbController

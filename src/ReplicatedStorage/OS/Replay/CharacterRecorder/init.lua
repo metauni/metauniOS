@@ -1,4 +1,3 @@
-local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -13,30 +12,77 @@ local RECORDING_FREQUENCY = 1/30
 local CharacterRecorder = {}
 CharacterRecorder.__index = CharacterRecorder
 
-function CharacterRecorder.new(playerUserId: number, origin: CFrame)
+function CharacterRecorder.new(characterId: string, playerUserId: number, origin: CFrame)
 	local self =  setmetatable(BaseObject.new(), CharacterRecorder)
 
-	self.Origin = origin
+	self.RecorderType = "CharacterRecorder"
+	self.CharacterId = characterId
 	self.PlayerUserId = playerUserId
+	self.Origin = origin
+
+	-- Set the humanoid data as soon as it is available (happens at most once)
+	-- Very likely happens immediately
+	self._maid:GiveTask(Rxi.playerOfUserId(self.PlayerUserId):Pipe {
+		Rxi.property("Character"),
+		Rxi.findFirstChild("Humanoid"),
+		Rxi.findFirstChild("HumanoidDescription"),
+		Rxi.notNil(),
+		Rx.take(1),
+	}:Subscribe(function(humanoidDescription: HumanoidDescription)
+		local humanoid: Humanoid = humanoidDescription.Parent :: any
+		self.HumanoidDescription = humanoidDescription:Clone()
+		self.HumanoidRigType = humanoid.RigType
+	end))
 
 	return self
 end
 
-function CharacterRecorder:_observeRootPartCFrame()
-	return Rx.of(Players):Pipe {
-		Rxi.findFirstChild(tostring(self.PlayerUserId)),
+function CharacterRecorder:FlushToRecord()
+
+	local humanoidDescription = self.HumanoidDescription
+	local humanoidRigType = self.HumanoidRigType
+	if not humanoidDescription or not humanoidRigType then
+		-- This is async
+		humanoidDescription = Players:GetHumanoidDescriptionFromUserId(self.PlayerUserId)
+		humanoidRigType = Enum.HumanoidRigType.R15
+	end
+
+	local record = {
+		RecordType = "CharacterRecord",
+
+		PlayerUserId = self.PlayerUserId,
+		CharacterId = self.CharacterId,
+		HumanoidDescription = humanoidDescription, 
+		HumanoidRigType = humanoidRigType, 
+
+		Timeline = self.Timeline,
+		VisibleTimeline = self.VisibleTimeline,
+	}
+	self.Timeline = {}
+	self.VisibleTimeline = {}
+	return record
+end
+
+function CharacterRecorder:_observeRootPart()
+	return Rxi.playerOfUserId(self.PlayerUserId):Pipe {
 		Rxi.property("Character"),
 		Rxi.findFirstChild("HumanoidRootPart"),
+	}
+end
+
+function CharacterRecorder:_observeCharacterPivot()
+	-- We observe the rootPart before emitting GetPivot() values
+	return self:_observeRootPart():Pipe {
 		Rx.switchMap(function(rootPart)
 			if not rootPart then
-				return Rx.of(nil)
+				return Rx.never
 			end
 			return Rx.observable(function(sub)
-				sub:Fire(rootPart.CFrame)
+				sub:Fire(rootPart.Parent:GetPivot())
 				return task.spawn(function()
 					while true do
 						task.wait(RECORDING_FREQUENCY)
-						sub:Fire(rootPart.CFrame)
+						sub:Fire(rootPart.Parent:GetPivot())
 					end
 				end)
 			end)
@@ -44,18 +90,12 @@ function CharacterRecorder:_observeRootPartCFrame()
 	}
 end
 
-function CharacterRecorder:_isCFrameChanged(cframe: CFrame?)
-	if #self.Timeline > 0 then
+local function isCFrameChanged(cframe: CFrame, timeline)
+	if #timeline <= 0 then
 		return true
 	end
 
-	local lastCFrame = self.Timeline[#self.Timeline][2]
-	if not lastCFrame then
-		return cframe ~= nil
-	elseif not cframe then
-		return lastCFrame ~= nil
-	end
-
+	local lastCFrame = timeline[#timeline][2]
 	return (cframe.Position - lastCFrame.Position).Magnitude > EPSILON
 		or math.acos(cframe.LookVector:Dot(lastCFrame.LookVector)) > EPSILON_ANGLE
 end
@@ -67,37 +107,33 @@ function CharacterRecorder:Start(startTime)
 	-- Start time is passed as argument for consistency between recorders
 	self.StartTime = startTime
 	self.Timeline = {}
+	self.VisibleTimeline = {}
 
-	self._maid._recording = self:_observeRootPartCFrame()
+	local cleanup = {}
+	self._maid._recording = cleanup
+
+	table.insert(cleanup, self:_observeCharacterPivot()
+		:Subscribe(function(rootPartCFrame: CFrame)
+			local now = os.clock() - self.StartTime
+			print("Y", rootPartCFrame.Y)
+			local relativeCFrame = originInverse * rootPartCFrame
+			if isCFrameChanged(relativeCFrame, self.Timeline) then
+				table.insert(self.Timeline, {now, relativeCFrame})
+			end
+		end)
+	)
+
+	table.insert(cleanup, self:_observeRootPart()
 		:Subscribe(function(rootPart: BasePart?)
 			local now = os.clock() - self.StartTime
-			local relativeCFrame = rootPart and originInverse * rootPart.CFrame or nil
-			if not self:_isCFrameChanged(relativeCFrame) then
-				return
-			end
-			table.insert(self.Timeline, {now, relativeCFrame})
+			local visible = rootPart ~= nil
+			table.insert(self.VisibleTimeline, {now, visible})
 		end)
+	)
 end
 
 function CharacterRecorder:Stop()
 	self._maid._recording = nil
-end
-
-function CharacterRecorder:FlushTimelineToRecord()
-	local record = {
-		Timeline = self.Timeline,
-	}
-	self.Timeline = {}
-	return record
-end
-
-local NUM_LENGTH_EST = 20 -- Average is about 19.26
-local SCAFFOLD = #[[{"Timeline":{}}]]
-local EVENT_SIZE = #HttpService:JSONEncode({os.clock(), })
-
-function CharacterRecorder:GetRecordSizeEstimate()
-	-- events * (maxsize * numNums + eventbraces + eventComma)
-	return #self.Timeline * (NUM_LENGTH_EST * 2 + 2 + 1) + SCAFFOLD
 end
 
 return CharacterRecorder

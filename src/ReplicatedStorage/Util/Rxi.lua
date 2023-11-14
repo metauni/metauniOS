@@ -374,6 +374,26 @@ function export.untagged(tag: string): Rx.Observable
 	return Rx.fromSignal(CollectionService:GetInstanceRemovedSignal(tag))
 end
 
+function export.playerOfUserId(userId: number)
+	assert(typeof(userId) == "number", "Bad userId")
+	return Rx.observable(function(sub)
+		local cleanup = {}
+		sub:Fire(Players:GetPlayerByUserId(userId))
+		table.insert(cleanup, Players.PlayerAdded:Connect(function(player: Player)
+			if player.UserId == userId then
+				sub:Fire(player)
+			end
+		end))
+		table.insert(cleanup, Players.PlayerRemoving:Connect(function(player: Player)
+			if player.UserId == userId then
+				sub:Fire(nil)
+			end
+		end))
+
+		return cleanup
+	end)
+end
+
 function export.playerLifetime(): Rx.Observable
 	return Rx.concat {
 		Rx.from(Players:GetPlayers()):Pipe{

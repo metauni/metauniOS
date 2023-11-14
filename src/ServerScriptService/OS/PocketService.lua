@@ -123,6 +123,25 @@ function MetaPortal.Start()
 	GetLaunchDataRemoteFunction.OnServerInvoke = MetaPortal.GetLaunchData
 end
 
+function MetaPortal.IsPocket()
+	return isPocket()
+end
+
+function MetaPortal.GetPocketIdAsync()
+	assert(isPocket(), "Cannot get PocketId of non-pocket")
+	local pocketId = script.Parent:GetAttribute("PocketId")
+	if not pocketId then
+		task.delay(10, function()
+			if script.Parent:GetAttribute("PocketId") == nil then
+				warn("[PocketService] Infinite wait possible for PocketId")
+			end
+		end)
+		script.Parent:GetAttributeChangedSignal("PocketId"):Wait()
+		pocketId = script.Parent:GetAttribute("PocketId")
+	end
+	return pocketId
+end
+
 function MetaPortal.GetLaunchData(plr)
 	local joinData = plr:GetJoinData()
 

@@ -1,0 +1,17 @@
+{
+	"ClassName": "Folder",
+	"Children": [
+		{
+			"Name": "StartRecording",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "GetReplays",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "Play",
+			"ClassName": "RemoteEvent"
+		}
+	]
+}

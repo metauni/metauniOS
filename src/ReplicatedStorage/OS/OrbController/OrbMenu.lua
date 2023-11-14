@@ -566,21 +566,21 @@ return function(props)
 						VerticalAlignment = Enum.VerticalAlignment.Bottom,
 						Padding = UDim.new(0, 0),
 					},
-					-- Computed(function()
-					-- 	if props.IsSpeaker:get() then
-					-- 		return 
-					-- 			menuButton {
-					-- 				Text = "Replay",
-					-- 				Image = "rbxassetid://8215093320",
-					-- 				LayoutOrder = 1,
-					-- 				BackgroundTransparency = 0.8,
-					-- 				OnClick = function()
-					-- 					ActiveMenu:set(nil)
-					-- 					props.OnClickReplayMenu()
-					-- 				end,
-					-- 			}
-					-- 	end
-					-- end, Fusion.cleanup),
+					Computed(function()
+						if props.IsSpeaker:get() then
+							return 
+								menuButton {
+									Text = "Replay",
+									Image = "rbxassetid://8215093320",
+									LayoutOrder = 1,
+									BackgroundTransparency = 0.8,
+									OnClick = function()
+										ActiveMenu:set(nil)
+										props.OnClickReplayMenu()
+									end,
+								}
+						end
+					end, Fusion.cleanup),
 					Computed(function()
 						if props.IsSpeaker:get() then
 							return 
