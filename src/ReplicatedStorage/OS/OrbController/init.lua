@@ -794,8 +794,6 @@ function OrbController:Start()
 			self._showReplayMenu.Value = false
 		end,
 		OnPlay = function(replay)
-			print("Play request")
-			print(replay)
 			ReplayRemotes.Play:FireServer(replay)
 			self._showReplayMenu.Value = false
 		end,

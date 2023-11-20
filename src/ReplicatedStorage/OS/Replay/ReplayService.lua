@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
@@ -78,7 +79,7 @@ function ReplayService:Start()
 				if i >= 10 then
 					studio.StopRecording()
 					studio.Store()
-					self.OrbToStage.Value[orbPart] = Stage(studio.getProps())
+					self.OrbToStage.Value[orbPart] = Stage(studio.props)
 					break
 				end
 			end
@@ -106,7 +107,7 @@ function ReplayService:Start()
 		for player, orb in playerToOrb do
 			local studio = self.OrbToStudio.Value[orb]
 			if studio and studio.PhaseIsBefore("Recorded") then
-				studio.TrackPlayerCharacter(tostring(player.UserId), player)
+				studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
 			end
 		end
 
@@ -126,7 +127,7 @@ function ReplayService:Start()
 
 		local replays = {}
 		for _, stage in self.OrbToStage.Value do
-			local props = stage.getProps()
+			local props = stage.props
 			table.insert(replays, {
 				RecordingName = props.RecordingName,
 				RecordingId = props.RecordingId,
@@ -137,11 +138,8 @@ function ReplayService:Start()
 	end
 
 	Remotes.Play.OnServerEvent:Connect(function(player: Player, replay)
-		print(self.OrbToStage.Value)
 		for orb, stage in self.OrbToStage.Value do
-			if stage.getProps().RecordingId == replay.RecordingId then
-				print(`Playing replay {replay.RecordingName}`)
-				print("Replay Origin", stage.getProps().Origin)
+			if stage.props.RecordingId == replay.RecordingId then
 				stage.Play()
 				return
 			end
@@ -178,8 +176,8 @@ end
 
 function ReplayService:NewOrbStudio(orbPart: Part, recordingName: string, recordingId: string)
 	local origin = self._orbOriginCFrame[orbPart]
-	print("Record Origin", origin)
-	assert(typeof(origin) == "CFrame", "Bad origin for Replay")
+	assert(typeof(origin) == "CFrame", "Bad origin for ReplayStudio")
+
 	local studio = Studio({
 		RecordingName = recordingName,
 		RecordingId = recordingId,
@@ -187,9 +185,34 @@ function ReplayService:NewOrbStudio(orbPart: Part, recordingName: string, record
 		DataStore = self.ReplayDataStore,
 	})
 
+	local boardGroup do
+		local parent: Instance? = orbPart
+		while true do
+			if not parent or parent:HasTag("BoardGroup") then
+				break
+			end
+			parent = (parent :: Instance).Parent
+		end
+		boardGroup = parent
+	end
+	assert(boardGroup, "No board group found for ReplayStudio")
+
+	if boardGroup then
+		for _, desc in boardGroup:GetDescendants() do
+			local board = metaboard.Server:GetBoard(desc)
+			if not board then
+				continue
+			end
+			local persistId = board:GetPersistId()
+			if persistId then
+				studio.TrackBoard(tostring(persistId), board)
+			end
+		end
+	end
+
 	for player, attachedOrb in self:_getPlayerToOrb() do
 		if attachedOrb == orbPart then
-			studio.TrackPlayerCharacter(tostring(player.UserId), player)
+			studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
 		end
 	end
 

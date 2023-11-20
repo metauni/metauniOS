@@ -1,7 +1,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local t = require(ReplicatedStorage.Packages.t)
+local Rx = require(ReplicatedStorage.Util.Rx)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local Maid = require(ReplicatedStorage.Util.Maid)
 
@@ -10,6 +12,8 @@ local checkRecord = t.interface {
 	HumanoidRigType = t.enum(Enum.HumanoidRigType),
 	Timeline = t.table,
 	VisibleTimeline = t.table,
+	CharacterId = t.string,
+	CharacterName = t.string,
 }
 
 local function CharacterReplay(record, origin: CFrame, characterFromPreviousReplay: Model?)
@@ -19,14 +23,24 @@ local function CharacterReplay(record, origin: CFrame, characterFromPreviousRepl
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap() }
 
-	local character = characterFromPreviousReplay or Players:CreateHumanoidModelFromDescription(record.HumanoidDescription, record.HumanoidRigType)
+	maid:GiveTask(function()
+		print("Destroyed Character")
+	end)
+
+	local character = characterFromPreviousReplay
+	if not character then
+		character = Players:CreateHumanoidModelFromDescription(record.HumanoidDescription, record.HumanoidRigType)
+		character.Humanoid.DisplayName = "▶️-"..record.CharacterName
+		maid:GiveTask(character)
+	end
 
 	local Active = Blend.State(false, "boolean")
 	local RootCFrame = Blend.State()
 	local CharacterParent = Blend.State(nil)
-	self.Finished = false
+	
 	local timelineIndex = 1
 	local visibleTimelineIndex = 1
+	local finished = false
 
 	if #record.Timeline > 0 then
 		local relativeCFrame = record.Timeline[1][2]
@@ -41,7 +55,11 @@ local function CharacterReplay(record, origin: CFrame, characterFromPreviousRepl
 	function self.Init()
 		timelineIndex = 1
 		visibleTimelineIndex = 1
-		self.Finished = false
+		finished = false
+	end
+
+	function self.IsFinished()
+		return finished
 	end
 
 	maid:GiveTask(Active:Observe():Subscribe(function(active: boolean)
@@ -53,28 +71,46 @@ local function CharacterReplay(record, origin: CFrame, characterFromPreviousRepl
 		local cleanup = {}
 		maid._playing = cleanup
 
+		--[[
+			This animation part will be replaced when the humanoid state is stored
+			in a timeline. Then it will be easier to play the right animation track.
+		]]
 		local animator: Animator = character.Humanoid.Animator
 		local runAnim = character.Animate.run.RunAnim
-		task.delay(2, function()
-			
-		end)
+		local RunTrack = Blend.State(nil)
+
+		local lastMoved = nil
+		table.insert(cleanup, Blend.Computed(RunTrack, RootCFrame, function(runTrack: AnimationTrack, _rootCFrame)
+			lastMoved = os.clock()
+			if runTrack and not runTrack.IsPlaying then
+				runTrack:Play()
+			end
+		end):Subscribe())
+
+		table.insert(cleanup, Blend.Computed(CharacterParent, function(parent)
+			if parent == workspace then
+				if RunTrack.Value then
+					RunTrack.Value:Stop()
+				end
+				RunTrack.Value = animator:LoadAnimation(runAnim)
+			end
+		end):Subscribe())
+
+		table.insert(cleanup, RunService.Heartbeat:Connect(function()
+			if lastMoved and os.clock() - lastMoved >= 2 * 1/30 then
+				lastMoved = nil
+				local runTrack = RunTrack.Value
+				if runTrack then
+					runTrack:Stop()
+				end
+			end
+		end))
 
 		table.insert(cleanup, function()
 			character.Parent = nil
 		end)
 
 		table.insert(cleanup, Blend.mount(character, {
-
-			[Blend.OnChange "Parent"] = function()
-				-- TODO this makes multiple running tracks I think?
-				if character.Parent == workspace then
-					local runTrack = animator:LoadAnimation(runAnim)
-					runTrack:Play()
-					table.insert(cleanup, function()
-						runTrack:Stop()
-					end)
-				end
-			end,
 
 			Parent = CharacterParent,
 
@@ -127,7 +163,7 @@ local function CharacterReplay(record, origin: CFrame, characterFromPreviousRepl
 	
 		-- Check finished
 		if timelineIndex > #record.Timeline and visibleTimelineIndex > #record.VisibleTimeline then
-			self.Finished = true
+			finished = true
 		end
 	end
 		

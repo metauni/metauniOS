@@ -3,6 +3,7 @@
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BoardRecorder = require(script.Parent.BoardRecorder)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
@@ -11,7 +12,7 @@ local CharacterRecorder = require(script.Parent.CharacterRecorder)
 local Serialiser = require(script.Parent.Serialiser)
 
 export type Phase = "Uninitialised" | "Initialised" | "Recording" | "Recorded" | "Saved"
-local PHASES = {"Uninitialised", "Initialised", "Recording", "Recorded", "Saved"}
+local PHASE_ORDER: {Phase} = {"Uninitialised", "Initialised", "Recording", "Recorded", "Saved"}
 
 export type StudioProps = {
 	RecordingName: string,
@@ -20,22 +21,18 @@ export type StudioProps = {
 	DataStore: DataStore,
 }
 
-local function Studio(props: StudioProps)
+local function Studio(props: StudioProps): Studio
 	local maid = Maid.new()
-	local self = { Destroy = maid:Wrap() }
+	local self = { Destroy = maid:Wrap(), props = props }
 	
-	local boards = {}
 	local recorders = {}
+	local StartTime = ValueObject.new(nil)
 
 	-- "Uninitialised" -> "Initialised" -> "Recording" -> "Recorded" -> "Saved"
 	local RecordingPhase = maid:Add(ValueObject.new("Uninitialised"))
 
 	function self.PhaseIsBefore(phase: Phase): boolean
-		return table.find(PHASES, RecordingPhase.Value) < table.find(PHASES, phase)
-	end
-
-	function self.getProps()
-		return props
+		return table.find(PHASE_ORDER, RecordingPhase.Value) < table.find(PHASE_ORDER, phase)
 	end
 
 	local function getCharacterRecorderFor(characterId: string)
@@ -43,32 +40,53 @@ local function Studio(props: StudioProps)
 			return recorder.RecorderType == "CharacterRecorder" and recorder.CharacterId == characterId
 		end)
 	end
+
+	local function getBoardRecorderFor(boardId: string)
+		return Sift.List.findWhere(recorders, function(recorder)
+			return recorder.RecorderType == "BoardRecorder" and recorder.BoardId == boardId
+		end)
+	end
 	
-	function self.TrackPlayerCharacter(characterId: string, player: Player)
+	function self.TrackPlayerCharacter(characterId: string, characterName: string, player: Player)
 		assert(typeof(characterId) == "string", "Bad characterId")
+		assert(typeof(characterName) == "string", "Bad characterName")
 		assert(typeof(player) == "Instance" and player:IsA("Player"), "Bad player")
 
 		local existing = getCharacterRecorderFor(characterId)
 		if existing and existing.PlayerUserId ~= player.UserId  then
-			error(`[ReplayStudio] Cannot change player to track for CharacterId={characterId} to {player.UserId} ({player.Name}), already tracking {existing.PlayerUserId}`)
+			if existing.PlayerUserId ~= player.UserId then
+				error(`[ReplayStudio] Cannot change player-to-track for CharacterId={characterId} to {player.UserId} ({player.Name}), already tracking {existing.PlayerUserId}`)
+			end
+		else
+			table.insert(recorders, CharacterRecorder({
+				Origin = props.Origin,
+				CharacterId = characterId,
+				PlayerUserId = player.UserId,
+				CharacterName = characterName,
+			}))
 		end
-
-		table.insert(recorders, CharacterRecorder.new(characterId, player.UserId, props.Origin))
 	end
 
 	function self.TrackBoard(boardId: string, board)
-		error("Not implemented")
 		assert(typeof(board) == "table", "Bad board")
-		if boards[boardId] then
-			-- TODO allow repeated requests to track same board.
-			error(`[ReplayStudio] BoardId {boardId} already tracked`)
+		local existing = getBoardRecorderFor(boardId)
+		if existing then
+			if existing.props.Board ~= board  then
+				error(`[ReplayStudio] Cannot change board for BoardId={boardId}. A different board is already tracked at this boardId`)
+			end
+		else
+			table.insert(recorders, BoardRecorder({
+				Origin = props.Origin,
+				Board = board,
+				BoardId = boardId,
+			}))
 		end
 	end
 
 	function self.InitRecording()
 		assert(self.PhaseIsBefore("Initialised"), `[Replay Studio] Tried to initialise during phase {RecordingPhase.Value}`)
 
-		self.StartTime = os.clock()
+		StartTime.Value = os.clock()
 		
 		RecordingPhase.Value = "Initialised"
 	end
@@ -77,7 +95,7 @@ local function Studio(props: StudioProps)
 		assert(self.PhaseIsBefore("Recording"), `[Replay Studio] Tried to start recording during phase {RecordingPhase.Value}`)
 		
 		for _, recorder in recorders do
-			recorder:Start(self.StartTime)
+			recorder.Start(StartTime.Value)
 		end
 		RecordingPhase.Value = "Recording"
 	end
@@ -90,8 +108,8 @@ local function Studio(props: StudioProps)
 		}
 		
 		for _, recorder in recorders do
-			recorder:Stop()
-			table.insert(segmentOfRecords.Records, recorder:FlushToRecord())
+			recorder.Stop()
+			table.insert(segmentOfRecords.Records, recorder.FlushToRecord())
 		end
 
 		self.SegmentOfRecords = segmentOfRecords
