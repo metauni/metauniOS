@@ -29,13 +29,13 @@ dependencies = []
 
 [[package]]
 name = "metauni/metaboard"
-version = "1.5.0-rc8"
+version = "1.5.0-rc9"
 dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"]]
 
 [[package]]
 name = "metauni/metaunios"
 version = "0.1.0"
-dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Fusion", "elttob/fusion@0.2.0"], ["GameAnalytics", "gameanalytics/gameanalytics-sdk@2.2.2"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["metaboard", "metauni/metaboard@1.5.0-rc8"], ["t", "osyrisrblx/t@3.0.0"]]
+dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Fusion", "elttob/fusion@0.2.0"], ["GameAnalytics", "gameanalytics/gameanalytics-sdk@2.2.2"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["metaboard", "metauni/metaboard@1.5.0-rc9"], ["t", "osyrisrblx/t@3.0.0"]]
 
 [[package]]
 name = "osyrisrblx/t"
