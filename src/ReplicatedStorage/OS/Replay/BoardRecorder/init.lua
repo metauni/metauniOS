@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local t = require(ReplicatedStorage.Packages.t)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
@@ -36,7 +37,7 @@ end
 export type BoardRecorderProps = {
 	Origin: CFrame,
 	BoardId: string,
-	Board: any,
+	Board: metaboard.BoardServer,
 }
 
 local checkProps = t.strictInterface {
@@ -51,9 +52,15 @@ local function BoardRecorder(props: BoardRecorderProps): BoardRecorder
 	local self = { Destroy = maid:Wrap() , props = props, RecorderType = "BoardRecorder" }
 
 	local Timeline = ValueObject.new({})
+	-- This goes from nil to a boardState on Start, and back to nil on FlushToRecord
+	local InitialBoardState = ValueObject.new(nil :: metaboard.BoardState?)
 
 	function self.Start(startTime: number)
 		Timeline.Value = {}
+		-- TODO: This has an immutable Figures and DrawingTasks,
+		-- but other tables are mutable (which aren't used). Probably doesn't matter
+		-- but not ideal.
+		InitialBoardState.Value = table.clone(props.Board.State)
 		maid._listening = listen(props.Board, Timeline, startTime)
 	end
 
@@ -67,8 +74,11 @@ local function BoardRecorder(props: BoardRecorderProps): BoardRecorder
 			BoardId = props.BoardId,
 			Timeline = Timeline.Value,
 			AspectRatio = props.Board:GetAspectRatio(),
+
+			InitialBoardState = InitialBoardState.Value
 		}
 		Timeline.Value = {}
+		InitialBoardState.Value = nil
 		return record
 	end
 

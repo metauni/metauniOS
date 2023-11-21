@@ -3,6 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HumanoidDescriptionSerialiser = require(script.Parent.HumanoidDescriptionSerialiser)
 local BitBuffer = require(ReplicatedStorage.Packages.BitBuffer)
+local Sift = require(ReplicatedStorage.Packages.Sift)
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local t = require(ReplicatedStorage.Packages.t)
 
 --[[
@@ -28,10 +30,19 @@ end
 export type BitWidth1to32 = number
 export type FloatPrecision = "Float32" | "Float64"
 
+local checkNonNegativeInteger = t.every(t.integer, t.numberMin(0))
 local checkPositiveInteger = t.every(t.integer, t.numberPositive)
 local checkFloatPrecision = t.union(t.literal("Float32"), t.literal("Float64"))
 local checkBoolShape = t.literal("Bool")
 local checkBitWidth = t.every(t.integer, t.numberConstrained(1, 32))
+local checkUIntShape = t.strictInterface {
+	Type = t.literal("UInt"),
+	BitWidth = checkBitWidth,
+}
+local checkBytesShape = t.strictInterface {
+	Type = t.literal("Bytes"),
+	NumBytes = checkPositiveInteger,
+}
 local checkCFrameShape = t.strictInterface {
 	Type = t.literal("CFrame"),
 	PositionPrecision = checkFloatPrecision,
@@ -59,6 +70,79 @@ local checkQuantizedShape = t.every(t.strictInterface {
 	end
 	return true
 end)
+
+local checkEnumShape = t.every(t.strictInterface {
+	Type = t.literal("Enum"),
+	BitWidth = checkBitWidth,
+	EnumItems = t.array(function(item)
+		if not table.find({"number", "string", "EnumItem"}, typeof(item)) then
+			return false, `Bad enum item {item}`
+		end
+		return true
+	end),
+	ItemToToken = t.map(t.any, checkNonNegativeInteger),
+	Expandable = t.boolean,
+}, function(enumShape)
+
+	if not enumShape.Expandable and #enumShape.EnumItems <= 0 then
+		return false, "Expected > 0 enumItems for non-expandable enumShape"
+	end
+	if #enumShape.EnumItems > bit32.lshift(1, enumShape.BitWidth) then
+		return false, `Too many enums {enumShape.EnumItems} for BitWidth`
+	end
+	for item, token in enumShape.ItemToToken do
+		if enumShape.EnumItems[token+1] ~= item then
+			return false, `Bad mapping {item} -> {token}`
+		end
+	end
+	for i, item in enumShape.EnumItems do
+		if enumShape.ItemToToken[item] ~= i-1 then
+			return false, `Bad mapping {item} -> {enumShape.ItemToToken[item]} (should be {i-1})`
+		end
+	end
+	return true
+end)
+
+local function checkDataShape(dataShape)
+	if typeof(dataShape) == "string" and table.find({"Float32", "Float64", "Bool", "Color3", "Variable"}, dataShape) then
+		return true
+	end
+	if typeof(dataShape) == "table" then
+		if dataShape.Type == "CFrame" then
+			return checkCFrameShape(dataShape)
+		elseif dataShape.Type == "UInt" then
+			return checkUIntShape(dataShape)
+		elseif dataShape.Type == "Bytes" then
+			return checkBytesShape(dataShape)
+		elseif dataShape.Type == "Quantized" then
+			return checkQuantizedShape(dataShape)
+		elseif dataShape.Type == "Enum" then
+			return checkEnumShape(dataShape)
+		elseif dataShape.Type == "Array" then
+			return t.strictInterface {
+				Type = t.literal("Array"),
+				LengthShape = checkUIntShape,
+				ItemShapes = t.array(checkDataShape),
+			}(dataShape)
+		else
+			return false, `Bad table data shape {dataShape}, .Type={dataShape.Type}`
+		end
+	end
+	return false, `Unrecognised datashape {dataShape} with type {typeof(dataShape)}`
+end
+
+local function checkStrictArrayShape(...)
+	local itemShapeCheckers = {...}
+	assert(t.array(t.callback)(itemShapeCheckers))
+
+	return function(value)
+		return t.every(t.strictInterface {
+			Type = t.literal("Array"),
+			LengthShape = checkUIntShape,
+			ItemShapes = t.strictArray(table.unpack(itemShapeCheckers)),
+		})(value)
+	end
+end
 
 local writeFloat: {[FloatPrecision]: (buffer: BitBuffer.BitBuffer, number) -> ()} = {
 	Float32 = BitBuffer.WriteFloat32,
@@ -130,38 +214,6 @@ local function readColor3(buffer): Color3
 		buffer:ReadUInt(8) / 255)
 end
 
-local checkEnumShape = t.every(t.strictInterface {
-	Type = t.literal("Enum"),
-	BitWidth = checkBitWidth,
-	EnumItems = t.array(function(item)
-		if not table.find({"number", "string", "EnumItem"}, typeof(item)) then
-			return false, `Bad enum item {item}`
-		end
-		return true
-	end),
-	ItemToToken = t.map(t.any, t.integer),
-	Expandable = t.boolean,
-}, function(enumShape)
-
-	if not enumShape.Expandable and #enumShape.EnumItems <= 0 then
-		return false, "Expected > 0 enumItems for non-expandable enumShape"
-	end
-	if #enumShape.EnumItems > bit32.lshift(1, enumShape.BitWidth) then
-		return false, `Too many enums {enumShape.EnumItems} for BitWidth`
-	end
-	for item, token in enumShape.ItemToToken do
-		if enumShape.EnumItems[token+1] ~= item then
-			return false, `Bad mapping {item} -> {token}`
-		end
-	end
-	for i, item in enumShape.EnumItems do
-		if enumShape.ItemToToken[item] ~= i-1 then
-			return false, `Bad mapping {item} -> {enumShape.ItemToToken[item]} (should be {i-1})`
-		end
-	end
-	return true
-end)
-
 -- enumItems can be any numeric-table of non-table, json-serialisable items
 local function makeEnumShape(enumItems: {any}, bitWidth: number, expandable: boolean)
 	local enumShape = {
@@ -225,6 +277,17 @@ local function readEnum(buffer: BitBuffer.BitBuffer, enumShape)
 	return item
 end
 
+local function makeArrayShape(dataShapes, bitWidth: number?)
+	bitWidth = bitWidth or 32
+	assert(checkBitWidth(bitWidth))
+	assert(t.array(checkDataShape)(dataShapes))
+	return {
+		Type = "Array",
+		LengthShape = { Type = "UInt", BitWidth = bitWidth},
+		ItemShapes = dataShapes,
+	}
+end
+
 local function writeDataShape(buffer: BitBuffer.BitBuffer, dataShape: any, value: any)
 	if dataShape == "Float32" then
 		buffer:WriteFloat32(value)
@@ -234,6 +297,11 @@ local function writeDataShape(buffer: BitBuffer.BitBuffer, dataShape: any, value
 		buffer:WriteBool(value)
 	elseif dataShape == "Color3" then
 		writeColor3(buffer, value)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "UInt" then
+		buffer:WriteUInt(dataShape.BitWidth, value)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "Bytes" then
+		assert(#value == dataShape.NumBytes, "Bad bytes value")
+		buffer:WriteBytes(value)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "CFrame" then
 		writeCFrame(buffer, value, dataShape.PositionPrecision, dataShape.AngleBitWidth)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "Quantized" then
@@ -261,6 +329,10 @@ local function readDataShape(buffer: BitBuffer.BitBuffer, dataShape)
 		return buffer:ReadBool()
 	elseif dataShape == "Color3" then
 		return readColor3(buffer)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "UInt" then
+		return buffer:ReadUInt(dataShape.BitWidth)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "Bytes" then
+		return buffer:ReadBytes(dataShape.NumBytes)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "CFrame" then
 		return readCFrame(buffer, dataShape.PositionPrecision, dataShape.AngleBitWidth)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "Quantized" then
@@ -308,37 +380,19 @@ local function calculateEventShapeBits(eventShape: {any})
 	return bits
 end
 
-local checkEncodingBase = t.union(t.literal("64"), t.literal("91"))
-local checkDataShape = function(dataShape)
-	if typeof(dataShape) == "string" and table.find({"Float32", "Float64", "Bool", "Color3", "Variable"}, dataShape) then
-		return true
-	end
-	if typeof(dataShape) == "table" then
-		if dataShape.Type == "CFrame" then
-			return checkCFrameShape(dataShape)
-		elseif dataShape.Type == "Quantized" then
-			return checkQuantizedShape(dataShape)
-		elseif dataShape.Type == "Enum" then
-			return checkEnumShape(dataShape)
-		else
-			return false, `Bad table data shape {dataShape}, .Type={dataShape.Type}`
-		end
-	end
-	return false, `Unrecognised datashape {dataShape} with type {typeof(dataShape)}`
-end
+local checkEncoding = t.union(t.literal("Base64"), t.literal("Base91"))
 local checkEventShape = t.array(checkDataShape)
 
 local checkTimelineConfig = t.strictInterface {
-	EncodingBase = checkEncodingBase,
+	Encoding = checkEncoding,
 	EventShape = checkEventShape,
 }
 
 local checkTimelineData = t.strictInterface {
-	EncodingBase = checkEncodingBase,
+	Encoding = checkEncoding,
 	EventShape = checkEventShape,
 	TimelineBuffer = t.string,
-	EventShapeBits = checkPositiveInteger,
-	TimelineLength = t.integer,
+	TimelineLength = checkNonNegativeInteger,
 }
 
 local function serialiseTimeline(timeline, config)
@@ -346,22 +400,21 @@ local function serialiseTimeline(timeline, config)
 	assert(checkTimelineConfig(config))
 
 	local data = {
-		EncodingBase = config.EncodingBase,
+		Encoding = config.Encoding,
 		EventShape = config.EventShape,
-		EventShapeBits = calculateEventShapeBits(config.EventShape),
 		TimelineLength = #timeline,
 	}
 
-	local sizeInBits = #timeline * data.EventShapeBits
+	local sizeInBits = #timeline * calculateEventShapeBits(data.EventShape)
 	local buffer = BitBuffer.new(sizeInBits)
 	for _, event in ipairs(timeline) do
 		assert(typeof(event) == "table" and #event == #data.EventShape, "Bad event")
 		writeEventShape(buffer, data.EventShape, event)
 	end
 
-	if config.EncodingBase == "64" then
+	if config.Encoding == "Base64" then
 		data.TimelineBuffer = buffer:ToBase64()
-	elseif config.EncodingBase == "91" then
+	elseif config.Encoding == "Base91" then
 		data.TimelineBuffer = buffer:ToBase91()
 	end
 
@@ -374,9 +427,9 @@ local function deserialiseTimeline(data)
 	local timeline = table.create(data.TimelineLength)
 
 	local buffer
-	if data.EncodingBase == "64" then
+	if data.Encoding == "Base64" then
 		buffer = BitBuffer.FromBase64(data.TimelineBuffer)
-	elseif data.EncodingBase == "91" then
+	elseif data.Encoding == "Base91" then
 		buffer = BitBuffer.FromBase91(data.TimelineBuffer)
 	end
 
@@ -431,12 +484,12 @@ local function serialiseCharacterRecord(record, force: true?)
 	}
 
 	data.Timeline = serialiseTimeline(record.Timeline, {
-		EncodingBase = "64",
+		Encoding = "Base64",
 		EventShape = { timestampShape, cframeShape },
 	})
 
 	data.VisibleTimeline = serialiseTimeline(record.VisibleTimeline, {
-		EncodingBase = "64",
+		Encoding = "Base64",
 		EventShape = { timestampShape, "Bool" },
 	})
 
@@ -471,18 +524,208 @@ local function deserialiseCharacterRecord(data)
 	return record
 end
 
+local checkBoardStateData = t.strictInterface {
+	_FormatVersion = t.string,
+	AspectRatio = t.numberPositive,
+	NextFigureZIndex = checkNonNegativeInteger,
+	ClearCount = t.optional(checkNonNegativeInteger),
+	Figures = t.strictInterface {
+		Encoding = checkEncoding,
+		NumCurves = checkNonNegativeInteger,
+		CurvesBuffer = t.string,
+		CurveShape = t.strictArray(
+			checkBytesShape,
+			checkUIntShape,
+			checkQuantizedShape,
+			checkColorShape,
+			checkStrictArrayShape(checkUIntShape),
+			checkStrictArrayShape(checkQuantizedShape, checkQuantizedShape)
+		)
+	}
+}
+
+local function serialiseBoardState(boardState: metaboard.BoardState)
+	local clearCount = boardState.ClearCount
+	local nextFigureZIndex = boardState.NextFigureZIndex
+	local aspectRatio = boardState.AspectRatio
+	-- Commit all of the drawing task changes (like masks) to the figures
+	local figures = metaboard.BoardState.commitAllDrawingTasks(boardState.DrawingTasks, boardState.Figures)
+
+	-- Remove the figures that have been completely erased
+	local removals = {}
+	for figureId, figure in pairs(figures) do
+		if metaboard.Figure.FullyMasked(figure) then
+			removals[figureId] = Sift.None
+		end
+	end
+	figures = Sift.Dictionary.merge(figures, removals)
+
+	local buffer = BitBuffer.new()
+	
+	local figureIdShape     = { Type = "Bytes", NumBytes = 36, }
+	local zIndexShape       = { Type = "UInt", BitWidth = 32, }
+	local strokeWidthShape  = { Type = "Quantized", BitWidth = 16, Min = 0, Max = 1, }
+
+	local bitMaskShape      = { Type = "UInt", BitWidth = 32}
+	local bitmaskArrayShape = makeArrayShape({bitMaskShape})
+
+	local xCanvasShape      = { Type = "Quantized", BitWidth = 12, Min = 0, Max = 1, }
+	local yCanvasShape      = { Type = "Quantized", BitWidth = 12, Min = 0, Max = aspectRatio, }
+	local pointsArrayShape  = makeArrayShape({xCanvasShape, yCanvasShape})
+
+	local data = {
+		_FormatVersion = FORMAT_VERSION,
+		AspectRatio = aspectRatio,
+		NextFigureZIndex = nextFigureZIndex,
+		ClearCount = clearCount,
+		Figures = {
+			Encoding = "Base64",
+			NumCurves = Sift.Dictionary.count(figures),
+			CurvesBuffer = nil, -- will be set later
+			CurveShape = {
+				figureIdShape,
+				zIndexShape,
+				strokeWidthShape,
+				"Color3",
+				bitmaskArrayShape,
+				pointsArrayShape,
+			}
+		}
+	}
+
+	for figureId, figure in pairs(figures) do
+
+		if figure.Type ~= "Curve" then
+			error(`Figure type {figure.Type} not handled`)
+		end
+
+		writeDataShape(buffer, figureIdShape, figureId)
+		writeDataShape(buffer, zIndexShape, figure.ZIndex)
+		writeDataShape(buffer, strokeWidthShape, figure.Width)
+		writeDataShape(buffer, "Color3", figure.Color)
+		
+		local numPoints = #figure.Points
+
+		--[[
+			Write how many (size 32) bitmasks will be written as a 32-bit UInt (0 if none),
+			then write all of the bitmasks
+		]]
+		do
+			if figure.Mask and next(figure.Mask) and numPoints > 0 then
+				-- Number of 2^5=32-bit masks needed
+				local numBitMasks = bit32.rshift(numPoints-1, 5)+1
+				buffer:WriteUInt(32, numBitMasks)
+	
+				local bitMaskIndex = 0
+				while bitMaskIndex < numBitMasks do
+					local bitMask = 0
+					for i=1, 32 do
+						local pointKey = tostring(32 * bitMaskIndex + i)
+						if figure.Mask[pointKey] then
+							bitMask = bit32.bor(bitMask, bit32.lshift(1, i-1))
+						end
+					end
+					buffer:WriteUInt(32, bitMask)
+				end
+			else
+				local numBitMasks = 0
+				buffer:WriteInt(32, numBitMasks)
+			end
+		end
+
+		buffer:WriteUInt(32, numPoints)
+		for _, point in figure.Points do
+			writeDataShape(buffer, xCanvasShape, point.X)
+			writeDataShape(buffer, yCanvasShape, point.Y)
+		end
+	end
+
+	data.Figures.CurvesBuffer = buffer:ToBase64()
+
+	return data
+end
+
+local function deserialiseBoardState(data): metaboard.BoardState
+	assert(checkBoardStateData(data))
+
+	local boardState: metaboard.BoardState = {
+		AspectRatio = data.AspectRatio,
+		DrawingTasks = {},
+		Figures = {},
+		NextFigureZIndex = data.NextFigureZIndex,
+		PlayerHistories = {},
+	}
+
+	local figureIdShape     = data.Figures.CurveShape[1]
+	local zIndexShape       = data.Figures.CurveShape[2]
+	local strokeWidthShape  = data.Figures.CurveShape[3]
+	local colorShape        = data.Figures.CurveShape[4]
+	local bitmaskArrayShape = data.Figures.CurveShape[5]
+	local pointsArrayShape  = data.Figures.CurveShape[6]
+
+	local buffer
+	if data.Figures.Encoding == "Base64" then
+		buffer = BitBuffer.FromBase64(data.Figures.CurvesBuffer)
+	elseif data.Figures.Encoding == "Base128" then
+		buffer = BitBuffer.FromBase128(data.Figures.CurvesBuffer)
+	end
+
+	for _=1, data.Figures.NumCurves do
+
+		local figureId = readDataShape(buffer, figureIdShape)
+		local zIndex = readDataShape(buffer, zIndexShape)
+		local width = readDataShape(buffer, strokeWidthShape)
+		local color = readDataShape(buffer, colorShape)
+		
+		local mask = {}
+		local numBitMasks = readDataShape(buffer, bitmaskArrayShape.LengthShape)
+		for maskIndex=1, numBitMasks do
+			local bitMask = readDataShape(buffer, bitmaskArrayShape.ItemShapes[1])
+			for i=1, 32 do
+				if bit32.btest(bitMask, bit32.lshift(1, i-1)) then
+					local pointKey = tostring(32 * maskIndex + i)
+					mask[pointKey] = true
+				end
+			end
+		end
+
+		local points = {}
+		local numPoints = readDataShape(buffer, pointsArrayShape.LengthShape)
+		local xCanvasShape = pointsArrayShape.ItemShapes[1]
+		local yCanvasShape = pointsArrayShape.ItemShapes[2]
+		for _=1, numPoints do
+			local x = readDataShape(buffer, xCanvasShape)
+			local y = readDataShape(buffer, yCanvasShape)
+			table.insert(points, Vector2.new(x,y))
+		end
+
+		local curve: metaboard.Curve = {
+			Type = "Curve",
+			Color = color,
+			Points = points,
+			Width = width,
+			ZIndex = zIndex,
+		}
+
+		boardState.Figures[figureId] = curve
+	end
+
+	return metaboard.BoardState.deserialise(boardState)
+end
+
 local checkBoardRecordData = t.strictInterface {
 	_FormatVersion = t.string, -- Must already verify this is correct code for this format
 	RecordType = t.literal("BoardRecord"),
-	AspectRatio = t.numberPositive,
+	AspectRatio = t.every(t.numberPositive, checkRealNumber),
 	BoardId = t.string,
 	Timeline = t.strictInterface {
-		EncodingBase = checkEncodingBase,
+		Encoding = checkEncoding,
 		EventPrefixShape = checkEventShape,
 		RemoteToVariableShape = t.values(checkEventShape),
-		TimelineLength = t.integer,
+		TimelineLength = checkNonNegativeInteger,
 		TimelineBuffer = t.string,
 	},
+	InitialBoardState = t.optional(checkBoardStateData)
 }
 
 local function serialiseBoardRecord(record, force: true?)
@@ -491,6 +734,12 @@ local function serialiseBoardRecord(record, force: true?)
 		BoardId = t.string,
 		AspectRatio = t.every(t.numberPositive, checkRealNumber),
 		Timeline = t.table,
+		InitialBoardState = t.optional(t.interface {
+			AspectRatio = t.numberPositive,
+			NextFigureZIndex = checkNonNegativeInteger,
+			ClearCount = t.optional(checkNonNegativeInteger),
+			Figures = t.table,
+		})
 	}(record))
 
 	local data = {
@@ -500,6 +749,10 @@ local function serialiseBoardRecord(record, force: true?)
 		AspectRatio = record.AspectRatio,
 		BoardId = record.BoardId
 	}
+
+	if record.InitialBoardState then
+		data.InitialBoardState = serialiseBoardState(record.InitialBoardState)
+	end
 
 	local timestampShape = "Float32"
 	local xCanvasShape     = { Type = "Quantized", BitWidth = 12, Min = 0, Max = 1, }
@@ -583,7 +836,7 @@ local function serialiseBoardRecord(record, force: true?)
 	end
 
 	data.Timeline = {
-		EncodingBase = "64",
+		Encoding = "Base64",
 		EventPrefixShape = eventPrefixShape,
 		RemoteToVariableShape = remoteToVariableShape,
 		TimelineLength = #record.Timeline,
@@ -606,12 +859,16 @@ local function deserialiseBoardRecord(data)
 		AspectRatio = data.AspectRatio,
 	}
 
+	if data.InitialBoardState then
+		record.InitialBoardState = deserialiseBoardState(data.InitialBoardState)
+	end
+
 	local timelineData = data.Timeline
 
 	local buffer
-	if timelineData.EncodingBase == "64" then
+	if timelineData.Encoding == "Base64" then
 		buffer = BitBuffer.FromBase64(timelineData.TimelineBuffer)
-	elseif timelineData.EncodingBase == "128" then
+	elseif timelineData.Encoding == "Base128" then
 		buffer = BitBuffer.FromBase128(timelineData.TimelineBuffer)
 	end
 
@@ -701,7 +958,6 @@ function export.deserialiseSegmentOfRecords(data)
 	local segmentOfRecords = {
 		Records = {},
 		Index = data.Index,
-		-- InitialState = {}
 	}
 	for _, record in data.Records do
 		if record.RecordType == "CharacterRecord" then

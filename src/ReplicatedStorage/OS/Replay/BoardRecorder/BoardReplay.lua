@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local t = require(ReplicatedStorage.Packages.t)
 
@@ -11,17 +12,26 @@ local checkProps = t.strictInterface({
 		Timeline = t.table,
 		BoardId = t.string,
 		AspectRatio = t.numberPositive,
-	},
+
+		InitialBoardState = t.optional(t.interface {
+			AspectRatio = t.numberPositive,
+			NextFigureZIndex = t.integer,
+			ClearCount = t.optional(t.integer),
+			Figures = t.table,
+			DrawingTasks = t.table,
+		}),
+	}
 })
 
 export type BoardReplayProps = {
-	Board: any,
+	Board: metaboard.BoardServer,
 	Origin: CFrame,
 	Record: {
 		RecordType: "BoardRecord",
 		Timeline: {any},
 		BoardId: string,
-		AspectRatio: number,
+
+		InitialBoardState: metaboard.BoardState?,
 	},
 }
 
@@ -36,6 +46,10 @@ local function BoardReplay(props: BoardReplayProps): BoardReplay
 	function self.Init()
 		timelineIndex = 1
 		finished = false
+
+		if props.Record.InitialBoardState then
+			props.Board:SetState(props.Record.InitialBoardState)
+		end
 	end
 
 	function self.IsFinished()

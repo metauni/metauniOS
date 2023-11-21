@@ -1,5 +1,6 @@
 [package]
-name = "metauni/metaunios"
+name = "donotpublish/metaunios"
+private = true
 version = "0.1.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
@@ -9,7 +10,7 @@ Feather = "blinkybool/feather@0.2.1"
 GameAnalytics = "gameanalytics/gameanalytics-sdk@2.2.2"
 Sift = "csqrl/sift@0.0.4"
 Roact = "roblox/roact@1.4.4"
-metaboard = "metauni/metaboard@1.5.0-rc9"
+metaboard = "metauni/metaboard@1.5.1-rc02"
 Promise = "evaera/promise@4.0.0"
 GoodSignal = "stravant/goodsignal@0.2.1"
 Fusion = "elttob/fusion@0.2.0"
