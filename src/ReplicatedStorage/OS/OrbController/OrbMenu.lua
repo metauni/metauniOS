@@ -567,7 +567,8 @@ return function(props)
 						Padding = UDim.new(0, 0),
 					},
 					Computed(function()
-						if props.IsSpeaker:get() then
+						-- TODO: Get appropriate permissions for replay menu
+						if false and props.IsSpeaker:get() then
 							return 
 								menuButton {
 									Text = "Replay",

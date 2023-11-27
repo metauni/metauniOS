@@ -22,6 +22,10 @@
 
 		"BitBuffer": {
 			"$path": "../../CompiledPackages/BitBuffer.lua"
+		},
+		
+		"metaboard": {
+			"$path": "/Users/billy/metaboard/default.project.json"
 		}
 	}
 }
