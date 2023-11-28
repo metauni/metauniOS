@@ -524,6 +524,95 @@ local function deserialiseCharacterRecord(data)
 	return record
 end
 
+
+local checkVRCharacterRecordData = t.strictInterface {
+	_FormatVersion = t.string, -- Must already verify this is correct code for this format
+	RecordType = t.literal("VRCharacterRecord"),
+	PlayerUserId = t.integer,
+	CharacterId = t.string,
+	CharacterName = t.string,
+	HumanoidDescription = t.any, -- This is up to the HumanoidDescriptionSerialiser
+	HumanoidRigType = t.string,
+	Timeline = checkTimelineData,
+	VisibleTimeline = checkTimelineData,
+	ChalkTimeline = checkTimelineData,
+}
+
+local function serialiseVRCharacterRecord(record, force: true?)
+	assert(t.strictInterface {
+		RecordType = t.literal("CharacterRecord"),
+		PlayerUserId = t.integer,
+		CharacterId = t.string,
+		CharacterName = t.string,
+		HumanoidDescription = t.instanceOf("HumanoidDescription"),
+		HumanoidRigType = t.enum(Enum.HumanoidRigType),
+		Timeline = t.table,
+		VisibleTimeline = t.table,
+		ChalkTimeline = t.table,
+	})
+
+	local data = {
+		_FormatVersion = FORMAT_VERSION,
+
+		RecordType = "VRCharacterRecord",
+		PlayerUserId = record.PlayerUserId,
+		CharacterId = record.CharacterId,
+		CharacterName = record.CharacterName,
+	}
+
+	data.HumanoidDescription = HumanoidDescriptionSerialiser.Serialise(record.HumanoidDescription)
+	data.HumanoidRigType = record.HumanoidRigType.Name
+
+	local timestampShape = "Float32"
+	local cframeShape = {
+		Type = "CFrame",
+		PositionPrecision = "Float32",
+		AngleBitWidth = 10, -- 2^10 many angles per axis
+	}
+
+	data.Timeline = serialiseTimeline(record.Timeline, {
+		Encoding = "Base64",
+		-- Three cframes: head, lefthand, righthand
+		EventShape = { timestampShape, cframeShape, cframeShape, cframeShape },
+	})
+
+	data.VisibleTimeline = serialiseTimeline(record.VisibleTimeline, {
+		Encoding = "Base64",
+		EventShape = { timestampShape, "Bool" },
+	})
+
+	data.ChalkTimeline = serialiseTimeline(record.ChalkTimeline, {
+		Encoding = "Base64",
+		EventShape = { timestampShape, "Bool" },
+	})
+
+	if not force then
+		assert(checkVRCharacterRecordData(data))
+	end
+
+	return data
+end
+
+local function deserialiseVRCharacterRecord(data)
+	assert(checkVRCharacterRecordData(data))
+
+	local record = {
+		RecordType = "VRCharacterRecord",
+		PlayerUserId = data.PlayerUserId,
+		CharacterId = data.CharacterId,
+		CharacterName = data.CharacterName,
+	}
+
+	record.HumanoidDescription = HumanoidDescriptionSerialiser.Deserialise(data.HumanoidDescription)
+	record.HumanoidRigType = nameToHumanoidRigType[data.HumanoidRigType]
+
+	record.Timeline = deserialiseTimeline(data.Timeline)
+	record.VisibleTimeline = deserialiseTimeline(data.VisibleTimeline)
+	record.ChalkTimeline = deserialiseTimeline(data.ChalkTimeline)
+
+	return record
+end
+
 local checkBoardStateData = t.strictInterface {
 	_FormatVersion = t.string,
 	AspectRatio = t.numberPositive,
@@ -569,8 +658,8 @@ local function serialiseBoardState(boardState: metaboard.BoardState)
 	local bitMaskShape      = { Type = "UInt", BitWidth = 32}
 	local bitmaskArrayShape = makeArrayShape({bitMaskShape})
 
-	local xCanvasShape      = { Type = "Quantized", BitWidth = 12, Min = 0, Max = 1, }
-	local yCanvasShape      = { Type = "Quantized", BitWidth = 12, Min = 0, Max = aspectRatio, }
+	local xCanvasShape      = { Type = "Quantized", BitWidth = 12, Min = 0, Max = aspectRatio, }
+	local yCanvasShape      = { Type = "Quantized", BitWidth = 12, Min = 0, Max = 1, }
 	local pointsArrayShape  = makeArrayShape({xCanvasShape, yCanvasShape})
 
 	local data = {
@@ -755,8 +844,8 @@ local function serialiseBoardRecord(record, force: true?)
 	end
 
 	local timestampShape = "Float32"
-	local xCanvasShape     = { Type = "Quantized", BitWidth = 12, Min = 0, Max = 1, }
-	local yCanvasShape     = { Type = "Quantized", BitWidth = 12, Min = 0, Max = record.AspectRatio, }
+	local xCanvasShape     = { Type = "Quantized", BitWidth = 12, Min = 0, Max = record.AspectRatio, }
+	local yCanvasShape     = { Type = "Quantized", BitWidth = 12, Min = 0, Max = 1, }
 	local strokeWidthShape = { Type = "Quantized", BitWidth = 16, Min = 0, Max = 1, }
 
 	local authorIdEnumShape = makeEnumShape({}, 1, true)
@@ -933,23 +1022,34 @@ end
 
 local export = {}
 
+local checkSegmentOfRecordsData = t.strictInterface {
+	_FormatVersion = t.string,
+	Records = t.array(t.interface {
+		RecordType = t.union(t.literal("CharacterRecord"), t.literal("VRCharacterRecord"), t.literal("BoardRecord"))
+	}),
+	Index = checkPositiveInteger,
+}
+
 function export.serialiseSegmentOfRecords(segmentOfRecords, segmentIndex: number)
 	local data = {
 		_FormatVersion = FORMAT_VERSION,
 
 		Records = {},
 		Index = segmentIndex,
-		-- InitialState = segmentOfRecords.InitialState,
 	}
 	for _, record in segmentOfRecords.Records do
 		if record.RecordType == "CharacterRecord" then
 			table.insert(data.Records, serialiseCharacterRecord(record))
+		elseif record.RecordType == "VRCharacterRecord" then
+			table.insert(data.Records, serialiseVRCharacterRecord(record))
 		elseif record.RecordType == "BoardRecord" then
 			table.insert(data.Records, serialiseBoardRecord(record))
 		else
 			error(`RecordType not handled {record.RecordType}`)
 		end
 	end
+
+	assert(checkSegmentOfRecordsData(data))
 
 	return data
 end
@@ -962,6 +1062,8 @@ function export.deserialiseSegmentOfRecords(data)
 	for _, record in data.Records do
 		if record.RecordType == "CharacterRecord" then
 			table.insert(segmentOfRecords.Records, deserialiseCharacterRecord(record))
+		elseif record.RecordType == "VRCharacterRecord" then
+			table.insert(segmentOfRecords.Records, deserialiseVRCharacterRecord(record))
 		elseif record.RecordType == "BoardRecord" then
 			table.insert(segmentOfRecords.Records, deserialiseBoardRecord(record))
 		else

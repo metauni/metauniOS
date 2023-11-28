@@ -3,9 +3,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local t = require(ReplicatedStorage.Packages.t)
-local Rx = require(ReplicatedStorage.Util.Rx)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local Maid = require(ReplicatedStorage.Util.Maid)
+
+local function getCharacter(record)
+	local character = Players:CreateHumanoidModelFromDescription(record.HumanoidDescription, record.HumanoidRigType)
+	character.Humanoid.DisplayName = "▶️-"..record.CharacterName
+
+	return character
+end
 
 local checkRecord = t.interface {
 	HumanoidDescription = t.instanceOf("HumanoidDescription"),
@@ -16,27 +22,19 @@ local checkRecord = t.interface {
 	CharacterName = t.string,
 }
 
-local function CharacterReplay(record, origin: CFrame, characterFromPreviousReplay: Model?)
+local function CharacterReplay(record, origin: CFrame)
 	assert(checkRecord(record))
 	assert(t.CFrame(origin))
 
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap() }
 
-	maid:GiveTask(function()
-		print("Destroyed Character")
-	end)
+	local character = getCharacter(record)
+	maid:GiveTask(character)
 
-	local character = characterFromPreviousReplay
-	if not character then
-		character = Players:CreateHumanoidModelFromDescription(record.HumanoidDescription, record.HumanoidRigType)
-		character.Humanoid.DisplayName = "▶️-"..record.CharacterName
-		maid:GiveTask(character)
-	end
-
-	local Active = Blend.State(false, "boolean")
-	local RootCFrame = Blend.State()
-	local CharacterParent = Blend.State(nil)
+	local Active = maid:Add(Blend.State(false, "boolean"))
+	local RootCFrame = maid:Add(Blend.State(nil))
+	local CharacterParent = maid:Add(Blend.State(nil))
 	
 	local timelineIndex = 1
 	local visibleTimelineIndex = 1

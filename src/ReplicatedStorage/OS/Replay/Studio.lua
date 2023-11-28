@@ -10,6 +10,7 @@ local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
 local CharacterRecorder = require(script.Parent.CharacterRecorder)
 local Serialiser = require(script.Parent.Serialiser)
+local VRCharacterRecorder = require(script.Parent.VRCharacterRecorder)
 
 export type Phase = "Uninitialised" | "Initialised" | "Recording" | "Recorded" | "Saved"
 local PHASE_ORDER: {Phase} = {"Uninitialised", "Initialised", "Recording", "Recorded", "Saved"}
@@ -35,13 +36,19 @@ local function Studio(props: StudioProps): Studio
 		return table.find(PHASE_ORDER, RecordingPhase.Value) < table.find(PHASE_ORDER, phase)
 	end
 
-	local function getCharacterRecorderFor(characterId: string)
+	local function getCharacterRecorder(characterId: string)
 		return Sift.List.findWhere(recorders, function(recorder)
 			return recorder.RecorderType == "CharacterRecorder" and recorder.CharacterId == characterId
 		end)
 	end
 
-	local function getBoardRecorderFor(boardId: string)
+	local function getVRCharacterRecorder(characterId: string)
+		return Sift.List.findWhere(recorders, function(recorder)
+			return recorder.RecorderType == "VRCharacterRecorder" and recorder.CharacterId == characterId
+		end)
+	end
+
+	local function getBoardRecorder(boardId: string)
 		return Sift.List.findWhere(recorders, function(recorder)
 			return recorder.RecorderType == "BoardRecorder" and recorder.BoardId == boardId
 		end)
@@ -52,7 +59,7 @@ local function Studio(props: StudioProps): Studio
 		assert(typeof(characterName) == "string", "Bad characterName")
 		assert(typeof(player) == "Instance" and player:IsA("Player"), "Bad player")
 
-		local existing = getCharacterRecorderFor(characterId)
+		local existing = getCharacterRecorder(characterId)
 		if existing and existing.PlayerUserId ~= player.UserId  then
 			if existing.PlayerUserId ~= player.UserId then
 				error(`[ReplayStudio] Cannot change player-to-track for CharacterId={characterId} to {player.UserId} ({player.Name}), already tracking {existing.PlayerUserId}`)
@@ -67,9 +74,29 @@ local function Studio(props: StudioProps): Studio
 		end
 	end
 
+	function self.TrackVRPlayerCharacter(characterId: string, characterName: string, player: Player)
+		assert(typeof(characterId) == "string", "Bad characterId")
+		assert(typeof(characterName) == "string", "Bad characterName")
+		assert(typeof(player) == "Instance" and player:IsA("Player"), "Bad player")
+
+		local existing = getVRCharacterRecorder(characterId)
+		if existing and existing.PlayerUserId ~= player.UserId  then
+			if existing.PlayerUserId ~= player.UserId then
+				error(`[ReplayStudio] Cannot change vr-player-to-track for CharacterId={characterId} to {player.UserId} ({player.Name}), already tracking {existing.PlayerUserId}`)
+			end
+		else
+			table.insert(recorders, VRCharacterRecorder({
+				Origin = props.Origin,
+				CharacterId = characterId,
+				PlayerUserId = player.UserId,
+				CharacterName = characterName,
+			}))
+		end
+	end
+
 	function self.TrackBoard(boardId: string, board)
 		assert(typeof(board) == "table", "Bad board")
-		local existing = getBoardRecorderFor(boardId)
+		local existing = getBoardRecorder(boardId)
 		if existing then
 			if existing.props.Board ~= board  then
 				error(`[ReplayStudio] Cannot change board for BoardId={boardId}. A different board is already tracked at this boardId`)

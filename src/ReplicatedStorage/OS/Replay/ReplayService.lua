@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local VRServerService = require(ReplicatedStorage.OS.VR.VRServerService)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
@@ -75,7 +76,7 @@ function ReplayService:Start()
 				task.wait(1)
 				print(i)
 				i+=1
-				if i >= 10 then
+				if i >= 60 then
 					studio.StopRecording()
 					studio.Store()
 					self.OrbToStage.Value[orbPart] = Stage(studio.props)
@@ -136,8 +137,8 @@ function ReplayService:Start()
 		return replays
 	end
 
-	Remotes.Play.OnServerEvent:Connect(function(player: Player, replay)
-		for orb, stage in self.OrbToStage.Value do
+	Remotes.Play.OnServerEvent:Connect(function(_player: Player, replay)
+		for _orb, stage in self.OrbToStage.Value do
 			if stage.props.RecordingId == replay.RecordingId then
 				stage.Play()
 				return
@@ -211,7 +212,11 @@ function ReplayService:NewOrbStudio(orbPart: Part, recordingName: string, record
 
 	for player, attachedOrb in self:_getPlayerToOrb() do
 		if attachedOrb == orbPart then
-			studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
+			if VRServerService.GetVREnabled(player) then
+				studio.TrackVRPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
+			else
+				studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
+			end
 		end
 	end
 

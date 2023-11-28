@@ -1,5 +1,5 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
@@ -568,7 +568,7 @@ return function(props)
 					},
 					Computed(function()
 						-- TODO: Get appropriate permissions for replay menu
-						if false and props.IsSpeaker:get() then
+						if Players.LocalPlayer.UserId == 2293079954 and props.IsSpeaker:get() then
 							return 
 								menuButton {
 									Text = "Replay",

@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local VRCharacterReplay = require(ReplicatedStorage.OS.Replay.VRCharacterRecorder.VRCharacterReplay)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Maid = require(ReplicatedStorage.Util.Maid)
@@ -54,7 +55,9 @@ local function Stage(props: StageProps)
 		for _, record in segmentOfRecords.Records do
 			local replay
 			if record.RecordType == "CharacterRecord" then
-				replay = CharacterReplay(record, props.Origin, nil)
+				replay = CharacterReplay(record, props.Origin)
+			elseif record.RecordType == "VRCharacterRecord" then
+				replay = VRCharacterReplay(record, props.Origin)
 			elseif record.RecordType == "BoardRecord" then
 				replay = BoardReplay({
 					Origin = props.Origin,

@@ -5,7 +5,7 @@ return {
 
 	Init = function()
 		NexusVRBackpack.Parent = ReplicatedStorage
-		--local NexusVRBackpackModule = require(NexusVRBackpack)
-		--NexusVRBackpackModule:Load()
+		local NexusVRBackpackModule = require(NexusVRBackpack)
+		NexusVRBackpackModule:Load()
 	end,
 }

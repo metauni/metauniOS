@@ -4,6 +4,7 @@ local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
+local VRService = game:GetService("VRService")
 
 local OrbClient = require(script.OrbClient)
 local Rx = require(ReplicatedStorage.Util.Rx)
@@ -510,91 +511,94 @@ function OrbController:Start()
 	--[[
 		Make speaker turn towards camera when in frame
 	--]]
-	local turnTween: Tween?
-	local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad)
-	Rx.combineLatest {
-		Poi1 = observePoi1,
-		MoveDirection = observeLocalSpeaker:Pipe {
-			Rxi.property("Character"),
-			Rxi.findFirstChildOfClass("Humanoid"),
-			Rxi.property("MoveDirection")
-		},
-		RootPart = observeLocalSpeaker:Pipe {
-			Rxi.property("Character"),
-			Rxi.property("PrimaryPart"),
-		},
-		HumanoidState = observeLocalSpeaker:Pipe {
-			Rxi.property("Character"),
-			Rxi.findFirstChild("Humanoid"),
-			Rx.switchMap(function(humanoid: Humanoid?)
-				if not humanoid then
-					return Rx.of(nil)
-				else
-					return Rx.fromSignal(humanoid.StateChanged):Pipe {
-						Rx.map(function(_, newState: Enum.HumanoidStateType)
-							return newState
-						end),
-						Rx.defaultsTo(humanoid:GetState())
-					}
-				end
-			end),
-		},
-		CamPositionGoal = observeState(CamPositionGoal),
-		CamLookAtGoal = observeState(CamLookAtGoal),
-	}:Subscribe(function(data)
-		local poi1: Part? = data.Poi1
-		local rootPart: Part? = data.RootPart
-		local humanoidState: Enum.HumanoidStateType? = data.HumanoidState
-		local moveDirection: Vector3? = data.MoveDirection
-		local camPositionGoal: Vector3 = data.CamPositionGoal
-		local camLookAtGoal: Vector3 = data.CamLookAtGoal
-
-		-- We're either about to tween elsewhere or not tween at all
-		if turnTween then
-			turnTween:Cancel()
-		end
-
-		-- We're moving, don't rotate
-		if moveDirection and moveDirection.Magnitude ~= 0 then
-			return
-		end
-
-		-- We don't want to rotate the speaker if they're jumping or something else
-		-- Yes it says running but that's the state when just standing still
-		if
-			not humanoidState
-			or humanoidState == Enum.HumanoidStateType.Jumping
-			or humanoidState == Enum.HumanoidStateType.Freefall
-		then
-			return
-		end
-
-		-- print("not running")
+	if not VRService.VREnabled then
 		
-		-- No character or poi1 not looking at anything
-		if not rootPart or not poi1 then
-			return
-		end
-		
-		local lookVector = camLookAtGoal - camPositionGoal
-		local horizontalFOVRad = 2 * math.atan(Config.AssumedViewportSize.X / Config.AssumedViewportSize.Y * math.tan(math.rad(Config.OrbcamFOV)/2))
-		local cosAngleToSpeaker = ((rootPart.Position - camPositionGoal).Unit):Dot(lookVector.Unit)
-		local distanceToFocalPoint = (camLookAtGoal - camPositionGoal).Magnitude
-		local distanceToCharacter = (rootPart.Position - camPositionGoal).Magnitude
-		
-		local ANGLE_BUFFER = math.rad(2.5)
-		local outsideCamView = cosAngleToSpeaker < math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
-		local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
-		
-		if not outsideCamView and not tooFarBehindBoard then
+		local turnTween: Tween?
+		local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad)
+		Rx.combineLatest {
+			Poi1 = observePoi1,
+			MoveDirection = observeLocalSpeaker:Pipe {
+				Rxi.property("Character"),
+				Rxi.findFirstChildOfClass("Humanoid"),
+				Rxi.property("MoveDirection")
+			},
+			RootPart = observeLocalSpeaker:Pipe {
+				Rxi.property("Character"),
+				Rxi.property("PrimaryPart"),
+			},
+			HumanoidState = observeLocalSpeaker:Pipe {
+				Rxi.property("Character"),
+				Rxi.findFirstChild("Humanoid"),
+				Rx.switchMap(function(humanoid: Humanoid?)
+					if not humanoid then
+						return Rx.of(nil)
+					else
+						return Rx.fromSignal(humanoid.StateChanged):Pipe {
+							Rx.map(function(_, newState: Enum.HumanoidStateType)
+								return newState
+							end),
+							Rx.defaultsTo(humanoid:GetState())
+						}
+					end
+				end),
+			},
+			CamPositionGoal = observeState(CamPositionGoal),
+			CamLookAtGoal = observeState(CamLookAtGoal),
+		}:Subscribe(function(data)
+			local poi1: Part? = data.Poi1
+			local rootPart: Part? = data.RootPart
+			local humanoidState: Enum.HumanoidStateType? = data.HumanoidState
+			local moveDirection: Vector3? = data.MoveDirection
+			local camPositionGoal: Vector3 = data.CamPositionGoal
+			local camLookAtGoal: Vector3 = data.CamLookAtGoal
+	
+			-- We're either about to tween elsewhere or not tween at all
+			if turnTween then
+				turnTween:Cancel()
+			end
+	
+			-- We're moving, don't rotate
+			if moveDirection and moveDirection.Magnitude ~= 0 then
+				return
+			end
+	
+			-- We don't want to rotate the speaker if they're jumping or something else
+			-- Yes it says running but that's the state when just standing still
+			if
+				not humanoidState
+				or humanoidState == Enum.HumanoidStateType.Jumping
+				or humanoidState == Enum.HumanoidStateType.Freefall
+			then
+				return
+			end
+	
+			-- print("not running")
 			
-			local target = Vector3.new(camPositionGoal.X, rootPart.Position.Y, camPositionGoal.Z)
-			turnTween = TweenService:Create(rootPart, tweenInfo, {
-				CFrame = CFrame.lookAt(rootPart.Position, target)
-			})
-			;(turnTween :: Tween):Play()
-		end
-	end)
+			-- No character or poi1 not looking at anything
+			if not rootPart or not poi1 then
+				return
+			end
+			
+			local lookVector = camLookAtGoal - camPositionGoal
+			local horizontalFOVRad = 2 * math.atan(Config.AssumedViewportSize.X / Config.AssumedViewportSize.Y * math.tan(math.rad(Config.OrbcamFOV)/2))
+			local cosAngleToSpeaker = ((rootPart.Position - camPositionGoal).Unit):Dot(lookVector.Unit)
+			local distanceToFocalPoint = (camLookAtGoal - camPositionGoal).Magnitude
+			local distanceToCharacter = (rootPart.Position - camPositionGoal).Magnitude
+			
+			local ANGLE_BUFFER = math.rad(2.5)
+			local outsideCamView = cosAngleToSpeaker < math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
+			local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
+			
+			if not outsideCamView and not tooFarBehindBoard then
+				
+				local target = Vector3.new(camPositionGoal.X, rootPart.Position.Y, camPositionGoal.Z)
+				turnTween = TweenService:Create(rootPart, tweenInfo, {
+					CFrame = CFrame.lookAt(rootPart.Position, target)
+				})
+				;(turnTween :: Tween):Play()
+			end
+		end)
+	end
 
 	local function PoiHighlight(observePoi)
 

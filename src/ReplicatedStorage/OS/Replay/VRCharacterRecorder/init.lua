@@ -1,84 +1,165 @@
--- Services
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Replay = script.Parent
 
--- Imports
-local t = require(Replay.Parent.t)
-local NexusVRCharacterModel = require(ReplicatedStorage:WaitForChild("NexusVRCharacterModel"))
-local UpdateInputs = NexusVRCharacterModel:GetResource("UpdateInputs")
+local t = require(ReplicatedStorage.Packages.t)
+local Maid = require(ReplicatedStorage.Util.Maid)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
+local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
-local VRCharacterRecorder = {}
-VRCharacterRecorder.__index = VRCharacterRecorder
-
-local check = t.strictInterface({
-
-	Origin = t.CFrame,
-	Player = t.instanceOf("Player"),
-})
-
-function VRCharacterRecorder.new(args)
-	
-	assert(check(args))
-
-	return setmetatable(args, VRCharacterRecorder)
+local function getUpdateInputsRemoteEvent(): RemoteEvent
+	local NexusVRCharacterModelScript = ReplicatedStorage:FindFirstChild("NexusVRCharacterModel")
+	assert(t.instanceOf("ModuleScript")(NexusVRCharacterModelScript), "[VRCharacterRecorder] Expected NexusVRCharacterModel in ReplicatedStorage")
+	local remoteEvent = NexusVRCharacterModelScript:FindFirstChild("UpdateInputs")
+	assert(t.instanceOf("RemoteEvent")(remoteEvent), "[VRCharacterRecorder] Expected UpdateInputs RemoteEvent in NexusVRCharacterModel.")
+	return remoteEvent
 end
 
-function VRCharacterRecorder:Start(startTime)
+local function observeRootPart(userId: number)
+	return Rxi.playerOfUserId(userId):Pipe {
+		Rxi.property("Character"),
+		Rxi.findFirstChild("HumanoidRootPart"),
+	}
+end
+
+local function observeChalk(userId: number)
+	return Rxi.playerOfUserId(userId):Pipe {
+		Rxi.property("Character"),
+		Rxi.findFirstChildWithClassOf("Tool", "Chalk")
+	}
+end
+
+local function promiseHumanoidDataFromCharacter(userId: number)
+	return Rx.toPromise(Rxi.playerOfUserId(userId):Pipe {
+		Rxi.property("Character"),
+		Rxi.findFirstChild("Humanoid"),
+		Rxi.findFirstChild("HumanoidDescription"),
+		Rxi.notNil(),
+		Rx.map(function(humanoidDescription: HumanoidDescription)
+			local humanoid: Humanoid = humanoidDescription.Parent :: any
+			return humanoidDescription:Clone(), humanoid.RigType
+		end),
+	})
+end
+
+local function getHumanoidDataFromPlayerUserIdAsync(userId: number)
+	local humanoidDescription = Players:GetHumanoidDescriptionFromUserId(userId)
+	local humanoidRigType = Enum.HumanoidRigType.R15
+	return humanoidDescription, humanoidRigType
+end
+
+export type VRCharacterRecorderProps = {
+	Origin: CFrame,
+	CharacterName: string,
+	CharacterId: string,
+	PlayerUserId: number,
+}
+local checkProps = t.strictInterface {
+	Origin = t.CFrame,
+	CharacterName = t.string,
+	CharacterId = t.string,
+	PlayerUserId = t.integer,
+}
+
+local function VRCharacterRecorder(props: VRCharacterRecorderProps): VRCharacterRecorder
+	assert(checkProps(props))
+	local maid = Maid.new()
+	local self = { Destroy = maid:Wrap(), props = props, RecorderType = "VRCharacterRecorder" }
+
+	-- Errors if can't find it
+	local UpdateInputsRemoteEvent = getUpdateInputsRemoteEvent()
 	
-	-- Start time is passed as argument for consistency between recorders
-	self.StartTime = startTime
-	self.Timeline = {}
+	local Timeline = ValueObject.new({})
+	local VisibleTimeline = ValueObject.new({})
+	local ChalkTimeline = ValueObject.new({})
+
+	local HumanoidDescription = nil
+	local HumanoidRigType = nil
+	-- Set the humanoid data as soon as it is available
+	-- Very likely happens immediately
+	local promise = maid:Add(promiseHumanoidDataFromCharacter(props.PlayerUserId))
+	promise:Then(function(humanoidDescription, humanoidRigType)
+		HumanoidDescription = humanoidDescription
+		HumanoidRigType = humanoidRigType
+	end)
 	
-	self.CharacterConnection = UpdateInputs.OnServerEvent:Connect(function(player, HeadCFrame, LeftHandCFrame, RightHandCFrame)
-		
-		local now = os.clock() - self.StartTime
-		
-		if player ~= self.Player then
-			return
+	function self.FlushToRecord()
+
+		local humanoidDescription = HumanoidDescription
+		local humanoidRigType = HumanoidRigType
+		if not humanoidDescription or not humanoidRigType then
+			humanoidDescription, humanoidRigType = getHumanoidDataFromPlayerUserIdAsync(props.PlayerUserId)
 		end
 
-		local headRel = self.Origin:Inverse() * HeadCFrame
-		local headRx, headRy, headRz = headRel:ToEulerAnglesXYZ()
-		local leftHandRel = self.Origin:Inverse() * LeftHandCFrame
-		local leftRx, leftRy, leftRz = leftHandRel:ToEulerAnglesXYZ()
-		local rightHandRel = self.Origin:Inverse() * RightHandCFrame
-		local rightRx, rightRy, rightRz = rightHandRel:ToEulerAnglesXYZ()
-		
-		table.insert(self.Timeline, {now,
-			
-			headRel.Position.X,      headRel.Position.Y,      headRel.Position.Z,      headRx, headRy, headRz,
-			leftHandRel.Position.X,  leftHandRel.Position.Y,  leftHandRel.Position.Z,  leftRx, leftRy, leftRz,
-			rightHandRel.Position.X, rightHandRel.Position.Y, rightHandRel.Position.Z, rightRx, rightRy, rightRz,
-		})
-	end)
-end
+		local record = {
+			RecordType = "VRCharacterRecord",
 
-function VRCharacterRecorder:Stop()
-	
-	if self.CharacterConnection then
-		self.CharacterConnection:Disconnect()
-		self.CharacterConnection = nil
+			PlayerUserId = props.PlayerUserId,
+			CharacterId = props.CharacterId,
+			CharacterName = props.CharacterName,
+			HumanoidDescription = humanoidDescription, 
+			HumanoidRigType = humanoidRigType, 
+
+			Timeline = Timeline.Value,
+			VisibleTimeline = VisibleTimeline.Value,
+			ChalkTimeline = ChalkTimeline.Value
+		}
+
+		Timeline.Value = {}
+		VisibleTimeline.Value = {}
+		ChalkTimeline.Value = {}
+		return record
 	end
+
+	function self.Init()
+		Timeline.Value = {}
+		VisibleTimeline.Value = {}
+		ChalkTimeline.Value = {}
+	end
+
+	function self.Start(startTime)
+		
+		local originInverse = props.Origin:Inverse()
+
+		local cleanup = {}
+		maid._recording = cleanup
+
+		table.insert(cleanup, UpdateInputsRemoteEvent.OnServerEvent:Connect(function(player: Player, HeadCFrame: CFrame, LeftHandCFrame: CFrame, RightHandCFrame: CFrame)
+			if player.UserId ~= props.PlayerUserId then
+				return
+			end
+
+			local now = os.clock() - startTime
+			local headRel = originInverse * HeadCFrame
+			local leftHandRel = originInverse * LeftHandCFrame
+			local rightHandRel = originInverse * RightHandCFrame
+			table.insert(Timeline.Value, {now, headRel, leftHandRel, rightHandRel})
+		end))
+
+		table.insert(cleanup, observeRootPart(props.PlayerUserId)
+			:Subscribe(function(rootPart: BasePart?)
+				local now = os.clock() - startTime
+				local visible = rootPart ~= nil
+				table.insert(VisibleTimeline.Value, {now, visible})
+			end)
+		)
+
+		table.insert(cleanup, observeChalk(props.PlayerUserId)
+			:Subscribe(function(chalk: Tool?)
+				local now = os.clock() - startTime
+				local equipped = chalk ~= nil
+				table.insert(ChalkTimeline.Value, {now, equipped})
+			end)
+		)
+	end
+
+	function self.Stop()
+		maid._recording = nil
+	end
+
+	return self
 end
 
-function VRCharacterRecorder:FlushTimelineToRecord()
-
-	local record = {
-
-		Timeline = self.Timeline,
-	}
-
-	self.Timeline = {}
-
-	return record
-end
-
-local NUM_LENGTH_EST = 20 -- Average is about 19.26
-local SCAFFOLD = #[[{"Timeline":{}}]]
-
-function VRCharacterRecorder:GetRecordSizeEstimate()
-	-- events * (maxsize * numNums + commas + eventbraces + eventComma)
-	return #self.Timeline * (NUM_LENGTH_EST * 19 + 18 + 2 + 1) + SCAFFOLD
-end
+export type VRCharacterRecorder = typeof(VRCharacterRecorder(nil :: any))
 
 return VRCharacterRecorder
