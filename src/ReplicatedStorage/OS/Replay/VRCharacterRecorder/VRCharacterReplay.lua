@@ -9,7 +9,7 @@ local Maid = require(ReplicatedStorage.Util.Maid)
 local updateAnchoredFromInputs = require(script.Parent.updateAnchoredFromInputs)
 
 local checkRecord = t.interface {
-	RecordType = t.literal("RecordType"),
+	RecordType = t.literal("VRCharacterRecord"),
 	HumanoidDescription = t.instanceOf("HumanoidDescription"),
 	HumanoidRigType = t.enum(Enum.HumanoidRigType),
 	Timeline = t.table,
