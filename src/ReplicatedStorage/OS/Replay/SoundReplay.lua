@@ -1,121 +1,114 @@
--- Services
 local ContentProvider = game:GetService("ContentProvider")
--- local Replay = script.Parent
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Imports
--- local t = require(Replay.Parent.t)
+local t = require(ReplicatedStorage.Packages.t)
+local Blend = require(ReplicatedStorage.Util.Blend)
+local Maid = require(ReplicatedStorage.Util.Maid)
 
-local SoundReplay = {}
-SoundReplay.__index = SoundReplay
+--[[
+	finishTimestamp = math.max(unpack({timestamp + sound.TimeLength - startOffset, finishTimestamp}))
+	if not sound.IsLoaded then
+		-- TODO: This is a hack to make it actually preload.
+		sound.Parent = workspace
+		sound.Loaded:Wait()
+		sound.Parent = nil
+	end
+]]
 
-function SoundReplay.new(record, replayArgs)
-	
-	local self = setmetatable({
+local checkRecord = t.interface {
+	RecordType = t.literal("SoundRecord"),
+	Clips = t.array(t.interface {
+		AssetId = t.string,
+		StartTimestamp = t.number,
+		StartOffset = t.number,
+		EndOffset = t.number,
+	}),
+}
+local checkProps = t.strictInterface {
+	Record = checkRecord,
+	SoundParent = t.Instance,
+	SoundInstanceProps = t.table,
+}
+export type Props = {
+	Record: {
+		RecordType: "SoundRecord",
+		Clips: {{
+			AssetId: string,
+			StartTimestamp: number,
+			StartOffset: number,
+			EndOffset: number,
+		}},
+	},
+	SoundParent: Instance,
+	SoundInstanceProps: {},
+}
 
-		Record = record,
-		SoundProps = replayArgs.SoundProps,
-	}, SoundReplay)
+local TIMING_TOLERANCE_SECONDS = 1
 
-	self.Sounds = {}
+local function SoundReplay(props: Props): SoundReplay
+	assert(checkProps(props))
+	local record = props.Record
 
-	local finishTimestamp
-	
-	for _, event in ipairs(self.Record.Timeline) do
+	local maid = Maid.new()
+	local self = { Destroy = maid:Wrap() }
+
+	local sounds: {Sound} = {}
+
+	for i, clip in record.Clips do
 		
-		local timestamp, assetId, startOffset = unpack(event)
-		
-		local sound = Instance.new("Sound")
-		sound.SoundId = assetId
+		local sound = maid:Add(Instance.new("Sound"))
+		sound.SoundId = clip.AssetId
+		sound.Name = `ReplaySound-{i}`
 
-		ContentProvider:PreloadAsync({sound})
+		sound.Parent = props.SoundParent
+		maid:GiveTask(Blend.mount(sound, props.SoundInstanceProps))
 
-		if not sound.IsLoaded then
-			
-			-- TODO: This is a hack to make it actually preload.
-			sound.Parent = workspace
-			sound.Loaded:Wait()
-
-			finishTimestamp = math.max(unpack({timestamp + sound.TimeLength - startOffset, finishTimestamp}))
-			
-			sound.Parent = nil
-		end
-		
-		for key, value in self.SoundProps do
-			
-			sound[key] = value
-		end
-
-
-	
-		table.insert(self.Sounds, sound)
+		table.insert(sounds, sound)
 	end
 
-	self.FinishTimestamp = finishTimestamp
-	
-	return self
-end
-
-function SoundReplay:Destroy()
-	
-	for _, sound in ipairs(self.Sounds) do
-		
-		sound:Destroy()
+	function self.Preload()
+		local toLoad = {}
+		for _, sound in sounds do
+			if not sound.IsLoaded then
+				table.insert(toLoad, sound)
+			end
+		end
+		if #toLoad > 0 then
+			ContentProvider:PreloadAsync(toLoad)
+		end
 	end
-end
-
-function SoundReplay:Init()
-
-	self.TimelineIndex = 1
-	self.Finished = false
-end
-
-function SoundReplay:PlayUpTo(playhead: number)
-
-	for i=self.TimelineIndex, #self.Record.Timeline do
-
-		local timestamp, _assetId, startOffset = unpack(self.Record.Timeline[i])
-		local sound = self.Sounds[i]
-		
-		local delta = playhead - timestamp
-		
-		if delta >= 0 then
-			
-			if delta + startOffset < sound.TimeLength and not sound.IsPlaying then
 	
-				sound.TimePosition = startOffset + delta
-				sound:Resume()
-				self.TimelineIndex = i + 1
+	function self.UpdatePlayhead(playhead: number): ()
+		for i=1, #sounds do
+			local clip = record.Clips[i]
+			local sound = sounds[i]
+
+			local endTimestamp = clip.StartTimestamp + sound.TimeLength - clip.StartOffset - clip.EndOffset
+			
+			local deltaStart = playhead - clip.StartTimestamp
+			local deltaEnd = playhead - endTimestamp
+			
+			if deltaStart >= 0 and deltaEnd < 0 then
+				-- Start playing if not playing, or fix timing if too far off
+				if not sound.IsPlaying or math.abs(sound.TimePosition - clip.StartOffset - deltaStart) > TIMING_TOLERANCE_SECONDS then
+					sound.TimePosition = clip.StartOffset + deltaStart
+					sound:Resume()
+				end
+			elseif sound.IsPlaying then
+				sound:Pause()
 			end
 		end
 	end
-
-	-- Check finished
-
-	if playhead >= self.FinishTimestamp then
-		
-		self.Finished = true
-	end
-end
-
-function SoundReplay:Resume()
 	
-	self.TimelineIndex = 1
-end
-
-function SoundReplay:Pause()
-	
-	for _, sound in ipairs(self.Sounds) do
-			
-		sound:Pause()
+	function self.Pause()
+		for _, sound in ipairs(sounds) do
+			sound:Pause()
+		end
 	end
+
+	return self
 end
 
-function SoundReplay:Stop()
-
-	for _, sound in ipairs(self.Sounds) do
-			
-		sound:Pause()
-	end
-end
+export type SoundReplay = typeof(SoundReplay(nil :: any))
 
 return SoundReplay

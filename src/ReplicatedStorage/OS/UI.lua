@@ -185,7 +185,7 @@ local function Padding(props)
 		PaddingBottom = UDim.new(0, props.Bottom or props.Offset or 0),
 		PaddingTop = UDim.new(0, props.Top or props.Offset or 0),
 		PaddingLeft = UDim.new(0, props.Left or props.Offset or 0),
-		PaddingRight = UDim.new(0, props.Left or props.Offset or 0),
+		PaddingRight = UDim.new(0, props.Right or props.Offset or 0),
 	}
 end
 

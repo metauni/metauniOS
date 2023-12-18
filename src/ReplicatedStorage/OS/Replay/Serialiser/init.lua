@@ -913,11 +913,15 @@ local function serialiseBoardRecord(record, force: true?)
 			local drawingTask = event[4]
 			local canvasPos = event[5]
 			writeDataShape(buffer, variableShape[1], drawingTask.Type)
-			writeDataShape(buffer, variableShape[2], drawingTask.Curve.Width)
-			-- Erase DrawingTask doesn't have a color, who cares ¯\_(ツ)_/¯
-			-- we write a color to avoid another layer of variable bit width.
-			local colorOrBlack = if drawingTask.Type ~= "Erase" then drawingTask.Curve.Color else Color3.new()
-			writeDataShape(buffer, variableShape[3], colorOrBlack)
+			if drawingTask.Type == "Erase" then
+				-- Erase DrawingTask doesn't have a color, who cares ¯\_(ツ)_/¯
+				-- we write a color to avoid another layer of variable bit width.
+				writeDataShape(buffer, variableShape[2], drawingTask.ThicknessYScale)
+				writeDataShape(buffer, variableShape[3], Color3.new())
+			else
+				writeDataShape(buffer, variableShape[2], drawingTask.Curve.Width)
+				writeDataShape(buffer, variableShape[3], drawingTask.Curve.Color)
+			end
 			writeDataShape(buffer, variableShape[4], canvasPos.X)
 			writeDataShape(buffer, variableShape[5], canvasPos.Y)
 		end
@@ -1024,9 +1028,17 @@ local export = {}
 
 local checkSegmentOfRecordsData = t.strictInterface {
 	_FormatVersion = t.string,
+	Origin = t.strictArray(
+		-- 12 cframe matrix components
+		t.number, t.number, t.number,
+		t.number, t.number, t.number,
+		t.number, t.number, t.number,
+		t.number, t.number, t.number
+	),
 	Records = t.array(t.interface {
-		RecordType = t.union(t.literal("CharacterRecord"), t.literal("VRCharacterRecord"), t.literal("BoardRecord"))
+		RecordType = t.union(t.literal("CharacterRecord"), t.literal("VRCharacterRecord"), t.literal("BoardRecord"), t.literal("SoundRecord"))
 	}),
+	EndTimestamp = t.number,
 	Index = checkPositiveInteger,
 }
 
@@ -1034,7 +1046,9 @@ function export.serialiseSegmentOfRecords(segmentOfRecords, segmentIndex: number
 	local data = {
 		_FormatVersion = FORMAT_VERSION,
 
+		Origin = {segmentOfRecords.Origin:GetComponents()},
 		Records = {},
+		EndTimestamp = segmentOfRecords.EndTimestamp,
 		Index = segmentIndex,
 	}
 	for _, record in segmentOfRecords.Records do
@@ -1054,9 +1068,24 @@ function export.serialiseSegmentOfRecords(segmentOfRecords, segmentIndex: number
 	return data
 end
 
+local checkSoundRecordData = t.strictInterface {
+	RecordType = t.literal("SoundRecord"),
+	CharacterId = t.string,
+	CharacterName = t.string,
+	Clips = t.array(t.strictInterface {
+		AssetId = t.string,
+		StartTimestamp = t.number,
+		StartOffset = t.number,
+		EndOffset = t.number,
+	}),
+}
+
 function export.deserialiseSegmentOfRecords(data)
+	assert(checkSegmentOfRecordsData(data))
 	local segmentOfRecords = {
 		Records = {},
+		Origin = CFrame.new(table.unpack(data.Origin)),
+		EndTimestamp = data.EndTimestamp,
 		Index = data.Index,
 	}
 	for _, record in data.Records do
@@ -1066,6 +1095,10 @@ function export.deserialiseSegmentOfRecords(data)
 			table.insert(segmentOfRecords.Records, deserialiseVRCharacterRecord(record))
 		elseif record.RecordType == "BoardRecord" then
 			table.insert(segmentOfRecords.Records, deserialiseBoardRecord(record))
+		elseif record.RecordType == "SoundRecord" then
+			-- Nothing to deserialise. Just tables, numbers, strings etc
+			assert(checkSoundRecordData(record))
+			table.insert(segmentOfRecords.Records, record)
 		else
 			error(`RecordType not handled {record.RecordType}`)
 		end

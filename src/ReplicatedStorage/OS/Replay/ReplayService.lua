@@ -1,10 +1,17 @@
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local RecordUtils = require(script.Parent.RecordUtils)
+local OrbService = require(ServerScriptService.OS.OrbService)
+local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local VRServerService = require(ReplicatedStorage.OS.VR.VRServerService)
+local Sift = require(ReplicatedStorage.Packages.Sift)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
+local t = require(ReplicatedStorage.Packages.t)
+local Promise = require(ReplicatedStorage.Util.Promise)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
@@ -16,7 +23,7 @@ local PocketService = require(ServerScriptService.OS.PocketService)
 local Remotes = script.Parent.Remotes
 local PlayerToOrb = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
-local TESTING = true 
+local TESTING = true
 
 --[[
 	Manages replay recording and selection for playback
@@ -38,34 +45,51 @@ function ReplayService:Start()
 	else
 		self.ReplayDataStore = DataStoreService:GetDataStore("Replay-TRS")
 	end
-
-	self._orbOriginCFrame = {}
-	Rxi.tagged("metaorb"):Subscribe(function(orbPart: Part)
-		self._orbOriginCFrame[orbPart] = orbPart.CFrame
-	end)
-	Rxi.untagged("metaorb"):Subscribe(function(orbPart: Part)
-		self._orbOriginCFrame[orbPart] = nil
-	end)
 	
 	Remotes.StartRecording.OnServerInvoke = function(player: Player, orbPart: Part, recordingName: string)
-		local success, level = PermissionsService:promisePermissionLevel(player.UserId):catch(warn):await()
-		if not success then
-			return false
+		do
+			local ok, level = PermissionsService:promisePermissionLevel(player.UserId):catch(warn):await()
+			if not ok then
+				return false
+			end
+	
+			if level < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
+				warn("Non-admin tried to make Studio recording")
+				return false
+			end
 		end
 
-		if level < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
-			warn("Non-admin tried to make Studio recording")
+		local orbServer = OrbService.Orbs[orbPart]
+		if not orbServer then
+			warn("No orb found")
+			return false, "No orb found"
+		end
+		local orbId = orbServer.GetOrbId()
+		assert(orbId, "Bad orbId")
+
+		if self.OrbToStudio.Value[orbPart] then
+			warn("Studio already exists")
 			return false
 		end
-
-		local studio = self.OrbToStudio.Value[orbPart]
-		if studio then
-			warn("TODO")
-			return false
+		
+		local studio: Studio.Studio
+		local recordingId do
+			if TESTING then
+				recordingId = "testId"
+			else
+				-- TODO: concern about key length
+				HttpService:GenerateGUID(false)
+			end
 		end
-
-		local recordingId = "test"
-		studio = self:NewOrbStudio(orbPart, recordingName, recordingId)
+		do
+			local ok, msg = pcall(function()
+				studio = self:NewOrbStudio(orbServer, recordingName, recordingId)
+			end)
+			if not ok then
+				warn(msg)
+				return false, msg
+			end
+		end
 
 		studio.InitRecording()
 		studio.StartRecording()
@@ -76,10 +100,21 @@ function ReplayService:Start()
 				task.wait(1)
 				print(i)
 				i+=1
-				if i >= 60 then
+				if i >= 20 then
 					studio.StopRecording()
 					studio.Store()
-					self.OrbToStage.Value[orbPart] = Stage(studio.props)
+					self.ReplayDataStore:UpdateAsync(`OrbReplays/{orbId}`, function(data, _keyInfo: DataStoreKeyInfo)
+						if data == nil then
+							data = {}
+						end
+						table.insert(data, {
+							ReplayId = recordingId,
+							ReplayName = recordingName,
+							UTCDate = os.date("!*t"),
+						})
+						print(`[ReplayService] Stored replay id {recordingId} in OrbReplay/{orbId} catalog`)
+						return data
+					end)
 					break
 				end
 			end
@@ -114,40 +149,104 @@ function ReplayService:Start()
 		-- TODO: Currently no way to stop tracking players
 	end)
 
-	Remotes.GetReplays.OnServerInvoke = function(_player: Player, orbPart)
+	Remotes.GetReplays.OnServerInvoke = function(_player: Player, orbPart: Part)
 
-		if orbPart then
-			self.OrbToStage.Value[orbPart] = Stage({
-				RecordingId = "test",
-				RecordingName = "name",
-				Origin = self._orbOriginCFrame[orbPart] + Vector3.new(0,0,0),
-				DataStore = self.ReplayDataStore,
-			})
+		local orbServer = OrbService.Orbs[orbPart]
+		if not orbServer then
+			return nil, "Orb not found"
 		end
 
-		local replays = {}
-		for _, stage in self.OrbToStage.Value do
-			local props = stage.props
-			table.insert(replays, {
-				RecordingName = props.RecordingName,
-				RecordingId = props.RecordingId,
-			})
+		local orbId = orbServer.GetOrbId()
+		if not orbId then
+			return nil, "Bad OrbId"
+		end
+
+		local replays do
+			local ok, msg = pcall(function()
+				replays = self.ReplayDataStore:GetAsync(`OrbReplays/{orbId}`) or {}
+			end)
+			if not ok then
+				warn(msg)
+				return nil, msg
+			end
 		end
 
 		return replays
 	end
 
-	Remotes.Play.OnServerEvent:Connect(function(_player: Player, replay)
-		for _orb, stage in self.OrbToStage.Value do
-			if stage.props.RecordingId == replay.RecordingId then
-				stage.Play()
-				return
-			end
+	Remotes.Play.OnServerEvent:Connect(function(_player: Player, orbPart, replayId: string)
+		local stage = self.OrbToStage.Value[orbPart]
+		local orbServer: OrbServer.OrbServer = OrbService.Orbs[orbPart]
+		if not orbServer then
+			warn("No orb found")
+			return
 		end
+
+		if stage then
+			stage.Destroy()
+		end
+
+		stage = Stage {
+			DataStore = self.ReplayDataStore,
+			Origin = orbServer.GetReplayOrigin(),
+			ReplayId = replayId,
+		}
+
+		self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
+		stage.Play()
 	end)
+
+	Remotes.GetCharacterVoices.OnServerInvoke = function(_player: Player, replayId: string)
+		self._replaySegmentCache = self._replayCache or {}
+		local replaySegment = self._replaySegmentCache[replayId]
+		if replaySegment then
+			return RecordUtils.ToCharacterVoices(replaySegment)
+		end
+
+		replaySegment = self.ReplayDataStore:GetAsync(`Replay/{replayId}/{1}`)
+		self._replaySegmentCache[replayId] = replaySegment
+		return RecordUtils.ToCharacterVoices(replaySegment)
+	end
+
+	local checkCharacterVoices = t.map(t.string, t.strictInterface {
+		CharacterName = t.string,
+		Clips = t.array (t.strictInterface {
+			AssetId = t.string,
+			StartTimestamp = t.number,
+			StartOffset = t.number,
+			EndOffset = t.number,
+		})
+	})
+
+	Remotes.SaveCharacterVoices.OnServerInvoke = function(player: Player, replayId: string, characterVoices: any)
+		local ok, msg = pcall(function()
+			assert(t.string(replayId))
+			assert(checkCharacterVoices(characterVoices))
+			local levelOk, level = PermissionsService:promisePermissionLevel(player.UserId):catch(warn):await()
+			if not levelOk or level < 254 then
+				error("Replays only editable by admin")
+			end
+
+			self.ReplayDataStore:UpdateAsync(`Replay/{replayId}/{1}`, function(data, _keyInfo: DataStoreKeyInfo)
+				if not data then
+					error("No replay record to update")
+				end
+	
+				assert(t.interface { Records = t.table, } (data))
+	
+				RecordUtils.EditSoundRecordsInPlace(data, characterVoices)
+				return data
+			end)
+		end)
+
+		if not ok then
+			warn(msg)
+			return false, msg
+		end
+
+		return true
+	end
 end
-
-
 
 function ReplayService:_observePlayerToOrb()
 	return Rx.of(Players):Pipe {
@@ -174,8 +273,8 @@ function ReplayService:_getPlayerToOrb()
 	return playerToOrb
 end
 
-function ReplayService:NewOrbStudio(orbPart: Part, recordingName: string, recordingId: string)
-	local origin = self._orbOriginCFrame[orbPart]
+function ReplayService:NewOrbStudio(orbServer: OrbServer.OrbServer, recordingName: string, recordingId: string)
+	local origin = orbServer.GetReplayOrigin()
 	assert(typeof(origin) == "CFrame", "Bad origin for ReplayStudio")
 
 	local studio = Studio({
@@ -185,33 +284,15 @@ function ReplayService:NewOrbStudio(orbPart: Part, recordingName: string, record
 		DataStore = self.ReplayDataStore,
 	})
 
-	local boardGroup do
-		local parent: Instance? = orbPart
-		while true do
-			if not parent or parent:HasTag("BoardGroup") then
-				break
-			end
-			parent = (parent :: Instance).Parent
-		end
-		boardGroup = parent
-	end
-	assert(boardGroup, "No board group found for ReplayStudio")
-
-	if boardGroup then
-		for _, desc in boardGroup:GetDescendants() do
-			local board = metaboard.Server:GetBoard(desc)
-			if not board then
-				continue
-			end
-			local persistId = board:GetPersistId()
-			if persistId then
-				studio.TrackBoard(tostring(persistId), board)
-			end
+	for _, board in orbServer.GetBoardsInBoardGroup() do
+		local persistId = board:GetPersistId()
+		if persistId then
+			studio.TrackBoard(tostring(persistId), board)
 		end
 	end
 
 	for player, attachedOrb in self:_getPlayerToOrb() do
-		if attachedOrb == orbPart then
+		if attachedOrb == orbServer.GetPart() then
 			if VRServerService.GetVREnabled(player) then
 				studio.TrackVRPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
 			else

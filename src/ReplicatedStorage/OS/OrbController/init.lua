@@ -15,6 +15,7 @@ local Themes = require(ReplicatedStorage.Packages.Icon.Themes)
 local Macro = require(ReplicatedStorage.Util.Macro)
 
 local Promise = require(ReplicatedStorage.Packages.Promise)
+local UtilPromise = require(ReplicatedStorage.Util.Promise)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
 local Value = Fusion.Value
@@ -797,13 +798,38 @@ function OrbController:Start()
 			end
 			self._showReplayMenu.Value = false
 		end,
-		OnPlay = function(replay)
-			ReplayRemotes.Play:FireServer(replay)
+		OnPlay = function(replayId)
+			local attachedOrb = AttachedOrb:get()
+			if attachedOrb then
+				ReplayRemotes.Play:FireServer(attachedOrb, replayId)
+			end
+			self._showReplayMenu.Value = false
+		end,
+		FetchReplayCharacterVoices = function(replayId)
+			return ReplayRemotes.GetCharacterVoices:InvokeServer(replayId)
+		end,
+		SaveReplayCharacterVoicesPromise = function(replayId, characterVoices)
+			return UtilPromise.spawn(function(resolve, reject)
+				
+				local saveSuccess, saveMsg
+				local ok, msg = pcall(function()
+					saveSuccess, saveMsg = ReplayRemotes.SaveCharacterVoices:InvokeServer(replayId, characterVoices)
+				end)
+
+				if not ok then
+					reject(msg)
+				elseif not saveSuccess then
+					reject(saveMsg)
+				else
+					resolve(true)
+				end
+			end)
+		end,
+		OnClose = function()
 			self._showReplayMenu.Value = false
 		end,
 	})
 
-	menu.SetReplayList(ReplayRemotes.GetReplays:InvokeServer(AttachedOrb:get()))
 	self._showReplayMenu.Changed:Connect(function()
 		if self._showReplayMenu.Value then
 			menu.SetReplayList(ReplayRemotes.GetReplays:InvokeServer(AttachedOrb:get()))

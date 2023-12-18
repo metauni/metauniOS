@@ -13,11 +13,16 @@ local Serialiser = require(script.Parent.Serialiser)
 local BoardReplay = require(script.Parent.BoardRecorder.BoardReplay)
 local CharacterReplay = require(script.Parent.CharacterRecorder.CharacterReplay)
 
+local ENDTIMESTAMP_BUFFER = 0.5
+
+export type SegmentOfReplays = {
+	Replays: {CharacterReplay.CharacterReplay | VRCharacterReplay.VRCharacterReplay | BoardReplay.BoardReplay},
+	EndTimestamp: number,
+}
 
 export type StageProps = {
-	RecordingName: string,
-	RecordingId: string,
-	Origin: CFrame,
+	ReplayId: string,
+	Origin: CFrame, -- We ignore the stored origin, and play the replay relative to this one
 	DataStore: DataStore,
 }
 
@@ -38,9 +43,9 @@ local function Stage(props: StageProps)
 		end
 	end)
 
-	local function fetchSegment()
+	local function fetchSegment(): SegmentOfReplays
 
-		local data = props.DataStore:GetAsync(`Replay/{props.RecordingId}/{1}`)
+		local data = props.DataStore:GetAsync(`Replay/{props.ReplayId}/{1}`)
 		local segmentOfRecords = Serialiser.deserialiseSegmentOfRecords(data)
 
 		local allBoards = metaboard.Server.BoardServerBinder:GetAllSet()
@@ -50,20 +55,47 @@ local function Stage(props: StageProps)
 		end)
 		
 		local segment = {
-			Replays = {}
+			Replays = {},
+			EndTimestamp = segmentOfRecords.EndTimestamp,
 		}
+
+		local soundRecords = Sift.Array.filter(segmentOfRecords.Records, function(record)
+			return record.RecordType == "SoundRecord"
+		end)
+
+		local function getVoiceRecord(characterId: string): any?
+			assert(characterId, "Bad characterId")
+			for _, soundRecord in soundRecords do
+				if soundRecord.CharacterId == characterId then
+					return soundRecord
+				end
+			end
+			return nil
+		end
+
 		for _, record in segmentOfRecords.Records do
 			local replay
 			if record.RecordType == "CharacterRecord" then
-				replay = CharacterReplay(record, props.Origin)
+				replay = CharacterReplay({
+					Record = record,
+					Origin = props.Origin,
+					VoiceRecord = getVoiceRecord(record.CharacterId),
+				})
 			elseif record.RecordType == "VRCharacterRecord" then
-				replay = VRCharacterReplay(record, props.Origin)
+				replay = VRCharacterReplay({
+					Record = record,
+					Origin = props.Origin,
+					VoiceRecord = getVoiceRecord(record.CharacterId),
+				})
 			elseif record.RecordType == "BoardRecord" then
 				replay = BoardReplay({
 					Origin = props.Origin,
 					Record = record,
 					Board = boardIdToBoard[record.BoardId],
 				})
+			elseif record.RecordType == "SoundRecord" then
+				-- Handled by character replays
+				continue
 			else
 				error(`Record type {record.RecordType} not handled`)
 			end
@@ -76,7 +108,7 @@ local function Stage(props: StageProps)
 		return segment
 	end
 
-	local function getSegment()
+	local function getSegment(): SegmentOfReplays
 		local segment = segments[SegmentIndex.Value]
 		if not segment then
 			segment = fetchSegment()
@@ -107,12 +139,10 @@ local function Stage(props: StageProps)
 
 		table.insert(cleanup, RunService.Heartbeat:Connect(function()
 			local timestamp = Pausehead.Value + (os.clock() - timeAtResume)
-			local finished = true
 			for _, replay in segment.Replays do
 				replay.UpdatePlayhead(timestamp)
-				finished = finished and replay.IsFinished()
 			end
-			if finished then
+			if timestamp >= segment.EndTimestamp + ENDTIMESTAMP_BUFFER then
 				print("Finished playing!")
 				maid._playing = nil
 				Playing.Value = false

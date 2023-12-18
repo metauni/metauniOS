@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local SoundReplay = require(ReplicatedStorage.OS.Replay.SoundReplay)
 local t = require(ReplicatedStorage.Packages.t)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local Maid = require(ReplicatedStorage.Util.Maid)
@@ -14,6 +15,7 @@ local function getCharacter(record)
 end
 
 local checkRecord = t.interface {
+	RecordType = t.literal("CharacterRecord"),
 	HumanoidDescription = t.instanceOf("HumanoidDescription"),
 	HumanoidRigType = t.enum(Enum.HumanoidRigType),
 	Timeline = t.table,
@@ -22,9 +24,22 @@ local checkRecord = t.interface {
 	CharacterName = t.string,
 }
 
-local function CharacterReplay(record, origin: CFrame)
-	assert(checkRecord(record))
-	assert(t.CFrame(origin))
+export type Props = {
+	Record: any,
+	Origin: CFrame,
+	VoiceRecord: any?,
+}
+local checkProps = t.strictInterface {
+	Record = checkRecord,
+	Origin = t.CFrame,
+	VoiceRecord = t.optional(t.table),
+}
+
+local function CharacterReplay(props: Props)
+	assert(checkProps(props))
+	local	record = props.Record
+	local origin = props.Origin
+	local voiceRecord = props.VoiceRecord
 
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap() }
@@ -35,10 +50,31 @@ local function CharacterReplay(record, origin: CFrame)
 	local Active = maid:Add(Blend.State(false, "boolean"))
 	local RootCFrame = maid:Add(Blend.State(nil))
 	local CharacterParent = maid:Add(Blend.State(nil))
+
+	local maybeSoundReplay: SoundReplay.SoundReplay? do
+		if voiceRecord then
+			local soundReplay = SoundReplay({
+				Record = voiceRecord,
+				SoundParent = character.Head,
+				SoundInstanceProps = {
+					RollOffMinDistance = 10,
+					RollOffMaxDistance = 40,
+				},
+			})
+			maid:GiveTask(Blend.Computed(CharacterParent, Active, function(parent: Instance?, active: boolean)
+				if not active then
+					soundReplay.Pause()
+				elseif parent then
+					soundReplay.Preload()
+				end
+			end):Subscribe())
+
+			maybeSoundReplay = soundReplay
+		end
+	end
 	
 	local timelineIndex = 1
 	local visibleTimelineIndex = 1
-	local finished = false
 
 	if #record.Timeline > 0 then
 		local relativeCFrame = record.Timeline[1][2]
@@ -53,11 +89,6 @@ local function CharacterReplay(record, origin: CFrame)
 	function self.Init()
 		timelineIndex = 1
 		visibleTimelineIndex = 1
-		finished = false
-	end
-
-	function self.IsFinished()
-		return finished
 	end
 
 	maid:GiveTask(Active:Observe():Subscribe(function(active: boolean)
@@ -76,6 +107,7 @@ local function CharacterReplay(record, origin: CFrame)
 		local animator: Animator = character.Humanoid.Animator
 		local runAnim = character.Animate.run.RunAnim
 		local RunTrack = Blend.State(nil)
+		table.insert(cleanup, RunTrack)
 
 		local lastMoved = nil
 		table.insert(cleanup, Blend.Computed(RunTrack, RootCFrame, function(runTrack: AnimationTrack, _rootCFrame)
@@ -128,11 +160,17 @@ local function CharacterReplay(record, origin: CFrame)
 				CFrame = RootCFrame,
 				Mode = Enum.OrientationAlignmentMode.OneAttachment,
 				Attachment0 = character.HumanoidRootPart.RootAttachment,
+				RigidityEnabled = true,
 			}
 		}))
 	end))
 
 	function self.UpdatePlayhead(playhead: number)
+
+		if maybeSoundReplay then
+			maybeSoundReplay.UpdatePlayhead(playhead)
+		end
+
 		while timelineIndex <= #record.Timeline do
 
 			local event = record.Timeline[timelineIndex]
@@ -158,15 +196,11 @@ local function CharacterReplay(record, origin: CFrame)
 	
 			break
 		end
-	
-		-- Check finished
-		if timelineIndex > #record.Timeline and visibleTimelineIndex > #record.VisibleTimeline then
-			finished = true
-		end
 	end
-		
 
 	return self
 end
+
+export type CharacterReplay = typeof(CharacterReplay(nil :: any))
 
 return CharacterReplay

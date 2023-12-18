@@ -37,21 +37,24 @@ local function Studio(props: StudioProps): Studio
 	end
 
 	local function getCharacterRecorder(characterId: string)
-		return Sift.List.findWhere(recorders, function(recorder)
+		local index = Sift.Array.findWhere(recorders, function(recorder)
 			return recorder.RecorderType == "CharacterRecorder" and recorder.CharacterId == characterId
 		end)
+		return recorders[index]
 	end
 
 	local function getVRCharacterRecorder(characterId: string)
-		return Sift.List.findWhere(recorders, function(recorder)
+		local index = Sift.Array.findWhere(recorders, function(recorder)
 			return recorder.RecorderType == "VRCharacterRecorder" and recorder.CharacterId == characterId
 		end)
+		return recorders[index]
 	end
 
 	local function getBoardRecorder(boardId: string)
-		return Sift.List.findWhere(recorders, function(recorder)
+		local index = Sift.Array.findWhere(recorders, function(recorder)
 			return recorder.RecorderType == "BoardRecorder" and recorder.BoardId == boardId
 		end)
+		return recorders[index]
 	end
 	
 	function self.TrackPlayerCharacter(characterId: string, characterName: string, player: Player)
@@ -130,14 +133,18 @@ local function Studio(props: StudioProps): Studio
 	function self.StopRecording()
 		assert(self.PhaseIsBefore("Recorded"), `[Replay Studio] Tried to stop recording during phase {RecordingPhase.Value}`)
 
+		
 		local segmentOfRecords = {
+			Origin = props.Origin,
 			Records = {},
+			EndTimestamp = nil -- set after stopping
 		}
 		
 		for _, recorder in recorders do
 			recorder.Stop()
 			table.insert(segmentOfRecords.Records, recorder.FlushToRecord())
 		end
+		segmentOfRecords.EndTimestamp = os.clock() - StartTime.Value
 
 		self.SegmentOfRecords = segmentOfRecords
 	end
@@ -146,9 +153,21 @@ local function Studio(props: StudioProps): Studio
 		assert(self.SegmentOfRecords, "No segment ready to store")
 		local data = Serialiser.serialiseSegmentOfRecords(self.SegmentOfRecords, 1)
 
-		props.DataStore:SetAsync(`Replay/{props.RecordingId}/{1}`, data)
-
-		print(`[Replay Studio] SegmentOfRecords 1 stored (Id: {props.RecordingId})`)
+		task.spawn(function()
+			while true do
+				local ok, msg = pcall(function()
+					props.DataStore:SetAsync(`Replay/{props.RecordingId}/{1}`, data)
+				end)
+				if not ok then
+					warn(msg)
+					task.wait(10)
+					continue
+				end
+				break
+			end
+	
+			print(`[Replay Studio] SegmentOfRecords 1 stored (Id: {props.RecordingId})`)
+		end)
 	end
 
 	return self

@@ -10,6 +10,14 @@
 			"ClassName": "RemoteFunction"
 		},
 		{
+			"Name": "GetCharacterVoices",
+			"ClassName": "RemoteFunction"
+		},
+		{
+			"Name": "SaveCharacterVoices",
+			"ClassName": "RemoteFunction"
+		},
+		{
 			"Name": "Play",
 			"ClassName": "RemoteEvent"
 		}

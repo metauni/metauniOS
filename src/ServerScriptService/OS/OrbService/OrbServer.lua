@@ -19,6 +19,7 @@ local Ring = require(script.Parent.Ring)
 
 local Remotes = ReplicatedStorage.OS.OrbController.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
 
 local OrbServer = {}
 
@@ -751,11 +752,66 @@ function OrbServer.new(orbPart: Part)
 		}
 	)
 
+	local function getBoardGroup()
+		local boardGroup do
+			local parent: Instance? = orbPart
+			while true do
+				if not parent or parent:HasTag("BoardGroup") then
+					break
+				end
+				parent = (parent :: Instance).Parent
+			end
+			boardGroup = parent
+		end
+		return boardGroup
+	end
+
 	return {
 		Destroy = function()
 			destructor:Destroy()
+		end,
+
+		GetPart = function()
+			return orbPart
+		end,
+
+		GetOrbId = function()
+			local value = orbPart:FindFirstChild("OrbId")
+			if not value then
+				return nil
+			end
+			assert(value:IsA("IntValue"), "Bad OrbId")
+			return value.Value
+		end,
+
+		GetReplayOrigin = function()
+			local value = orbPart:FindFirstChild("ReplayOrigin")
+			if not value then
+				return nil
+			end
+			assert(value:IsA("CFrameValue"), "Bad ReplayOrigin")
+			return value.Value
+		end,
+
+		GetBoardGroup = getBoardGroup,
+		GetBoardsInBoardGroup = function()
+			local group = getBoardGroup()
+			assert(group, "Bad board group")
+			local boards = {}
+			for _, desc in group:GetDescendants() do
+				if desc:HasTag("metaboard") then
+					local board = metaboard.Server:GetBoard(desc)
+					if board then
+						table.insert(boards, board)
+					end
+				end
+			end
+
+			return boards
 		end
 	}
 end
+
+export type OrbServer = typeof(OrbServer.new(nil :: any))
 
 return OrbServer

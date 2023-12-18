@@ -7,7 +7,7 @@ local OrbPlayer = require(script.OrbPlayer)
 local Ring = require(script.Ring)
 
 local OrbService = {
-	Orbs = {} :: {[Part]: Orb}
+	Orbs = {} :: {[Part]: OrbServer.OrbServer?}
 }
 
 function OrbService:Start()

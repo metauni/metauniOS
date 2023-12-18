@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local SoundReplay = require(ReplicatedStorage.OS.Replay.SoundReplay)
 local t = require(ReplicatedStorage.Packages.t)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local Maid = require(ReplicatedStorage.Util.Maid)
@@ -8,6 +9,7 @@ local Maid = require(ReplicatedStorage.Util.Maid)
 local updateAnchoredFromInputs = require(script.Parent.updateAnchoredFromInputs)
 
 local checkRecord = t.interface {
+	RecordType = t.literal("RecordType"),
 	HumanoidDescription = t.instanceOf("HumanoidDescription"),
 	HumanoidRigType = t.enum(Enum.HumanoidRigType),
 	Timeline = t.table,
@@ -15,6 +17,7 @@ local checkRecord = t.interface {
 	ChalkTimeline = t.table,
 	CharacterId = t.string,
 	CharacterName = t.string,
+	SoundRecord = t.optional(t.table),
 }
 
 local function cloneChalkTemplate(): Tool
@@ -93,9 +96,23 @@ local function toNexusVRCharacter(character: Model)
 	return require(ReplicatedStorage.NexusVRCharacterModel.Character :: ModuleScript).new(character)
 end
 
-local function VRCharacterReplay(record, origin: CFrame)
-	assert(checkRecord(record))
-	assert(t.CFrame(origin))
+export type Props = {
+	Record: any,
+	Origin: CFrame,
+	VoiceRecord: any,
+}
+local checkProps = t.strictInterface {
+	Record = checkRecord,
+	Origin = t.CFrame,
+	VoiceRecord = t.optional(t.table),
+}
+
+local function VRCharacterReplay(props: Props): VRCharacterReplay
+	assert(checkProps(props))
+
+	local origin = props.Origin
+	local record = props.Record
+	local voiceRecord = props.VoiceRecord
 
 	-- Will error if can't properly create these
 	local chalk = cloneChalkTemplate()
@@ -116,7 +133,28 @@ local function VRCharacterReplay(record, origin: CFrame)
 	local timelineIndex = 1
 	local visibleTimelineIndex = 1
 	local chalkTimelineIndex = 1
-	local finished = false
+
+	local maybeSoundReplay: SoundReplay.SoundReplay? do
+		if voiceRecord then
+			local soundReplay = SoundReplay({
+				Record = voiceRecord,
+				SoundParent = character.Head,
+				SoundInstanceProps = {
+					RollOffMinDistance = 10,
+					RollOffMaxDistance = 40,
+				},
+			})
+			maid:GiveTask(Blend.Computed(CharacterParent, Active, function(parent: Instance?, active: boolean)
+				if not active then
+					soundReplay.Pause()
+				elseif parent then
+					soundReplay.Preload()
+				end
+			end):Subscribe())
+
+			maybeSoundReplay = soundReplay
+		end
+	end
 
 	local function updateCharacter(event, instantly: true?): ()
 		local headRel = event[2]
@@ -141,7 +179,6 @@ local function VRCharacterReplay(record, origin: CFrame)
 		timelineIndex = 1
 		visibleTimelineIndex = 1
 		chalkTimelineIndex = 1
-		finished = false
 
 		if #record.Timeline >= 1 then
 			updateCharacter(record.Timeline[1], true)
@@ -152,10 +189,6 @@ local function VRCharacterReplay(record, origin: CFrame)
 		if #record.ChalkTimeline >= 1 then
 			updateChalkEquipped(record.ChalkTimeline[1])
 		end
-	end
-
-	function self.IsFinished()
-		return finished
 	end
 
 	maid:GiveTask(Active:Observe():Subscribe(function(active: boolean)
@@ -181,6 +214,11 @@ local function VRCharacterReplay(record, origin: CFrame)
 	end))
 
 	function self.UpdatePlayhead(playhead: number)
+
+		if maybeSoundReplay then
+			maybeSoundReplay.UpdatePlayhead(playhead)
+		end
+
 		while timelineIndex <= #record.Timeline do
 			local event = record.Timeline[timelineIndex]
 			if event[1] <= playhead then
@@ -210,17 +248,12 @@ local function VRCharacterReplay(record, origin: CFrame)
 			end
 			break
 		end
-	
-		-- Check finished
-		if timelineIndex > #record.Timeline and visibleTimelineIndex > #record.VisibleTimeline then
-			finished = true
-		end
 	end
 		
 
 	return self
 end
 
-export type VRCharacterReplay = typeof(VRCharacterReplay(nil :: any, nil :: any))
+export type VRCharacterReplay = typeof(VRCharacterReplay(nil :: any))
 
 return VRCharacterReplay
