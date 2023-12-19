@@ -96,6 +96,26 @@ local function toNexusVRCharacter(character: Model)
 	return require(ReplicatedStorage.NexusVRCharacterModel.Character :: ModuleScript).new(character)
 end
 
+local function bindTranslucency(character: Model, Translucent): Maid.Task
+	local cleanup = {}
+	for _, desc in character:GetDescendants() do
+		if desc:IsA("BasePart") then
+			local baseTransparency = desc.Transparency
+			table.insert(cleanup, Blend.mount(desc, {
+				Transparency = Blend.Computed(Translucent, function(translucent)
+					local baseVisible = 1 - baseTransparency
+					return translucent and 1 - baseVisible * 0.5 or baseTransparency
+				end)
+			}))
+			table.insert(cleanup, function()
+				desc.Transparency = baseTransparency
+			end)
+		end
+	end
+
+	return cleanup
+end
+
 export type Props = {
 	Record: any,
 	Origin: CFrame,
@@ -128,7 +148,11 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 
 	local Active = maid:Add(Blend.State(false, "boolean"))
 	local CharacterParent = maid:Add(Blend.State(nil))
-	local ChalkParent = maid:Add(Blend.State(false))
+	local ChalkParent = maid:Add(Blend.State(nil))
+
+	maid._translucency = bindTranslucency(character, Blend.Computed(ChalkParent, function(chalkParent)
+		return chalkParent ~= nil
+	end))
 	
 	local timelineIndex = 1
 	local visibleTimelineIndex = 1

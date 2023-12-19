@@ -24,6 +24,7 @@ export type StageProps = {
 	ReplayId: string,
 	Origin: CFrame, -- We ignore the stored origin, and play the replay relative to this one
 	DataStore: DataStore,
+	BoardGroup: Instance,
 }
 
 local function Stage(props: StageProps)
@@ -33,6 +34,7 @@ local function Stage(props: StageProps)
 	local Playing = ValueObject.new(false)
 	local SegmentIndex = ValueObject.new(1, "number")
 	local Pausehead = ValueObject.new(0)
+	local initialised = false
 
 	local segments = {}
 	maid:GiveTask(function()
@@ -47,12 +49,6 @@ local function Stage(props: StageProps)
 
 		local data = props.DataStore:GetAsync(`Replay/{props.ReplayId}/{1}`)
 		local segmentOfRecords = Serialiser.deserialiseSegmentOfRecords(data)
-
-		local allBoards = metaboard.Server.BoardServerBinder:GetAllSet()
-		local boardIdToBoard = Sift.Dictionary.map(allBoards, function(_, board)
-			local boardId = tostring(board:GetPersistId())
-			return board, boardId
-		end)
 		
 		local segment = {
 			Replays = {},
@@ -91,7 +87,7 @@ local function Stage(props: StageProps)
 				replay = BoardReplay({
 					Origin = props.Origin,
 					Record = record,
-					Board = boardIdToBoard[record.BoardId],
+					BoardParent = props.BoardGroup,
 				})
 			elseif record.RecordType == "SoundRecord" then
 				-- Handled by character replays
@@ -99,7 +95,6 @@ local function Stage(props: StageProps)
 			else
 				error(`Record type {record.RecordType} not handled`)
 			end
-			replay.Init()
 			table.insert(segment.Replays, replay)
 		end
 
@@ -117,10 +112,29 @@ local function Stage(props: StageProps)
 	end
 
 	function self.Init()
-		
+		for board in metaboard.Server.BoardServerBinder:GetAllSet() do
+			local boardContainer = board:GetContainer()
+			local originalParent = boardContainer.Parent
+			if boardContainer:IsDescendantOf(props.BoardGroup) then
+				boardContainer.Parent = ReplicatedStorage
+				maid:GiveTask(function()
+					boardContainer.Parent = originalParent
+				end)
+			end
+		end
+
+		local segment = getSegment()
+		for _, replay in segment.Replays do
+			replay.Init()
+		end
+
+		initialised = true
 	end
 
 	function self.Play()
+		if not initialised then
+			error("Not initialised. Call stage.Init()")
+		end
 		if Playing.Value then
 			return
 		end

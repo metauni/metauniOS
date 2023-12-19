@@ -5,3 +5,6 @@ Each package in this folder must be manually linked by adding an entry to
 
 Alternatively, they can be linked to anywhere else in the directory, by adding
 a .project.json file where it is needed.
+
+## License Info
+See top of source files for license info.

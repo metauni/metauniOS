@@ -190,9 +190,11 @@ function ReplayService:Start()
 			DataStore = self.ReplayDataStore,
 			Origin = orbServer.GetReplayOrigin(),
 			ReplayId = replayId,
+			BoardGroup = orbServer.GetBoardGroup(),
 		}
 
 		self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
+		stage.Init()
 		stage.Play()
 	end)
 

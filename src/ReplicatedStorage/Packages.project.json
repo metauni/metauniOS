@@ -22,6 +22,10 @@
 
 		"BitBuffer": {
 			"$path": "../../CompiledPackages/BitBuffer.lua"
+		},
+
+		"Rose": {
+			"$path": "../../CompiledPackages/Rose.luau"
 		}
 	}
 }

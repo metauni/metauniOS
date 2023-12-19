@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HumanoidDescriptionSerialiser = require(script.Parent.HumanoidDescriptionSerialiser)
 local BitBuffer = require(ReplicatedStorage.Packages.BitBuffer)
+local Rose = require(ReplicatedStorage.Packages.Rose)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local t = require(ReplicatedStorage.Packages.t)
@@ -35,6 +36,14 @@ local checkPositiveInteger = t.every(t.integer, t.numberPositive)
 local checkFloatPrecision = t.union(t.literal("Float32"), t.literal("Float64"))
 local checkBoolShape = t.literal("Bool")
 local checkBitWidth = t.every(t.integer, t.numberConstrained(1, 32))
+local checkVector2Shape = t.strictInterface {
+	Type = t.literal("Vector2"),
+	Precision = checkFloatPrecision,
+}
+local checkVector3Shape = t.strictInterface {
+	Type = t.literal("Vector3"),
+	Precision = checkFloatPrecision,
+}
 local checkUIntShape = t.strictInterface {
 	Type = t.literal("UInt"),
 	BitWidth = checkBitWidth,
@@ -110,6 +119,10 @@ local function checkDataShape(dataShape)
 	if typeof(dataShape) == "table" then
 		if dataShape.Type == "CFrame" then
 			return checkCFrameShape(dataShape)
+		elseif dataShape.Type == "Vector2" then
+			return checkVector2Shape(dataShape)
+		elseif dataShape.Type == "Vector3" then
+			return checkVector3Shape(dataShape)
 		elseif dataShape.Type == "UInt" then
 			return checkUIntShape(dataShape)
 		elseif dataShape.Type == "Bytes" then
@@ -153,6 +166,18 @@ local readFloat: {[FloatPrecision]: (buffer: BitBuffer.BitBuffer) -> (number)} =
 	Float64 = BitBuffer.ReadFloat64,
 }
 
+local function writeVector2(buffer, value: Vector2, precision: "Float32" | "Float64")
+	assert(typeof(value) == "Vector2", "Bad Vector2")
+	writeFloat[precision](buffer, value.X)
+	writeFloat[precision](buffer, value.Y)
+end
+
+local function readVector2(buffer, precision: "Float32" | "Float64"): Vector2
+	return Vector2.new(
+		readFloat[precision](buffer),
+		readFloat[precision](buffer))
+end
+
 local function writeVector3(buffer, value: Vector3, precision: "Float32" | "Float64")
 	assert(typeof(value) == "Vector3", "Bad Vector3")
 	writeFloat[precision](buffer, value.X)
@@ -169,13 +194,13 @@ end
 
 local function writeQuantized(buffer, value: number, bitWidth: number, min: number, max: number)
 	assert(typeof(value) == "number" and value == value, "Bad number")
-	local maxBitValue = bit32.lshift(1, bitWidth) - 1
+	local maxBitValue = 2^bitWidth - 1
 	local range = max - min
 	buffer:WriteUInt(bitWidth, math.clamp(math.round(maxBitValue * (value - min)/range), 0, maxBitValue))
 end
 
 local function readQuantized(buffer, bitWidth: number, min: number, max: number)
-	local maxBitValue = bit32.lshift(1, bitWidth) - 1
+	local maxBitValue = 2^bitWidth - 1
 	local range = max - min
 	return min + buffer:ReadUInt(bitWidth) / maxBitValue * range
 end
@@ -297,6 +322,10 @@ local function writeDataShape(buffer: BitBuffer.BitBuffer, dataShape: any, value
 		buffer:WriteBool(value)
 	elseif dataShape == "Color3" then
 		writeColor3(buffer, value)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "Vector2" then
+		writeVector2(buffer, value, dataShape.Precision)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "Vector3" then
+		writeVector3(buffer, value, dataShape.Precision)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "UInt" then
 		buffer:WriteUInt(dataShape.BitWidth, value)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "Bytes" then
@@ -329,6 +358,10 @@ local function readDataShape(buffer: BitBuffer.BitBuffer, dataShape)
 		return buffer:ReadBool()
 	elseif dataShape == "Color3" then
 		return readColor3(buffer)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "Vector2" then
+		return readVector2(buffer, dataShape.Precision)
+	elseif typeof(dataShape) == "table" and dataShape.Type == "Vector3" then
+		return readVector3(buffer, dataShape.Precision)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "UInt" then
 		return buffer:ReadUInt(dataShape.BitWidth)
 	elseif typeof(dataShape) == "table" and dataShape.Type == "Bytes" then
@@ -364,6 +397,10 @@ local function calculateEventShapeBits(eventShape: {any})
 			bits += 1
 		elseif dataShape == "Color3" then
 			bits += 3 * 8
+		elseif typeof(dataShape) == "table" and dataShape.Type == "Vector2" then
+			bits += 2 * calculateEventShapeBits({dataShape.Precision})
+		elseif typeof(dataShape) == "table" and dataShape.Type == "Vector3" then
+			bits += 3 * calculateEventShapeBits({dataShape.Precision})
 		elseif typeof(dataShape) == "table" and dataShape.Type == "CFrame" then
 			bits += 3 * dataShape.AngleBitWidth
 			bits += 3 * calculateEventShapeBits({dataShape.PositionPrecision})
@@ -379,6 +416,96 @@ local function calculateEventShapeBits(eventShape: {any})
 	assert(bits > 0, "Bad event shape")
 	return bits
 end
+
+type RbxStruct = {
+	__FormatVersion: string,
+	Type: "RbxStruct",
+	DataShapeMap: {[string]: any?},
+	InstancePackets: {[string]: any?},
+	BufferKeys: {string},
+	Buffer: string,
+	Encoding: "Base64" | "Base91",
+}
+
+local checkRbxStructDataShapeMap = t.map(t.string, t.union(checkDataShape, t.literal("Instance")))
+
+local checkRbxStruct = t.every(t.strictInterface {
+	__FormatVersion = t.string,
+	Type = t.literal("RbxStruct"),
+	DataShapeMap = checkRbxStructDataShapeMap,
+	InstancePackets = t.keys(t.string),
+	BufferKeys = t.array(t.string),
+	Buffer = t.string,
+	Encoding = t.union(t.literal("Base64"), t.literal("Base91")),
+}, function(rbxStruct: RbxStruct)
+	for _, key in rbxStruct.BufferKeys do
+		if rbxStruct.DataShapeMap[key] == nil then
+			return false, `BufferKey {key} not in DataShapeMap`
+		end
+	end
+	return true
+end)
+
+local function makeRbxStruct(data, dataShapeMap): RbxStruct
+	assert(t.keys(t.string)(data))
+	assert(checkRbxStructDataShapeMap(dataShapeMap))
+
+	local buffer = BitBuffer.new()
+	local bufferKeys: {string} = {}
+	local instancePackets: {[string]: any?} = {}
+
+	for key, value in data do
+		local dataShape = dataShapeMap[key]
+		if not dataShape then
+			error(`Bad dataShapeMap for RbxStruct with value of type {typeof(value)}`)
+		end
+
+		if dataShape == "Instance" then
+			assert(typeof(value) == "Instance", `Expected instance at key {key} of RbxStruct`)
+			local packet = Rose.serialize(value)
+			instancePackets[key] = packet
+		else
+			-- Will error if dataShape not recognised
+			writeDataShape(buffer, dataShape, value)
+			table.insert(bufferKeys, key)
+		end
+	end
+
+	local rbxStruct = {
+		__FormatVersion = FORMAT_VERSION,
+		Type = "RbxStruct",
+		DataShapeMap = dataShapeMap,
+		InstancePackets = instancePackets,
+		BufferKeys = bufferKeys,
+		Buffer = buffer:ToBase64(),
+		Encoding = "Base64",
+	}
+	
+	assert(checkRbxStruct(rbxStruct))
+
+	return rbxStruct
+end
+
+local function fromRbxStruct(data: RbxStruct)
+	assert(checkRbxStruct(data))
+
+	local decoded = {}
+	local buffer = if data.Encoding == "Base91" then BitBuffer.FromBase91(data.Buffer) else BitBuffer.FromBase64(data.Buffer)
+
+	for _, key in data.BufferKeys do
+		local dataShape = data.DataShapeMap[key]
+		local value = readDataShape(buffer, dataShape)
+		decoded[key] = value
+	end
+
+	for key, instancePacket in data.InstancePackets do
+		local instance = Rose.deserialize(instancePacket)
+		decoded[key] = instance
+	end
+
+	return decoded
+end
+
 
 local checkEncoding = t.union(t.literal("Base64"), t.literal("Base91"))
 local checkEventShape = t.array(checkDataShape)
@@ -715,6 +842,7 @@ local function serialiseBoardState(boardState: metaboard.BoardState)
 						end
 					end
 					buffer:WriteUInt(32, bitMask)
+					bitMaskIndex += 1
 				end
 			else
 				local numBitMasks = 0
@@ -814,8 +942,30 @@ local checkBoardRecordData = t.strictInterface {
 		TimelineLength = checkNonNegativeInteger,
 		TimelineBuffer = t.string,
 	},
-	InitialBoardState = t.optional(checkBoardStateData)
+	InitialBoardState = t.optional(checkBoardStateData),
+	BoardInstanceRbx = checkRbxStruct,
 }
+
+local checkBoardInstanceContainer = function(value)
+	do
+		local ok, msg = t.Instance(value)
+		if not ok then
+			return false, msg
+		end
+	end
+	if value:IsA("BasePart") then
+		return true
+	end
+	if value:IsA("Model") then
+		if not value.PrimaryPart
+			or not value.PrimaryPart:IsA("BasePart")
+			or not value.PrimaryPart:HasTag("metaboard")
+		then
+			return false, "Bad primary part (should be metaboard)"
+		end
+	end
+	return true
+end
 
 local function serialiseBoardRecord(record, force: true?)
 	assert(t.strictInterface {
@@ -828,7 +978,12 @@ local function serialiseBoardRecord(record, force: true?)
 			NextFigureZIndex = checkNonNegativeInteger,
 			ClearCount = t.optional(checkNonNegativeInteger),
 			Figures = t.table,
-		})
+		}),
+		BoardInstanceRbx = t.strictInterface {
+			SurfaceCFrame = t.CFrame,
+			SurfaceSize = t.Vector2,
+			BoardInstanceContainer = checkBoardInstanceContainer,
+		},
 	}(record))
 
 	local data = {
@@ -842,6 +997,19 @@ local function serialiseBoardRecord(record, force: true?)
 	if record.InitialBoardState then
 		data.InitialBoardState = serialiseBoardState(record.InitialBoardState)
 	end
+
+	data.BoardInstanceRbx = makeRbxStruct(record.BoardInstanceRbx, {
+		SurfaceCFrame = {
+			Type = "CFrame",
+			PositionPrecision = "Float32",
+			AngleBitWidth = 32,
+		},
+		SurfaceSize = {
+			Type = "Vector2",
+			Precision = "Float32",
+		},
+		BoardInstanceContainer = "Instance",
+	})
 
 	local timestampShape = "Float32"
 	local xCanvasShape     = { Type = "Quantized", BitWidth = 12, Min = 0, Max = record.AspectRatio, }
@@ -955,6 +1123,8 @@ local function deserialiseBoardRecord(data)
 	if data.InitialBoardState then
 		record.InitialBoardState = deserialiseBoardState(data.InitialBoardState)
 	end
+
+	record.BoardInstanceRbx = fromRbxStruct(data.BoardInstanceRbx)
 
 	local timelineData = data.Timeline
 

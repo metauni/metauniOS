@@ -3,9 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local t = require(ReplicatedStorage.Packages.t)
+local Blend = require(ReplicatedStorage.Util.Blend)
 
 local checkProps = t.strictInterface({
-	Board = t.any,
+	BoardParent = t.Instance,
 	Origin = t.CFrame,
 	Record = t.strictInterface {
 		RecordType = t.literal("BoardRecord"),
@@ -20,11 +21,17 @@ local checkProps = t.strictInterface({
 			Figures = t.table,
 			DrawingTasks = t.table,
 		}),
+
+		BoardInstanceRbx = t.strictInterface {
+			SurfaceCFrame = t.CFrame,
+			SurfaceSize = t.Vector2,
+			BoardInstanceContainer = t.union(t.instanceIsA("BasePart"), t.instanceIsA("Model")),
+		},
 	}
 })
 
 export type BoardReplayProps = {
-	Board: metaboard.BoardServer,
+	BoardParent: Instance,
 	Origin: CFrame,
 	Record: {
 		RecordType: "BoardRecord",
@@ -32,8 +39,40 @@ export type BoardReplayProps = {
 		BoardId: string,
 
 		InitialBoardState: metaboard.BoardState?,
+		BoardInstanceRbx: {
+			SurfaceCFrame: CFrame,
+			SurfaceSize: Vector2,
+			BoardInstanceContainer: BasePart | Model,
+		},
 	},
 }
+
+-- This mutates the board instance
+local function initBoardInstance(boardContainer: BasePart | Model, parent: Instance): metaboard.BoardServer
+	local boardPart = boardContainer:IsA("Model") and boardContainer.PrimaryPart or boardContainer
+	assert(t.instanceIsA("BasePart")(boardPart))
+	
+	local function clean(instance: Instance)
+		if instance:IsA("BasePart") then
+			instance.Anchored = true
+		elseif not instance:IsA("Model") then
+			instance:Destroy()
+			return
+		end
+		for _, child in instance:GetChildren() do
+			clean(child)
+		end
+	end
+
+	clean(boardContainer)
+
+	;(boardContainer :: any).Parent = parent
+	boardPart:AddTag("metaboard")
+	metaboard.Server.BoardServerBinder:Bind(boardPart)
+	local boardServer = metaboard.Server.BoardServerBinder:Promise(boardPart):Wait()
+
+	return boardServer
+end
 
 local function BoardReplay(props: BoardReplayProps): BoardReplay
 	assert(checkProps(props))
@@ -43,12 +82,21 @@ local function BoardReplay(props: BoardReplayProps): BoardReplay
 	local timelineIndex = 1
 	local finished = false
 
+	local boardContainer = props.Record.BoardInstanceRbx.BoardInstanceContainer:Clone()
+	local boardServer = initBoardInstance(boardContainer, props.BoardParent)
+	maid:GiveTask(boardContainer)
+
 	function self.Init()
 		timelineIndex = 1
 		finished = false
 
 		if props.Record.InitialBoardState then
-			props.Board:SetState(props.Record.InitialBoardState)
+			if boardServer.Loaded.Value == false then
+				boardServer.State = props.Record.InitialBoardState
+				boardServer.Loaded.Value = true
+			else
+				boardServer:SetState(props.Record.InitialBoardState)
+			end
 		end
 	end
 
@@ -70,7 +118,7 @@ local function BoardReplay(props: BoardReplayProps): BoardReplay
 					e.g. if event is {"InitDrawingTask", "1234", drawingTask, canvasPos}
 					then result is {"replay-1234", drawingTask, canvaPos}
 				]]
-				props.Board:HandleEvent(remoteName, table.unpack(args))
+				boardServer:HandleEvent(remoteName, table.unpack(args))
 				timelineIndex += 1
 				continue
 			end
