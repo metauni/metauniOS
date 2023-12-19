@@ -3,6 +3,7 @@
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local VRServerService = require(ReplicatedStorage.OS.VR.VRServerService)
 local BoardRecorder = require(script.Parent.BoardRecorder)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Maid = require(ReplicatedStorage.Util.Maid)
@@ -38,21 +39,21 @@ local function Studio(props: StudioProps): Studio
 
 	local function getCharacterRecorder(characterId: string)
 		local index = Sift.Array.findWhere(recorders, function(recorder)
-			return recorder.RecorderType == "CharacterRecorder" and recorder.CharacterId == characterId
+			return recorder.RecorderType == "CharacterRecorder" and recorder.props.CharacterId == characterId
 		end)
 		return recorders[index]
 	end
 
 	local function getVRCharacterRecorder(characterId: string)
 		local index = Sift.Array.findWhere(recorders, function(recorder)
-			return recorder.RecorderType == "VRCharacterRecorder" and recorder.CharacterId == characterId
+			return recorder.RecorderType == "VRCharacterRecorder" and recorder.props.CharacterId == characterId
 		end)
 		return recorders[index]
 	end
 
 	local function getBoardRecorder(boardId: string)
 		local index = Sift.Array.findWhere(recorders, function(recorder)
-			return recorder.RecorderType == "BoardRecorder" and recorder.BoardId == boardId
+			return recorder.RecorderType == "BoardRecorder" and recorder.props.BoardId == boardId
 		end)
 		return recorders[index]
 	end
@@ -60,40 +61,29 @@ local function Studio(props: StudioProps): Studio
 	function self.TrackPlayerCharacter(characterId: string, characterName: string, player: Player)
 		assert(typeof(characterId) == "string", "Bad characterId")
 		assert(typeof(characterName) == "string", "Bad characterName")
-		assert(typeof(player) == "Instance" and player:IsA("Player"), "Bad player")
+		assert(typeof(player) == "Instance" and player:IsA("Player"), "Bad player") 
 
-		local existing = getCharacterRecorder(characterId)
-		if existing and existing.PlayerUserId ~= player.UserId  then
-			if existing.PlayerUserId ~= player.UserId then
+		local existing = getCharacterRecorder(characterId) or getVRCharacterRecorder(characterId)
+		if existing then
+			if existing.props.PlayerUserId ~= player.UserId then
 				error(`[ReplayStudio] Cannot change player-to-track for CharacterId={characterId} to {player.UserId} ({player.Name}), already tracking {existing.PlayerUserId}`)
 			end
 		else
-			table.insert(recorders, CharacterRecorder({
-				Origin = props.Origin,
-				CharacterId = characterId,
-				PlayerUserId = player.UserId,
-				CharacterName = characterName,
-			}))
-		end
-	end
-
-	function self.TrackVRPlayerCharacter(characterId: string, characterName: string, player: Player)
-		assert(typeof(characterId) == "string", "Bad characterId")
-		assert(typeof(characterName) == "string", "Bad characterName")
-		assert(typeof(player) == "Instance" and player:IsA("Player"), "Bad player")
-
-		local existing = getVRCharacterRecorder(characterId)
-		if existing and existing.PlayerUserId ~= player.UserId  then
-			if existing.PlayerUserId ~= player.UserId then
-				error(`[ReplayStudio] Cannot change vr-player-to-track for CharacterId={characterId} to {player.UserId} ({player.Name}), already tracking {existing.PlayerUserId}`)
+			if VRServerService.GetVREnabled(player) then
+				table.insert(recorders, VRCharacterRecorder({
+					Origin = props.Origin,
+					CharacterId = characterId,
+					PlayerUserId = player.UserId,
+					CharacterName = characterName,
+				}))
+			else
+				table.insert(recorders, CharacterRecorder({
+					Origin = props.Origin,
+					CharacterId = characterId,
+					PlayerUserId = player.UserId,
+					CharacterName = characterName,
+				}))
 			end
-		else
-			table.insert(recorders, VRCharacterRecorder({
-				Origin = props.Origin,
-				CharacterId = characterId,
-				PlayerUserId = player.UserId,
-				CharacterName = characterName,
-			}))
 		end
 	end
 
@@ -133,7 +123,6 @@ local function Studio(props: StudioProps): Studio
 	function self.StopRecording()
 		assert(self.PhaseIsBefore("Recorded"), `[Replay Studio] Tried to stop recording during phase {RecordingPhase.Value}`)
 
-		
 		local segmentOfRecords = {
 			Origin = props.Origin,
 			Records = {},
@@ -146,9 +135,12 @@ local function Studio(props: StudioProps): Studio
 		end
 		segmentOfRecords.EndTimestamp = os.clock() - StartTime.Value
 
+		RecordingPhase.Value = "Recorded"
+
 		self.SegmentOfRecords = segmentOfRecords
 	end
 	
+	-- TODO: worry about this being called multiple times
 	function self.Store()
 		assert(self.SegmentOfRecords, "No segment ready to store")
 		local data = Serialiser.serialiseSegmentOfRecords(self.SegmentOfRecords, 1)
@@ -165,6 +157,8 @@ local function Studio(props: StudioProps): Studio
 				end
 				break
 			end
+
+			RecordingPhase.Value = "Saved"
 	
 			print(`[Replay Studio] SegmentOfRecords 1 stored (Id: {props.RecordingId})`)
 		end)

@@ -568,7 +568,7 @@ return function(props)
 					},
 					Computed(function()
 						-- TODO: Get appropriate permissions for replay menu
-						if Players.LocalPlayer.UserId == 2293079954 and props.IsSpeaker:get() then
+						if Players.LocalPlayer.UserId == 2293079954 or Players.LocalPlayer.UserId == 2211421151 and props.IsSpeaker:get() then
 							return 
 								menuButton {
 									Text = "Replay",

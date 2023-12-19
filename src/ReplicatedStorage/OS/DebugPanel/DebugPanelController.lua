@@ -1,3 +1,6 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 local DebugPanel = require(script.Parent)
 
 return {

@@ -1,5 +1,4 @@
 local DataStoreService = game:GetService("DataStoreService")
-local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -7,11 +6,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local RecordUtils = require(script.Parent.RecordUtils)
 local OrbService = require(ServerScriptService.OS.OrbService)
 local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
-local VRServerService = require(ReplicatedStorage.OS.VR.VRServerService)
 local Sift = require(ReplicatedStorage.Packages.Sift)
-local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local t = require(ReplicatedStorage.Packages.t)
-local Promise = require(ReplicatedStorage.Util.Promise)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
@@ -74,13 +70,16 @@ function ReplayService:Start()
 		
 		local studio: Studio.Studio
 		local recordingId do
-			if TESTING then
-				recordingId = "testId"
-			else
-				-- TODO: concern about key length
-				HttpService:GenerateGUID(false)
+			local ok, msg = pcall(function()
+				local counter, _keyInfo = self.ReplayDataStore:IncrementAsync(`OrbReplays/{orbId}/Counter`, 1)
+				recordingId = orbId .. "-".. counter
+			end)
+			if not ok then
+				warn(msg)
+				return false, msg
 			end
 		end
+		
 		do
 			local ok, msg = pcall(function()
 				studio = self:NewOrbStudio(orbServer, recordingName, recordingId)
@@ -91,34 +90,58 @@ function ReplayService:Start()
 			end
 		end
 
+		self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, studio)
+
 		studio.InitRecording()
 		studio.StartRecording()
 
-		task.spawn(function()
-			local i = 0
-			while true do
-				task.wait(1)
-				print(i)
-				i+=1
-				if i >= 20 then
-					studio.StopRecording()
-					studio.Store()
-					self.ReplayDataStore:UpdateAsync(`OrbReplays/{orbId}`, function(data, _keyInfo: DataStoreKeyInfo)
-						if data == nil then
-							data = {}
-						end
-						table.insert(data, {
-							ReplayId = recordingId,
-							ReplayName = recordingName,
-							UTCDate = os.date("!*t"),
-						})
-						print(`[ReplayService] Stored replay id {recordingId} in OrbReplay/{orbId} catalog`)
-						return data
-					end)
-					break
-				end
+		return true, recordingId
+	end
+
+	-- In theory this can be called multiple times to reattempt save...
+	-- Don't spam it though
+	Remotes.StopRecording.OnServerInvoke = function(player: Player, orbPart: Part)
+		local studio = self.OrbToStudio.Value[orbPart]
+
+		if not studio then
+			return false, `No active studio recording for orbPart {orbPart:GetFullName()}`
+		end
+
+		if studio.PhaseIsBefore("Recorded") then
+			studio.StopRecording()
+		end
+
+		local orbServer = OrbService.Orbs[orbPart]
+		if not orbServer then
+			warn("No orb found")
+			return false, "No orb found"
+		end
+		local orbId = orbServer.GetOrbId()
+		assert(orbId, "Bad orbId")
+
+		studio.Store()
+
+		do
+			local ok, msg = pcall(function()
+				self.ReplayDataStore:UpdateAsync(`OrbReplays/{orbId}`, function(data, _keyInfo: DataStoreKeyInfo)
+					if data == nil then
+						data = {}
+					end
+					table.insert(data, {
+						ReplayId = studio.props.RecordingId,
+						ReplayName = studio.props.RecordingName,
+						UTCDate = os.date("!*t"),
+					})
+					print(`[ReplayService] Stored replay id {studio.props.RecordingId} in OrbReplay/{orbId} catalog`)
+					return data
+				end)
+			end)
+
+			if not ok then
+				return false, msg
 			end
-		end)
+		end
+
 		return true
 	end
 
@@ -295,11 +318,7 @@ function ReplayService:NewOrbStudio(orbServer: OrbServer.OrbServer, recordingNam
 
 	for player, attachedOrb in self:_getPlayerToOrb() do
 		if attachedOrb == orbServer.GetPart() then
-			if VRServerService.GetVREnabled(player) then
-				studio.TrackVRPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
-			else
-				studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
-			end
+			studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
 		end
 	end
 

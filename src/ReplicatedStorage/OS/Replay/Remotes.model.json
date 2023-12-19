@@ -6,6 +6,10 @@
 			"ClassName": "RemoteFunction"
 		},
 		{
+			"Name": "StopRecording",
+			"ClassName": "RemoteFunction"
+		},
+		{
 			"Name": "GetReplays",
 			"ClassName": "RemoteFunction"
 		},

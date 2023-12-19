@@ -187,4 +187,24 @@ function UI.X(props)
 	return UI.Div(props)
 end
 
+function UI.HorizontalListLayout(props)
+	props = Sift.Dictionary.merge({
+		FillDirection = Enum.FillDirection.Horizontal,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, props)
+
+	return Blend.New "UIListLayout" (props)
+end
+
+function UI.VerticalListLayout(props)
+	props = Sift.Dictionary.merge({
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, props)
+
+	return Blend.New "UIListLayout" (props)
+end
+
 return UI

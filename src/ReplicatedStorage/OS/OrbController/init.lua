@@ -31,6 +31,7 @@ local HumanoidController = require(ReplicatedStorage.OS.HumanoidController)
 local Remotes = script.Remotes
 local ReplayRemotes = ReplicatedStorage.OS.Replay.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
+local ReplayController = require(ReplicatedStorage.OS.Replay.ReplayController)
 local ReplayMenu = require(ReplicatedStorage.OS.Replay.ReplayMenu)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
@@ -794,7 +795,7 @@ function OrbController:Start()
 		OnRecord = function(recordingName: string)
 			local attachedOrb = AttachedOrb:get()
 			if attachedOrb then
-				ReplayRemotes.StartRecording:InvokeServer(attachedOrb, recordingName)
+				ReplayController.initNewStudio(attachedOrb, recordingName)
 			end
 			self._showReplayMenu.Value = false
 		end,
