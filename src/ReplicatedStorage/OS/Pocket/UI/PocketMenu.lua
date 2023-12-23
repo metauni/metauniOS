@@ -1,4 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
+
+local Pocket = ReplicatedStorage.OS.Pocket
+local PocketConfig = require(Pocket.Config)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local UI = require(ReplicatedStorage.OS.UI)
 local Rx = require(ReplicatedStorage.Util.Rx)
@@ -6,6 +12,8 @@ local Rxi = require(ReplicatedStorage.Util.Rxi)
 
 local PocketCard = require(script.Parent.PocketCard)
 local Remotes = ReplicatedStorage.OS.Pocket.Remotes
+
+local localPlayer = Players.LocalPlayer
 
 local metauniDarkBlue = Color3.fromHex("10223b")
 local metauniLightBlue = Color3.fromHex("1a539f")
@@ -18,6 +26,7 @@ function PocketMenu.new()
 
 	self._pockets = Fusion.Value({})
 	self._schedule = Fusion.Value({})
+    self._boardSelectModeActive = false
 	return self
 end
 
@@ -25,6 +34,252 @@ export type PocketData = {
 	Name: string,
 	Image: string,
 }
+
+function PocketMenu:_startBoardSelectMode(onBoardSelected, displayType)
+    if self._boardSelectModeActive then return end
+
+	local screenGui = localPlayer.PlayerGui:FindFirstChild("BoardKeyGui")
+	if screenGui ~= nil then return end
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "BoardKeyGui"
+
+	local cancelButton = Instance.new("TextButton")
+	cancelButton.Name = "CancelButton"
+	cancelButton.BackgroundColor3 = Color3.fromRGB(148,148,148)
+	cancelButton.Size = UDim2.new(0,200,0,50)
+	cancelButton.Position = UDim2.new(0.5,-100,0.9,-50)
+	cancelButton.Parent = screenGui
+	cancelButton.TextColor3 = Color3.new(1,1,1)
+	cancelButton.TextSize = 30
+	cancelButton.Text = "Cancel"
+	cancelButton.Activated:Connect(function()
+		self:_endBoardSelectMode()
+		screenGui:Destroy()
+        self._boardSelectModeActive = false
+	end)
+	Instance.new("UICorner").Parent = cancelButton
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Name = "TextLabel"
+	textLabel.BackgroundColor3 = Color3.new(0,0,0)
+	textLabel.BackgroundTransparency = 0.9
+	textLabel.Size = UDim2.new(0,500,0,50)
+	textLabel.Position = UDim2.new(0.5,-250,0,100)
+	textLabel.TextColor3 = Color3.new(1,1,1)
+	textLabel.TextSize = 25
+	textLabel.Text = "Select a board"
+	textLabel.Parent = screenGui
+
+	screenGui.Parent = localPlayer.PlayerGui
+
+	local boards = CollectionService:GetTagged("metaboard")
+
+	for _, boardPart in boards do
+		if boardPart:FindFirstChild("PersistId") == nil then continue end
+
+		local clickClone = boardPart:Clone()
+		for _, t in ipairs(CollectionService:GetTags(clickClone)) do
+			CollectionService:RemoveTag(clickClone, t)
+		end
+		clickClone:ClearAllChildren()
+		clickClone.Name = "ClickTargetClone"
+		clickClone.Transparency = 0
+		clickClone.Size = boardPart.Size * 1.02
+		clickClone.Material = Enum.Material.SmoothPlastic
+		clickClone.CanCollide = false
+		clickClone.Parent = boardPart
+		clickClone.Color = Color3.new(0.296559, 0.397742, 0.929351)
+		clickClone.CFrame = boardPart.CFrame + boardPart.CFrame.LookVector * 1
+
+		local clickDetector = Instance.new("ClickDetector")
+		clickDetector.MaxActivationDistance = 500
+		clickDetector.Parent = clickClone
+		clickDetector.MouseClick:Connect(function()
+            if onBoardSelected == "startDisplay" then
+                self:_startDisplay(displayType)
+            elseif onBoardSelected == "startDecalEntryDisplay" then
+                self:_startDecalEntryDisplay()
+            end
+
+            self._boardSelectModeActive = false
+			self:_endBoardSelectMode()
+		end)
+	end
+
+    self._boardSelectModeActive = true
+end
+
+function PocketMenu:_endBoardSelectMode()
+
+	for _, board in CollectionService:GetTagged("metaboard") do
+		if board:FindFirstChild("PersistId") == nil then continue end
+
+		local c = board:FindFirstChild("ClickTargetClone")
+		if c ~= nil then
+			c:Destroy()
+		end
+	end
+
+	local screenGui = localPlayer.PlayerGui:FindFirstChild("BoardKeyGui")
+	if screenGui ~= nil then
+		screenGui:Destroy()
+	end
+end
+
+function PocketMenu:_startDisplay(board, displayType)
+    if modalGuiActive then return end
+    modalGuiActive = true
+
+    local boardPersistId = board.PersistId.Value
+	
+    local isPocket = Pocket:GetAttribute("IsPocket")
+    local pocketId = nil
+    if isPocket then
+        if Pocket:GetAttribute("PocketId") == nil then
+            Pocket:GetAttributeChangedSignal("PocketId"):Wait()
+        end
+
+        pocketId = Pocket:GetAttribute("PocketId")
+    end
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "BoardDisplay"
+
+	local button = Instance.new("TextButton")
+	button.Name = "OKButton"
+	button.Size = UDim2.new(0,200,0,50)
+	button.Position = UDim2.new(0.5,-100,0.5,150)
+	button.Parent = screenGui
+	button.BackgroundColor3 = Color3.fromRGB(0,162,0)
+	button.TextColor3 = Color3.new(1,1,1)
+	button.TextSize = 25
+	button.Text = "OK"
+	button.Activated:Connect(function()
+        modalGuiActive = false
+		screenGui:Destroy()
+	end)
+	Instance.new("UICorner").Parent = button
+	
+	local dataString
+	local displayWidth
+
+    if displayType == "key" then
+        displayWidth = 600
+        if isPocket then
+            dataString = pocketId .. "-" .. boardPersistId
+        else
+            dataString = boardPersistId
+        end
+    elseif displayType == "URL" then
+        displayWidth = 800
+        if isPocket then
+            local pocketName = HttpService:UrlEncode(Pocket:GetAttribute("PocketName"))
+            dataString = "https://www.roblox.com/games/start?placeId=" .. PocketConfig.RootPlaceId
+            dataString = dataString .. "&launchData=pocket%3A" .. pocketName
+            dataString = dataString .. "-targetBoardPersistId%3A" .. boardPersistId
+        else
+            dataString = "https://www.roblox.com/games/start?placeId=" .. PocketConfig.RootPlaceId
+            dataString = dataString .. "&launchData=targetBoardPersistId%3A" .. boardPersistId
+        end
+    end
+
+	local textBox = Instance.new("TextBox")
+	textBox.Name = "TextBox"
+	textBox.BackgroundColor3 = Color3.new(0,0,0)
+	textBox.BackgroundTransparency = 0.3
+	textBox.Size = UDim2.new(0,displayWidth,0,200)
+	textBox.Position = UDim2.new(0.5,-0.5 * displayWidth,0.5,-100)
+	textBox.TextColor3 = Color3.new(1,1,1)
+	textBox.TextSize = 20
+	textBox.Text = dataString
+	textBox.TextWrapped = true
+	textBox.TextEditable = false
+	textBox.ClearTextOnFocus = false
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingBottom = UDim.new(0,10)
+	padding.PaddingTop = UDim.new(0,10)
+	padding.PaddingRight = UDim.new(0,10)
+	padding.PaddingLeft = UDim.new(0,10)
+	padding.Parent = textBox
+
+	textBox.Parent = screenGui
+
+	screenGui.Parent = localPlayer.PlayerGui
+end
+
+function PocketMenu:_startDecalEntryDisplay(board)
+    local remoteEvent = ReplicatedStorage.OS.Remotes.AddDecalToBoard
+
+    local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "BoardDecalDisplay"
+	
+	local displayWidth = 500
+
+	local textBox = Instance.new("TextBox")
+	textBox.Name = "TextBox"
+	textBox.BackgroundColor3 = Color3.new(0,0,0)
+	textBox.BackgroundTransparency = 0.3
+	textBox.Size = UDim2.new(0,displayWidth,0,100)
+	textBox.Position = UDim2.new(0.5,-0.5 * displayWidth,0.5,-100)
+	textBox.TextColor3 = Color3.new(1,1,1)
+	textBox.TextSize = 20
+    textBox.Text = ""
+    textBox.PlaceholderText = "Enter an asset ID"
+	textBox.TextWrapped = true
+	textBox.ClearTextOnFocus = false
+
+    local boardPart = if board:IsA("BasePart") then board else board.PrimaryPart
+    local decal = boardPart:FindFirstChild("BoardDecal")
+	if decal ~= nil then 
+		textBox.Text = decal.Texture
+	end
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingBottom = UDim.new(0,10)
+	padding.PaddingTop = UDim.new(0,10)
+	padding.PaddingRight = UDim.new(0,10)
+	padding.PaddingLeft = UDim.new(0,10)
+	padding.Parent = textBox
+
+	textBox.Parent = screenGui
+
+    -- Buttons
+    local button = Instance.new("TextButton")
+	button.Name = "OKButton"
+	button.Size = UDim2.new(0,200,0,50)
+	button.Position = UDim2.new(0.5,50,0.5,100)
+	button.Parent = screenGui
+	button.BackgroundColor3 = Color3.fromRGB(0,162,0)
+	button.TextColor3 = Color3.new(1,1,1)
+	button.TextSize = 25
+	button.Text = "OK"
+	button.Activated:Connect(function()
+        modalGuiActive = false
+		screenGui:Destroy()
+        remoteEvent:FireServer(board, textBox.Text)
+	end)
+	Instance.new("UICorner").Parent = button
+
+    button = Instance.new("TextButton")
+	button.Name = "CancelButton"
+	button.Size = UDim2.new(0,200,0,50)
+	button.Position = UDim2.new(0.5,-250,0.5,100)
+	button.Parent = screenGui
+	button.BackgroundColor3 = Color3.fromRGB(148,148,148)
+	button.TextColor3 = Color3.new(1,1,1)
+	button.TextSize = 25
+	button.Text = "Cancel"
+	button.Activated:Connect(function()
+        modalGuiActive = false
+		screenGui:Destroy()
+	end)
+	Instance.new("UICorner").Parent = button
+
+	screenGui.Parent = localPlayer.PlayerGui
+    textBox:CaptureFocus()
+end
 
 function PocketMenu:SetPockets(pockets: {PocketData})
 	self._pockets:set(pockets)
@@ -132,7 +387,7 @@ end
 
 function PocketMenu:render()
 
-
+    local wholeMenu
 	local SubMenu = Fusion.Value("Seminars")
 
 	local function ScrollingFrame()
@@ -183,6 +438,70 @@ function PocketMenu:render()
 					return ScrollingFrame()
 				elseif SubMenu:get() == "Seminars" then
 					return self:_renderSchedule()
+                elseif SubMenu:get() == "Boards" then
+                    -- toad
+                    return Fusion.New "ScrollingFrame" {
+                        ScrollingEnabled = false,
+                        AnchorPoint = Vector2.new(0,0),
+                        Position = UDim2.new(0,100,0,0),
+                        Size = UDim2.new(1,-100,1,0),
+                        BackgroundTransparency = 1,
+
+                        [Fusion.Children] = {
+                            Fusion.New "UIListLayout" {
+                                SortOrder = Enum.SortOrder.LayoutOrder,
+                                VerticalAlignment = Enum.VerticalAlignment.Top,
+                                HorizontalAlignment = Enum.HorizontalAlignment.Center,
+                                Padding = UDim.new(0,2),
+                            },
+        
+                            UI.HighlightTextButton {
+                                Size = UDim2.fromOffset(300,60),
+                                Text = "Key for Board...",
+                                TextSize = 20,
+                                TextColors = {Color3.fromHex("F2F2F3"), Color3.fromHex("F2F2F3")},
+                                BackgroundColors = {metauniLightBlue, Color3.fromHex("303036")},
+                                Transparencies = {0,1},
+                                Selected = Fusion.Computed(function()
+                                    return false
+                                end),
+                                [Fusion.OnEvent "MouseButton1Down"] = function()
+                                    self:_startBoardSelectMode("startDisplay","key")
+                                    wholeMenu:Destroy()
+                                end,
+                            },
+                            UI.HighlightTextButton {
+                                Size = UDim2.fromOffset(300,60),
+                                Text = "URL for Board...",
+                                TextSize = 20,
+                                TextColors = {Color3.fromHex("F2F2F3"), Color3.fromHex("F2F2F3")},
+                                BackgroundColors = {metauniLightBlue, Color3.fromHex("303036")},
+                                Transparencies = {0,1},
+                                Selected = Fusion.Computed(function()
+                                    return false
+                                end),
+                                [Fusion.OnEvent "MouseButton1Down"] = function()
+                                    self:_startBoardSelectMode("startDisplay", "URL")
+                                    wholeMenu:Destroy()
+                                end,
+                            },
+                            UI.HighlightTextButton {
+                                Size = UDim2.fromOffset(300,60),
+                                Text = "Decal for Board...",
+                                TextSize = 20,
+                                TextColors = {Color3.fromHex("F2F2F3"), Color3.fromHex("F2F2F3")},
+                                BackgroundColors = {metauniLightBlue, Color3.fromHex("303036")},
+                                Transparencies = {0,1},
+                                Selected = Fusion.Computed(function()
+                                    return false
+                                end),
+                                [Fusion.OnEvent "MouseButton1Down"] = function()
+                                    self:_startBoardSelectMode("startDecalEntryDisplay")
+                                    wholeMenu:Destroy()
+                                end,
+                            },
+                        }
+                    }
 				end
 
 				return UI.TextLabel {
@@ -261,8 +580,6 @@ function PocketMenu:render()
 		}
 	}
 
-
-	local wholeMenu
 	wholeMenu = UI.RoundedFrame {
 
 		Size = UDim2.fromOffset(780, 700),

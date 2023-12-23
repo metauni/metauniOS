@@ -3,15 +3,16 @@ local RunService = game:GetService("RunService")
 local ScriptContext = game:GetService("ScriptContext")
 local Players = game:GetService("Players")
 
+local Icon = require(ReplicatedStorage.Packages.Icon)
+local Themes =  require(ReplicatedStorage.Packages.Icon.Themes)
+
 local Pocket = ReplicatedStorage.OS.Pocket
 local PocketMenu = require(Pocket.UI.PocketMenu)
 local PocketConfig = require(Pocket.Config)
 local Remotes = ReplicatedStorage.OS.Remotes
 
-
-if game.PlaceId == PocketConfig.RootPlaceId then
-	
-	local pocketMenu = PocketMenu.new()
+local function createPocketMenu()
+    local pocketMenu = PocketMenu.new()
 	
 	local pockets = {
 		{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
@@ -36,6 +37,23 @@ if game.PlaceId == PocketConfig.RootPlaceId then
 	
 	pocketMenu:render().Parent = Players.LocalPlayer.PlayerGui
 end
+
+if game.PlaceId == PocketConfig.RootPlaceId then
+	createPocketMenu()
+end
+
+-- Knot menu
+local icon = Icon.new()
+icon:setImage("rbxassetid://11783868001")
+icon:setOrder(-1)
+icon:setLabel("metauni")
+icon:bindEvent("selected", function(self)
+    self:deselect()
+    icon:deselect()
+    createPocketMenu()
+end)
+
+icon:setTheme(Themes["BlueGradient"])
 
 if not RunService:IsStudio() then
 	
