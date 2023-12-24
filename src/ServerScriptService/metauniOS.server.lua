@@ -53,18 +53,6 @@ if not RunService:IsStudio() then
 	end)
 end
 
---
--- GameAnalytics
---
-
-local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
---GameAnalytics:setEnabledInfoLog(true)
---GameAnalytics:setEnabledVerboseLog(true)
-if RunService:IsStudio() then
-	GameAnalytics:setEnabledDebugLog(false) -- The Debug log seems more annoying than useful in Studio
-end
-GameAnalytics:initServer(SecretService.GAMEANALYTICS_GAME_KEY, SecretService.GAMEANALYTICS_SECRET_KEY)
-
 -- Initialise & Start Services
 
 local Promise = require(ReplicatedStorage.Packages.Promise)

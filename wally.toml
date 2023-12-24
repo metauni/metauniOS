@@ -7,7 +7,6 @@ realm = "shared"
 
 [dependencies]
 Feather = "blinkybool/feather@0.2.1"
-GameAnalytics = "gameanalytics/gameanalytics-sdk@2.2.2"
 Sift = "csqrl/sift@0.0.4"
 Roact = "roblox/roact@1.4.4"
 metaboard = "metauni/metaboard@1.5.1-rc04"

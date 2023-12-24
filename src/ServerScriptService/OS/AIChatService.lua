@@ -10,7 +10,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
 local Players = game:GetService("Players")
 
-local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 local AIService = require(script.Parent.AIService)
 local OrbService = require(ServerScriptService.OS.OrbService)
 local BoardService = require(ServerScriptService.OS.BoardService)
@@ -86,17 +85,6 @@ end
 
 function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
     AIChatService.FetchPlayerThumbnail(plr.UserId)
-
-    local success, err = pcall(function()
-		GameAnalytics:addDesignEvent(plr.UserId, {
-            eventId = "AI:Question"
-        })
-	end)	
-	
-	if not success then
-		print("[AIChatService] GameAnalytics addDesignEvent failed ".. err)
-		return {}
-	end
 
     local messageFolder = chatpoint.Messages
 	local messageTemplate = chatpoint.MessageTemplate

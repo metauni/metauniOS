@@ -22,7 +22,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pocket = ReplicatedStorage.OS.Pocket
 local Remotes = Pocket.Remotes
 local Config = require(Pocket.Config)
-local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
 
 -- Remote Events
 local ArriveRemoteEvent = Pocket.Remotes.Arrive
@@ -235,12 +234,6 @@ end
 function MetaPortal.TeleportFailed(player, teleportResult, errorMessage, placeId)
 	player:LoadCharacter()
 
-    local success, err = pcall(function()
-		GameAnalytics:addDesignEvent(player.UserId, {
-            eventId = "Pockets:TeleportFailed"
-        })
-	end)	
-
     error("[MetaPortal] Teleport failed for "..player.Name.." to place "..placeId.." : "..errorMessage)
 end
 
@@ -302,14 +295,6 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
 		AccessCode = accessCode
 	}
 
-    -- Track players across pockets
-    local success, augmentedTeleportData = pcall(function()
-        return GameAnalytics:addGameAnalyticsTeleportData({plr.UserId}, teleportData)
-	end)
-	if success then
-	    teleportData = augmentedTeleportData
-    end
-
     if targetBoardPersistId ~= nil then
         teleportData.TargetBoardPersistId = targetBoardPersistId
     end
@@ -336,12 +321,6 @@ function MetaPortal.GotoPocket(plr, placeId, pocketCounter, accessCode, passThro
 	if not success then
 		warn("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
-
-    local success, err = pcall(function()
-		GameAnalytics:addDesignEvent(plr.UserId, {
-            eventId = "Pockets:GotoPocket"
-        })
-	end)	
 end
 
 function MetaPortal.StoreReturnToPocketData(plr, placeId, pocketCounter, accessCode)
@@ -610,9 +589,6 @@ function MetaPortal.ReturnToRoot(plr)
 		OriginJobId = game.JobId
 	}
 
-    -- Track players across pockets
-    teleportData = GameAnalytics:addGameAnalyticsTeleportData({plr.UserId}, teleportData)
-
 	local placeId = Config.RootPlaceId
 
 	-- Workaround for current bug in LaunchData
@@ -728,16 +704,6 @@ function MetaPortal.FirePortal(portal, plr)
 		-- print("[MetaPortal] Found IgnoreLaunchData in TeleportData")
 		teleportData.IgnoreLaunchData = joinData.TeleportData.IgnoreLaunchData
 	end
-	
-    -- Track players across pockets
-    local success, updatedTeleportData = pcall(function()
-        return GameAnalytics:addGameAnalyticsTeleportData({plr.UserId}, teleportData)
-    end)
-    if success then
-        teleportData = updatedTeleportData
-    else
-        warn("[Portal] GameAnalytics call failed: " .. updatedTeleportData)
-    end
     
 	teleportOptions:SetTeleportData(teleportData)
 	
@@ -747,12 +713,6 @@ function MetaPortal.FirePortal(portal, plr)
 	if not success then
 		warn("[MetaPortal] TeleportAsync failed: ".. errormessage)
 	end
-
-    local success, errormessage = pcall(function()
-		return GameAnalytics:addDesignEvent(plr.UserId, {
-            eventId = "Pockets:FirePortal"
-        })
-	end)
 end
 
 function MetaPortal.HasPocketCreatePermission(plr)
@@ -788,12 +748,6 @@ function MetaPortal.CreatePocketLink(plr, portal, pocketText)
 	if connection ~= nil then
 		connection:Disconnect()
 	end
-
-    local success, errormessage = pcall(function()
-		GameAnalytics:addDesignEvent(plr.UserId, {
-            eventId = "Pockets:CreatePocketLink"
-        })
-	end)
 end
 
 function MetaPortal.AddPocketToListForPlayer(plr, pocketData)
@@ -883,12 +837,6 @@ function MetaPortal.CreatePocket(plr, portal, pocketChosen)
 		warn("[MetaPortal] SetAsync fail for " .. portalKey .. " with ".. errormessage)
 		return
 	end
-
-    local success, errormessage = pcall(function()
-        GameAnalytics:addDesignEvent(plr.UserId, {
-            eventId = "Pockets:CreatePocket"
-        })
-	end)
 
 	MetaPortal.AddPocketToListForPlayer(plr, pocketData)
 	MetaPortal.AttachValuesToPocketPortal(portal, pocketData)
@@ -1157,12 +1105,6 @@ function MetaPortal.UnlinkPortal(plr, portal)
 		return
 	end
 
-    local success, errormessage = pcall(function()
-        GameAnalytics:addDesignEvent(plr.UserId, {
-            eventId = "Pockets:UnlinkPortal"
-        })
-	end)
-	
 	local DataStore = DataStoreService:GetDataStore(Config.PocketDataStoreTag)
 
 	-- Erase the contents stored for this portal

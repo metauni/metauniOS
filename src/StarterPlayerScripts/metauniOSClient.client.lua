@@ -11,11 +11,10 @@ local PocketMenu = require(Pocket.UI.PocketMenu)
 local PocketConfig = require(Pocket.Config)
 local Remotes = ReplicatedStorage.OS.Remotes
 
-local pocketMenu = nil
 local pocketMenuGui = nil
 
 local function createPocketMenu()
-    pocketMenu = PocketMenu.new()
+    local pocketMenu = PocketMenu.new()
 	
 	local pockets = {
 		{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
@@ -55,10 +54,7 @@ icon:setLabel("metauni")
 icon:bindEvent("selected", function(self)
     self:deselect()
     icon:deselect()
-    if pocketMenu ~= nil then
-        pocketMenuGui:Destroy()
-        pocketMenu = nil
-    else
+    if not pocketMenuGui or pocketMenuGui.Parent ~= Players.LocalPlayer.PlayerGui then
         createPocketMenu()
     end
 end)
@@ -72,10 +68,6 @@ if not RunService:IsStudio() then
 		ReplicatedStorage.OS.RavenErrorLog:FireServer(message, trace)
 	end)
 end
-
--- Game analytics
-local GameAnalytics = require(ReplicatedStorage.Packages.GameAnalytics)
-GameAnalytics:initClient()
 
 -- Initialise & Start Controllers
 

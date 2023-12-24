@@ -179,7 +179,8 @@ local function tearDown()
 end
 
 local function Setup()
-    local tool = localPlayer.Backpack:WaitForChild("Builder Tools")
+    localPlayer:WaitForChild("Backpack")
+    local tool = localPlayer.Backpack:WaitForChild("Builder Tools",120)
     
     tool.Equipped:Connect(function()
         -- Do not setup if already connected
