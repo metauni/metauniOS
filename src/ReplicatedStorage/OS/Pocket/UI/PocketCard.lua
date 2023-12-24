@@ -16,7 +16,7 @@ return function(props)
 				Thickness = 2,
 			},
 			
-			UI.ImageLabel {
+			UI.ImageButton {
 				Name = "PocketImage",
 				Image = props.PocketImage,
 				BackgroundTransparency = 0,
@@ -24,6 +24,7 @@ return function(props)
 				Position = UDim2.new(0.5, 0, 0, 0),
 				Size = UDim2.fromOffset(150, 100),
 				ZIndex = 0,
+                [Fusion.OnEvent "Activated"] = props.OnClickJoin,
 
 				[Fusion.Children] = {
 					Fusion.New "UICorner" {
