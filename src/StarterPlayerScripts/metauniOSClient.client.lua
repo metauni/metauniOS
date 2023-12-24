@@ -11,8 +11,11 @@ local PocketMenu = require(Pocket.UI.PocketMenu)
 local PocketConfig = require(Pocket.Config)
 local Remotes = ReplicatedStorage.OS.Remotes
 
+local pocketMenu = nil
+local pocketMenuGui = nil
+
 local function createPocketMenu()
-    local pocketMenu = PocketMenu.new()
+    pocketMenu = PocketMenu.new()
 	
 	local pockets = {
 		{Name = "The Rising Sea", Image = "rbxassetid://10571156964"},
@@ -22,6 +25,7 @@ local function createPocketMenu()
 		{Name = "Storyboard 1", Image = PocketConfig.PocketTeleportBackgrounds["Storyboard"]},
 		{Name = "Big Sir 2", Image = PocketConfig.PocketTeleportBackgrounds["Big Sir"]},
 		{Name = "Overland 1", Image = PocketConfig.PocketTeleportBackgrounds["Overland"]},
+        {Name = "Cstar Bridge 1", Image = PocketConfig.PocketTeleportBackgrounds["Cstar Bridge"]},
 	}
 
 	-- Add metauni-dev world for Billy and Dan
@@ -35,7 +39,8 @@ local function createPocketMenu()
 		pocketMenu:SetSchedule(Remotes.GetSeminarSchedule:InvokeServer())
 	end)
 	
-	pocketMenu:render().Parent = Players.LocalPlayer.PlayerGui
+    pocketMenuGui = pocketMenu:render()
+	pocketMenuGui.Parent = Players.LocalPlayer.PlayerGui
 end
 
 if game.PlaceId == PocketConfig.RootPlaceId then
@@ -50,7 +55,12 @@ icon:setLabel("metauni")
 icon:bindEvent("selected", function(self)
     self:deselect()
     icon:deselect()
-    createPocketMenu()
+    if pocketMenu ~= nil then
+        pocketMenuGui:Destroy()
+        pocketMenu = nil
+    else
+        createPocketMenu()
+    end
 end)
 
 icon:setTheme(Themes["BlueGradient"])
