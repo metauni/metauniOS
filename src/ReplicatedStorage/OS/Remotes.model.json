@@ -8,6 +8,10 @@
 		{
 			"Name": "AddDecalToBoard",
 			"ClassName": "RemoteEvent"
-		}
+		},
+        {
+            "Name": "ShowToAI",
+            "ClassName": "RemoteEvent"
+        }
 	]
 }

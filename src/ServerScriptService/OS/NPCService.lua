@@ -17,6 +17,7 @@ local MessagingService = game:GetService("MessagingService")
 local DataStoreService = game:GetService("DataStoreService")
 
 -- Services
+local Pocket = ReplicatedStorage.OS.Pocket
 local AIService = require(script.Parent.AIService)
 local SecretService = require(ServerScriptService.SecretService)
 local BoardService = require(script.Parent.BoardService)
@@ -257,22 +258,6 @@ function NPC.DefaultPersonalityProfiles()
         PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
     })
 
-    personalityProfiles.Storm = updateWith(personalityProfiles.Normal, {
-        Name = "Storm",
-        SearchReferencesProbability = 0.15,
-        SearchTranscriptsProbability = 0.08,
-        SearchShortTermMemoryProbability = 0.08,
-        SearchLongTermMemoryProbability = 0.08,
-        TimestepDelayNormal = 8,
-        TimestepDelayVoiceChat = 5,
-        ReferenceRelevanceScoreCutoff = 0.8,
-        TranscriptRelevanceScoreCutoff = 0.8,
-        MemoryRelevanceScoreCutoff = 0.71,
-        ModelTemperature = 0.9,
-	    ModelFrequencyPenalty = 1.8,
-	    ModelPresencePenalty = 1.6,
-    })
-
     return personalityProfiles
 end
 
@@ -369,30 +354,31 @@ function NPC:Timestep(forceSearch)
         end
     end
 
-    if forceSearch or math.random() < self:GetPersonality("SearchLongTermMemoryProbability") then
-        local relevanceCutoff = if forceSearch then 0.5 else self:GetPersonality("MemoryRelevanceScoreCutoff")
+    --if forceSearch or math.random() < self:GetPersonality("SearchLongTermMemoryProbability") then
+    --    local relevanceCutoff = if forceSearch then 0.5 else self:GetPersonality("MemoryRelevanceScoreCutoff")
 
-        local memory = self:LongTermMemory(relevanceCutoff)
-        if memory ~= nil then
-            self:AddThought(memory, "memory")
-        end
-    end
+        -- TODO: Long term memory currently disabled
+        --local memory = self:LongTermMemory(relevanceCutoff)
+        --if memory ~= nil then
+        --    self:AddThought(memory, "memory")
+        --end
+    --end
 
     -- Search references
-    if forceSearch or math.random() < self:GetPersonality("SearchReferencesProbability") then
-        local ref = self:SearchReferences()
-        if ref ~= nil then
-            self:AddThought(ref, "reference")
-        end
-    end
+    --if forceSearch or math.random() < self:GetPersonality("SearchReferencesProbability") then
+    --    local ref = self:SearchReferences()
+    --    if ref ~= nil then
+    --        self:AddThought(ref, "reference")
+    --    end
+    --end
 
     -- Search transcripts
-    if forceSearch or math.random() < self:GetPersonality("SearchTranscriptsProbability") then
-        local ref = self:SearchTranscripts()
-        if ref ~= nil then
-            self:AddThought(ref, "transcript")
-        end
-    end
+    --if forceSearch or math.random() < self:GetPersonality("SearchTranscriptsProbability") then
+    --    local ref = self:SearchTranscripts()
+    --    if ref ~= nil then
+    --        self:AddThought(ref, "transcript")
+    --    end
+    --end
     
     self:Prompt()
     
@@ -477,7 +463,7 @@ function NPC:AddSummary(text, type)
             ["type"] = summaryDict.Type
         }
         local vectorId = HttpService:GenerateGUID(false)
-        AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
+        --AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
     end
 end
 
@@ -695,6 +681,21 @@ function NPC:Prompt()
 
     local prompt
     prompt = { {["role"] = "user", ["content"] = self:GetPersonality("PromptPrefix") } }
+
+    -- Look for boards tagged to be visible
+    if model == "gpt-4-vision-preview" and #NPCService.BoardsToRead > 0 then
+        local contentArray = {}
+        table.insert(contentArray, {["type"] = "text", ["text"] = "The contents of nearby boards"})
+
+        for _, boardKey in NPCService.BoardsToRead do
+            table.insert(contentArray, {["type"] = "image_url", ["image_url"] = { ["url"] = `https://metauniservice.com/boards/{boardKey}.png` }})
+        end
+
+        table.insert(prompt, {["role"] = "user", ["content"] = contentArray})
+    end
+
+    -- https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg
+
     table.insert(prompt, {["role"] = "user", ["content"] = `{self.Instance.Name} is an Agent`} )
     table.insert(prompt, {["role"] = "assistant", ["content"] = `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.`} )
     if pText then table.insert(prompt, {["role"] = "assistant", ["content"] = `Thought: {pText}`} ) end
@@ -793,6 +794,9 @@ function NPC:Prompt()
 
             if parsedAction.Type == NPC.ActionType.Walk then
                 if hasMoved then continue end
+                
+                if true then continue end -- TODO Disabling movement
+
                 if self.CurrentProfile == "Seminar" then
                     continue
                 end
@@ -1375,6 +1379,7 @@ end
 
 function NPCService.Init()
     NPCService.PlayerPerms = {} -- plr to permissions for each NPC
+    NPCService.BoardsToRead = {}
 
 	local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
 	for _, npcInstance in npcInstances do
@@ -1419,6 +1424,29 @@ function NPCService.Init()
         NPCService.PlayerPerms[plr] = NPCService.PlayerPerms[plr] or {}
         NPCService.PlayerPerms[plr][tostring(npcPersistId)] = NPCService.PlayerPerms[plr][tostring(npcPersistId)] or {}
         NPCService.PlayerPerms[plr][tostring(npcPersistId)][permType] = value
+    end)
+
+    local showToAIEvent = ReplicatedStorage.OS.Remotes.ShowToAI
+    showToAIEvent.OnServerEvent:Connect(function(plr: Instance, object : Instance)
+        local isPocket = Pocket:GetAttribute("IsPocket")
+        local boardPersistId = object.PersistId.Value
+        local pocketId = nil
+        if isPocket then
+            if Pocket:GetAttribute("PocketId") == nil then
+                Pocket:GetAttributeChangedSignal("PocketId"):Wait()
+            end
+    
+            pocketId = Pocket:GetAttribute("PocketId")
+        end
+
+        local boardKey
+        if isPocket then
+            boardKey = pocketId .. "-" .. boardPersistId
+        else
+            boardKey = boardPersistId
+        end
+
+        table.insert(NPCService.BoardsToRead, boardKey)
     end)
 end
 
@@ -1568,7 +1596,7 @@ function NPCService.Start()
         end)
     end)
     
-    NPCService.ReferenceList = AIService.ReferenceList()
+    --NPCService.ReferenceList = AIService.ReferenceList()
 
     if not subscribeSuccess then
         warn("[NPCService] Failed to subscribe to transcription topic")

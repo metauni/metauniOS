@@ -14,12 +14,11 @@ local Figure = metaboard.Figure
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Dictionary = Sift.Dictionary
 
-local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
-local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
-local OCR_API_URL = "https://www.metauniservice.com/ocr"
-local REFERENCE_LIST_URL = "https://www.metauniservice.com/reference_list"
-local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
-local GPT_API_URL = "https://api.openai.com/v1/completions"
+--local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
+--local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
+--local OCR_API_URL = "https://www.metauniservice.com/ocr"
+--local REFERENCE_LIST_URL = "https://www.metauniservice.com/reference_list"
+--local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
 local CHATGPT_API_URL = "https://api.openai.com/v1/chat/completions"
 local EMBEDDINGS_API_URL = "https://api.openai.com/v1/embeddings"
 
@@ -194,7 +193,7 @@ function AIService.Embedding(text, plr)
     return responseVector
 end
 
-function AIService.StoreEmbedding(vectorId, vector, metadata, namespace)
+--[[function AIService.StoreEmbedding(vectorId, vector, metadata, namespace)
     assert(vector ~= nil, "[AIService] nil vector")
     assert(metadata ~= nil, "[AIService] nil metadata")
     assert(namespace ~= nil, "[AIService] nil namespace")
@@ -235,7 +234,7 @@ function AIService.QueryEmbeddings(vector, filter, topk, namespace)
 
     local matches = responseData["matches"]
     return matches
-end
+end--]]
 
 function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, presPenalty, model)
     temperature = temperature or 0
@@ -280,7 +279,7 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
 	return responseText, tokenCount
 end
 
-function AIService.ObjectLocalizationForBoard(board)
+--[[function AIService.ObjectLocalizationForBoard(board)
     local serialisedBoardData = serialiseBoard(board)
 	local encodedRequest = HttpService:JSONEncode({ BoardData = serialisedBoardData })
     local responseData = safePostAsync(OBJECTLOC_API_URL, encodedRequest)
@@ -293,9 +292,9 @@ function AIService.ObjectLocalizationForBoard(board)
     end
 	
     return responseDict
-end
+end--]]
 
-function AIService.OCRBoard(board)
+--[[function AIService.OCRBoard(board)
 	local serialisedBoardData = serialiseBoard(board)
 	local encodedRequest = HttpService:JSONEncode({ BoardData = serialisedBoardData })
     local responseData = safePostAsync(OCR_API_URL, encodedRequest)
@@ -309,10 +308,10 @@ function AIService.OCRBoard(board)
     end
 
     return responseText
-end
+end--]]
 
-function AIService.ReferenceList()
+--[[function AIService.ReferenceList()
     return safePostAsync(REFERENCE_LIST_URL)
-end
+end--]]
 
 return AIService

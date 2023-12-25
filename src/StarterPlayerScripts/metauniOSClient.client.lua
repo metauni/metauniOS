@@ -48,6 +48,7 @@ end
 
 -- Knot menu
 local icon = Icon.new()
+require(ReplicatedStorage.Packages.Icon.IconController).voiceChatEnabled = true
 icon:setImage("rbxassetid://11783868001")
 icon:setOrder(-1)
 icon:setLabel("metauni")

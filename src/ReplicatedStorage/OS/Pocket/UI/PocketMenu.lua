@@ -93,10 +93,13 @@ function PocketMenu:_startBoardSelectMode(onBoardSelected, displayType)
         if gameProcessedEvent then return end
 
         if self._highlightedBoard == nil then return end
+
         if onBoardSelected == "startDisplay" then
-            self:_startDisplay(self._highlightedBoard, displayType)
+            self:_startDisplay(displayType)
         elseif onBoardSelected == "startDecalEntryDisplay" then
-            self:_startDecalEntryDisplay(self._highlightedBoard)
+            self:_startDecalEntryDisplay()
+        elseif onBoardSelected == "showToAI" then
+            self:_showBoardToAI()
         end
 
         self._boardSelectModeActive = false
@@ -107,18 +110,22 @@ function PocketMenu:_startBoardSelectMode(onBoardSelected, displayType)
         if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
         if gameProcessedEvent then return end
         
-        local pos = if UserInputService.TouchEnabled then input.Position else UserInputService:GetMouseLocation()
-        local raycastResult = raycastToPos(pos)
-        if not raycastResult then
+        local function checkHighlight()
             if self._highlightedBoard then
                 local oldHighlight = self._highlightedBoard:FindFirstChild("BoardSelectHighlight")
                 if oldHighlight then oldHighlight:Destroy() end
             end
+        end
 
+        local pos = if UserInputService.TouchEnabled then input.Position else UserInputService:GetMouseLocation()
+        local raycastResult = raycastToPos(pos)
+        if not raycastResult or (raycastResult.Instance and not raycastResult.Instance:FindFirstChild("PersistId")) then
+            checkHighlight()
             return
         end
     
         local boardHit = raycastResult.Instance
+
         if boardHit:FindFirstChild("BoardSelectHighlight") == nil then
             local highlight = Instance.new("Highlight")
             highlight.Name = "BoardSelectHighlight"
@@ -179,9 +186,12 @@ function PocketMenu:_endBoardSelectMode()
     end
 end
 
-function PocketMenu:_startDisplay(board, displayType)
+function PocketMenu:_startDisplay(displayType)
+    local board = self._highlightedBoard
     if self._modalGuiActive then return end
     self._modalGuiActive = true
+
+    if not board:FindFirstChild("PersistId") then return end
 
     local boardPersistId = board.PersistId.Value
 	
@@ -261,7 +271,14 @@ function PocketMenu:_startDisplay(board, displayType)
 	screenGui.Parent = localPlayer.PlayerGui
 end
 
-function PocketMenu:_startDecalEntryDisplay(board)
+function PocketMenu:_showBoardToAI()
+    if not self._highlightedBoard then return end
+    local remoteEvent = ReplicatedStorage.OS.Remotes.ShowToAI
+    remoteEvent:FireServer(self._highlightedBoard)
+end
+
+function PocketMenu:_startDecalEntryDisplay()
+    local board = self._highlightedBoard
     local remoteEvent = ReplicatedStorage.OS.Remotes.AddDecalToBoard
 
     local screenGui = Instance.new("ScreenGui")
@@ -550,6 +567,21 @@ function PocketMenu:render()
                                 end),
                                 [Fusion.OnEvent "MouseButton1Down"] = function()
                                     self:_startBoardSelectMode("startDecalEntryDisplay")
+                                    screenGui:Destroy()
+                                end,
+                            },
+                            UI.HighlightTextButton {
+                                Size = UDim2.fromOffset(300,60),
+                                Text = "Show to AI...",
+                                TextSize = 20,
+                                TextColors = {Color3.fromHex("F2F2F3"), Color3.fromHex("F2F2F3")},
+                                BackgroundColors = {metauniLightBlue, Color3.fromHex("303036")},
+                                Transparencies = {0,1},
+                                Selected = Fusion.Computed(function()
+                                    return false
+                                end),
+                                [Fusion.OnEvent "MouseButton1Down"] = function()
+                                    self:_startBoardSelectMode("showToAI")
                                     screenGui:Destroy()
                                 end,
                             },
