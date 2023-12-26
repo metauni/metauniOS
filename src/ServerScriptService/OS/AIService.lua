@@ -77,7 +77,11 @@ local function safePostAsync(apiUrl, encodedRequest, authDict)
 
     if not success then
         warn(`[AIService] PostAsync to {apiUrl} failed.`)
-        warn("            " .. response)
+        warn(response)
+        warn("Request follows:")
+        warn("--------")
+        warn(encodedRequest)
+        
         return
     end	
 
@@ -252,10 +256,6 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
     -- For ChatGPT the prompt is a list of messages, as in
     -- "messages": [{"role": "user", "content": "What is the OpenAI mission?"}]
     request["messages"] = prompt
-    
-	if plr ~= nil then
-		request["user"] = tostring(plr.UserId)
-	end
 
     local encodedRequest = HttpService:JSONEncode(request)
 
@@ -263,7 +263,10 @@ function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, p
     local responseData = safePostAsync(API_URL, encodedRequest,
         {["Authorization"] = "Bearer " .. SecretService.GPT_API_KEY})
 
-    if responseData == nil then return end
+    if responseData == nil then
+        warn("[AIService] Failed to query GPT")
+        return
+    end
 
     local tokenCount = responseData["usage"]["total_tokens"]
 

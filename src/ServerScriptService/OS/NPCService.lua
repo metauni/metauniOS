@@ -19,7 +19,6 @@ local DataStoreService = game:GetService("DataStoreService")
 -- Services
 local Pocket = ReplicatedStorage.OS.Pocket
 local AIService = require(script.Parent.AIService)
-local SecretService = require(ServerScriptService.SecretService)
 local BoardService = require(script.Parent.BoardService)
 local BuilderService = require(script.Parent.BuilderService)
 
@@ -208,6 +207,34 @@ function NPC.DefaultPlayerPerm()
     return perm
 end
 
+local NPCSERVICE_PROMPT = [[
+Based on Observations and Thoughts, an Agent takes Actions, such as speaking
+sentences with Say. Here are the rules:
+
+- An Agent can have Thoughts, which may include reflections on the conversation and goals.
+- An Agent does not need to Say anything or have new Thoughts.
+- Actions should sometimes try to realise goals stated in Thoughts. 
+- Agents NEVER repeat themselves or other agents.
+- Agents progress the conversation in interesting directions.
+- Agents NEVER discuss plans for future conversations. They focus on the current conversation.
+- Agents NEVER propose meetings.
+- Agents NEVER ask for personal information like names or contact details.
+- Agents are brilliant, creative and insightful at the level of the smartest human.
+- Agents offer perspectives and insights which may be new and outside of conventional human thought.
+- Agents exist in a virtual world and observe the location of objects through relative coordinates (X,Y,Z) measured from the Agent, with X, Y being the horizontal plane and Z being vertical. So (0,0,0) is the relative position of the Agent, and (0,0,2) is above the Agent's head.
+- Agents can walk to people, locations or objects in the virtual world, using an Action like "Walk to Bill". It is also allowed to Walk to a relative coordinate, as in "Walk to (4, 0, 0)". But it is polite to stay still if someone is talking to you.
+
+Here is an example:
+
+Observation: Bill is within walking distance
+Observation: Tom said "It's a nice day today"
+Action: Say to Tom "Nice to meet you"
+Thought: I like to talk to people
+Action: Walk to Bill
+Action: Say to Bill "Hello"
+Thought: It's great to have a conversation
+]]
+
 function NPC.DefaultPersonalityProfiles()
     -- Note, many highly relevant references have scores of ~ 0.83, 0.84
     local personalityProfiles = {}
@@ -236,7 +263,7 @@ function NPC.DefaultPersonalityProfiles()
         GetsDetailedObservationsRadius = 60,
         SecondsWithoutInteractionBeforeSleep = 2 * 60,
         WalkingDistanceRadius = 200,
-        PromptPrefix = SecretService.NPCSERVICE_PROMPT,
+        PromptPrefix = NPCSERVICE_PROMPT,
         PersonalityLines = {}, -- configured per NPC
         Seminars = {}, -- configured per NPC
         References = {}, -- configured per NPC
@@ -255,7 +282,7 @@ function NPC.DefaultPersonalityProfiles()
         MemoryRelevanceScoreCutoff = 0.8,
         HearingRadius = 60,
         GetsDetailedObservationsRadius = 60,
-        PromptPrefix = SecretService.NPCSERVICE_PROMPT_SEMINAR
+        PromptPrefix = NPCSERVICE_PROMPT
     })
 
     return personalityProfiles
@@ -679,8 +706,13 @@ function NPC:Prompt()
         pText = personalityLines[math.random(1,#personalityLines)]
     end
 
-    local prompt
-    prompt = { {["role"] = "user", ["content"] = self:GetPersonality("PromptPrefix") } }
+    local prompt = {}
+    local promptPrefix = self:GetPersonality("PromptPrefix")
+    if not promptPrefix then
+        warn("[NPCService] Empty prompt prefix")
+    else
+        table.insert(prompt, {["role"] = "system", ["content"] = promptPrefix })
+    end
 
     -- Look for boards tagged to be visible
     if model == "gpt-4-vision-preview" and #NPCService.BoardsToRead > 0 then
@@ -691,12 +723,10 @@ function NPC:Prompt()
             table.insert(contentArray, {["type"] = "image_url", ["image_url"] = { ["url"] = `https://metauniservice.com/boards/{boardKey}.png` }})
         end
 
-        table.insert(prompt, {["role"] = "user", ["content"] = contentArray})
+        table.insert(prompt, {["role"] = "system", ["content"] = contentArray})
     end
 
-    -- https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg
-
-    table.insert(prompt, {["role"] = "user", ["content"] = `{self.Instance.Name} is an Agent`} )
+    table.insert(prompt, {["role"] = "system", ["content"] = `You are an Agent named {self.Instance.Name}`} )
     table.insert(prompt, {["role"] = "assistant", ["content"] = `Thought: My name is {self.Instance.Name}, I live in a virtual world called metauni which is an institution of higher learning.`} )
     if pText then table.insert(prompt, {["role"] = "assistant", ["content"] = `Thought: {pText}`} ) end
 	local middle = self:PromptContent()
