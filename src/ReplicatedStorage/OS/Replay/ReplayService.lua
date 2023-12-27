@@ -306,27 +306,27 @@ function ReplayService:NewOrbStudio(orbServer: OrbServer.OrbServer, recordingNam
 end
 
 function ReplayService:Play(orbPart, replayId: string)
-    local stage = self.OrbToStage.Value[orbPart]
-    local orbServer: OrbServer.OrbServer = OrbService.Orbs[orbPart]
-    if not orbServer then
-        warn("No orb found")
-        return
-    end
+	local stage = self.OrbToStage.Value[orbPart]
+	local orbServer: OrbServer.OrbServer = OrbService.Orbs[orbPart]
+	if not orbServer then
+		warn("No orb found")
+		return
+	end
 
-    if stage then
-        stage.Destroy()
-    end
+	if stage then
+		stage.Destroy()
+	end
 
-    stage = Stage {
-        DataStore = self.ReplayDataStore,
-        Origin = orbServer.GetReplayOrigin(),
-        ReplayId = replayId,
-        BoardGroup = orbServer.GetBoardGroup(),
-    }
+	stage = Stage {
+		DataStore = self.ReplayDataStore,
+		Origin = orbServer.GetReplayOrigin(),
+		ReplayId = replayId,
+		BoardGroup = orbServer.GetBoardGroup(),
+	}
 
-    self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
-    stage.Init()
-    stage.Play()
+	self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
+	stage.Init()
+	stage.Play()
 end
 
 
