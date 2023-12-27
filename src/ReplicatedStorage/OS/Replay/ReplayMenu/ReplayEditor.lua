@@ -222,10 +222,12 @@ return function(props: {
 		end))
 	end))
 
-	return UI.RoundedFrame {
+	return UI.RoundedBackplate {
 		AnchorPoint = Vector2.new(0.5,0.5),
 		Position = UDim2.fromScale(0.5,0.5),
 		Size = UDim2.fromOffset(550, 300),
+
+		BackgroundColor3 = Color3.new(1,1,1),
 
 		Blend.New "UIStroke" { Thickness = 2 },
 

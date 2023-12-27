@@ -1,15 +1,20 @@
+local GuiService = game:GetService("GuiService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local Maid = require(ReplicatedStorage.Util.Maid)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
+
+-- Mute button blocker constants
+local BLOCKERTHICKNESS = 0.01
+local BLOCKERNEARPLANEZOFFSET = 0.5
 
 local UI = {}
 
 local function addRoundedCorner(props)
-	if props.CornerRadius == 0 then
-		return props
-	end
 	return Sift.Dictionary.merge(props, {
 		[Blend.Children] = Sift.Array.concat(props[Blend.Children], {
 			Blend.New "UICorner" {
@@ -206,5 +211,138 @@ function UI.VerticalListLayout(props)
 
 	return Blend.New "UIListLayout" (props)
 end
+
+function UI.RoundedBackplate(props: {[any]: any?} & {Visible: any?})
+	assert(props.Transparency == nil or props.Transparency == 0, "Backplate cannot be transparent (for mute button blocker)")
+	if props.CornerRadius then
+		assert(typeof(props.CornerRadius) == "UDim", "Bad CornerRadius")
+		assert(props.CornerRadius.Scale == 0, "Backplate CornerRadius must be offset only")
+	end
+
+	props = Sift.Dictionary.merge({
+		BackgroundColor3 = Color3.new(0,0,0),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		CornerRadius = UDim.new(0, 5),
+	}, props)
+
+	;(props :: any)[Blend.Attached(function(frame)
+		if not frame then
+			return
+		end
+
+		local maid = Maid.new()
+
+		local Part = maid:Add(Blend.State(nil))
+
+		local ScreenGui = Rx.fromSignal(frame.AncestryChanged):Pipe {
+			Rx.defaultsToNil,
+			Rx.map(function()
+				local instance = frame.Parent
+				while instance ~= nil and not instance:IsA("ScreenGui") do
+					instance = instance.Parent
+				end
+
+				return instance
+			end),
+		}
+
+		local InsideEnabledScreenGui = ScreenGui:Pipe {
+			Rx.switchMap(function(screenGui)
+				if screenGui == nil then
+					return Rx.of(false)
+				end
+
+				return Rxi.propertyOf(screenGui, "Enabled")
+			end),
+		}
+
+		local AbsoluteSize = Rxi.propertyOf(frame, "AbsoluteSize")
+		local AbsolutePosition = Rxi.propertyOf(frame, "AbsolutePosition")
+		local CamProps = Rxi.propertyOf(workspace, "CurrentCamera"):Pipe {
+			Rx.switchMap(function(camera)
+				return Rx.combineLatest {
+					CFrame       = Rxi.propertyOf(camera, "CFrame"),
+					NearPlaneZ   = Rxi.propertyOf(camera, "NearPlaneZ"),
+					ViewportSize = Rxi.propertyOf(camera, "ViewportSize"),
+					FieldOfView  = Rxi.propertyOf(camera, "FieldOfView"),
+				}
+			end)
+		}
+
+		-- Returns the stud size of a pixel projected onto a plane facing the camera at
+		-- a given zDistance
+		local function pixelsToStuds(viewportSize, fieldOfView, zDistance)
+			return (1 / viewportSize.Y) * 2 * zDistance * math.tan(math.rad(fieldOfView) / 2)
+		end
+
+
+		maid:Add(Rx.combineLatest {
+			Part = Part:Observe(),
+			CamProps = CamProps,
+			AbsolutePosition = AbsolutePosition,
+			AbsoluteSize = AbsoluteSize,
+		}:Subscribe(function(state)
+
+			if not state.Part then
+				return
+			end
+			
+			state.AbsoluteSize -= 2 * Vector2.new(props.CornerRadius.Offset, props.CornerRadius.Offset)
+			state.AbsolutePosition += Vector2.new(props.CornerRadius.Offset, props.CornerRadius.Offset)
+
+			local zDistance = state.CamProps.NearPlaneZ + BLOCKERNEARPLANEZOFFSET
+			local factor = pixelsToStuds(state.CamProps.ViewportSize, state.CamProps.FieldOfView, zDistance)
+
+			state.Part.Size = Vector3.new(
+				state.AbsoluteSize.X * factor * 0.99,
+				state.AbsoluteSize.Y * factor * 0.99,
+				BLOCKERTHICKNESS
+			)
+
+			local viewportCentre = state.CamProps.ViewportSize / 2
+			local canvasCentre = state.AbsolutePosition + state.AbsoluteSize / 2 + GuiService:GetGuiInset()
+			local pixelShift = canvasCentre - viewportCentre
+
+			local x = pixelShift.X * factor
+			local y = -pixelShift.Y * factor
+
+			-- Position blocker to coincide with backplate
+			state.Part.CFrame = state.CamProps.CFrame * CFrame.new(x, y, 0) + state.CamProps.CFrame.LookVector * (zDistance + BLOCKERTHICKNESS / 2)
+		end))
+
+		maid:Add(Blend.mount(workspace, {
+			Blend.New "Part" {
+				Name = "MuteButtonBlocker",
+				Color = Color3.new(0,0,0),
+
+				Transparency = Blend.Computed(InsideEnabledScreenGui, props.Visible or true, function(enabled, visible)
+					return if enabled and visible then 0.95 else 1 -- Must be semi-transparent (not fully) to actually block click events
+				end),
+				Anchored = true,
+				CanCollide = false,
+				CastShadow = false,
+				CanQuery = true,
+
+				function(part)
+					Part.Value = part
+				end,
+			}
+		}))
+
+		return maid
+	end)] = true
+
+	return Blend.New "Frame" (addRoundedCorner(props))
+end
+
+function UI.Backplate(props)
+
+	props = Sift.Dictionary.set(props, "CornerRadius", UDim.new(0, 0))
+
+	return UI.RoundedBackplate(props)
+end
+
+
 
 return UI

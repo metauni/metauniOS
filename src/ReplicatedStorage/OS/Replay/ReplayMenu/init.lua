@@ -37,7 +37,8 @@ return function(props: {
 
 	function self.render()
 
-		local replayMenu = UI.RoundedFrame {
+		local replayMenu = UI.RoundedBackplate {
+			Name = "Backplate",
 			Visible = Blend.Computed(CurrentEditingReplay, function(replay)
 				return replay == nil
 			end),
