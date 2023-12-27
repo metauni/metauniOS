@@ -108,28 +108,15 @@ return function(target)
 		menu:render()
 	}))
 
-	menu.SetReplayList({
-		{
-			ReplayName = "Test Replay",
-			ReplayId = "1",
-		},
-		{
-			ReplayName = "Test Replay",
-			ReplayId = "2",
-		},
-		{
-			ReplayName = "Test Replay",
-			ReplayId = "3",
-		},
-		{
-			ReplayName = "Test Replay",
-			ReplayId = "4",
-		},
-		{
-			ReplayName = "Test Replay",
-			ReplayId = "5",
-		},
-	})
+	local replayList = {}
+	for i=1 , 30 do
+		table.insert(replayList, {
+			ReplayName = "Replay "..string.char(string.byte("A") + (i-1)),
+			ReplayId = tostring(i),
+		})
+	end
+
+	menu.SetReplayList(replayList)
 
 	return function()
 		maid:DoCleaning()

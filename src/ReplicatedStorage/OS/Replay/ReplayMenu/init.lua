@@ -146,6 +146,18 @@ return function(props: {
 				Size = UDim2.new(1,0, 1, -50),
 				BackgroundTransparency = 1,
 
+				ScrollingDirection = Enum.ScrollingDirection.Y,
+				CanvasSize = Blend.Computed(ReplayList, function(replayList)
+					if #replayList == 0 then
+						return UDim2.fromScale(1,1)
+					end
+					local height = 4
+					for _, replay in replayList do
+						height += 51
+					end
+					return UDim2.new(1, 0, 0, height)
+				end),
+
 				Blend.New "UIListLayout" {
 					Padding = UDim.new(0, 1),
 					FillDirection = Enum.FillDirection.Vertical,

@@ -35,15 +35,19 @@ local function listen(board, Timeline: ValueObject.ValueObject<{}>, startTime: n
 end
 
 local function extractStrippedBoardContainer(boardServer: metaboard.BoardServer)
-	local container = boardServer:GetContainer():Clone()
+	local container = (boardServer:GetContainer() :: Instance):Clone()
 
 	local function clean(instance: Instance)
-		if instance:IsA("BasePart") then
-			instance.Anchored = true
-		elseif not instance:IsA("Model") then
+		if instance.ClassName == "Folder" and instance.Name == "metaboardRemotes" then
 			instance:Destroy()
 			return
 		end
+
+		if instance.ClassName == "IntValue" and instance.Name == "PersistId" then
+			instance:Destroy()
+			return
+		end
+
 		for _, child in instance:GetChildren() do
 			clean(child)
 		end
