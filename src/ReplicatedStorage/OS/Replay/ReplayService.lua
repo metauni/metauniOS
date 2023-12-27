@@ -142,6 +142,9 @@ function ReplayService:Start()
 			end
 		end
 
+		studio.Destroy()
+		self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, nil)
+
 		return true
 	end
 
