@@ -479,7 +479,7 @@ function OrbServer.new(orbPart: Part)
 			end
 
 			local poiBoardsSet = Sift.Set.filter(BoardService.BoardServerBinder:GetAllSet(), function(board)
-				return not board:GetPart():HasTag("metaboard_personal_board") and not board:GetPart():HasTag("orbcam_ignore")
+				return not board:GetPart():HasTag("metaboard_personal_board") and not board:GetPart():HasTag("orbcam_ignore") and not (board:GetPart() :: Instance):IsDescendantOf(workspace)
 			end)
 
 			local firstBoard, firstPart do
