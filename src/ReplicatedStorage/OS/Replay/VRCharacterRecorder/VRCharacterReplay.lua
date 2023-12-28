@@ -5,6 +5,7 @@ local SoundReplay = require(ReplicatedStorage.OS.Replay.SoundReplay)
 local t = require(ReplicatedStorage.Packages.t)
 local Blend = require(ReplicatedStorage.Util.Blend)
 local Maid = require(ReplicatedStorage.Util.Maid)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 
 local updateAnchoredFromInputs = require(script.Parent.updateAnchoredFromInputs)
 
@@ -98,13 +99,16 @@ end
 
 local function bindTranslucency(character: Model, Translucent): Maid.Task
 	local cleanup = {}
+
+	character:SetAttribute("VisibilityFactor", 0.1)
+
 	for _, desc in character:GetDescendants() do
 		if desc:IsA("BasePart") then
 			local baseTransparency = desc.Transparency
 			table.insert(cleanup, Blend.mount(desc, {
-				Transparency = Blend.Computed(Translucent, function(translucent)
+				Transparency = Blend.Computed(Translucent, Rxi.attributeOf(character, "VisibilityFactor"), function(translucent, factor)
 					local baseVisible = 1 - baseTransparency
-					return translucent and 1 - baseVisible * 0.5 or baseTransparency
+					return translucent and 1 - baseVisible * factor or baseTransparency
 				end)
 			}))
 			table.insert(cleanup, function()
@@ -112,6 +116,17 @@ local function bindTranslucency(character: Model, Translucent): Maid.Task
 			end)
 		end
 	end
+
+	table.insert(cleanup, Blend.mount(character, {
+		Blend.New "Highlight" {
+			Enabled = Translucent,
+			DepthMode = Enum.HighlightDepthMode.Occluded,
+			FillColor = Color3.new(0,0,0),
+			FillTransparency = 0.5,
+			OutlineTransparency = 0,
+			OutlineColor = Color3.new(0,0,0),
+		}
+	}))
 
 	return cleanup
 end
