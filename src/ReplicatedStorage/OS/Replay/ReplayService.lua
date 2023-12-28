@@ -356,7 +356,7 @@ function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 
 	self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
 
-	local cleanup = {function() warn("cleanup") end}
+	local cleanup = {}
 	self._stageMaid[orbPart] = cleanup
 
 	table.insert(cleanup, stage)

@@ -77,9 +77,9 @@ local function StageUI(props: {
 
 			Text = Blend.Computed(props.Timestamp, props.Duration, function(timestamp, duration)
 				if duration < 3600 then -- <1hr
-					return `{os.date("!%M:%S", timestamp)} - {os.date("!%M:%S", duration)}`
+					return `{os.date("!%M:%S", timestamp or 0)} - {os.date("!%M:%S", duration)}`
 				else
-					return `{os.date("!%H:%M:%S", timestamp)} - {os.date("!%H:%M:%S", duration)}`
+					return `{os.date("!%H:%M:%S", timestamp or 0)} - {os.date("!%H:%M:%S", duration)}`
 				end
 			end),
 			TextScaled = true,
