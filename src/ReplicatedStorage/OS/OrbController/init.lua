@@ -845,7 +845,11 @@ function OrbController:Start()
 	})
 
 	observeAttachedOrb:Subscribe(function(orb)
-		if orb == nil then
+		if orb then
+			if orb:GetAttribute("ReplayActive") then
+				ReplayController.showStageUI(orb)
+			end
+		else
 			ReplayController.destroyStageUI()
 		end
 	end)

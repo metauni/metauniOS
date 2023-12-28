@@ -344,7 +344,7 @@ function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 	end
 
 	if stage then
-		stage.Play()
+		stage.Destroy()
 	end
 
 	stage = Stage {
