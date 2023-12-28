@@ -135,11 +135,7 @@ local function CharacterReplay(props: Props)
 				end
 			end
 		end))
-
-		table.insert(cleanup, function()
-			character.Parent = nil
-		end)
-
+		
 		table.insert(cleanup, Blend.mount(character, {
 
 			Parent = CharacterParent,
@@ -196,6 +192,12 @@ local function CharacterReplay(props: Props)
 	
 			break
 		end
+	end
+
+	function self.RewindTo(playhead: number)
+		timelineIndex = 1
+		visibleTimelineIndex = 1
+		self.UpdatePlayhead(playhead)
 	end
 
 	return self

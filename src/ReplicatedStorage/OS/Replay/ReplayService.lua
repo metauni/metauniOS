@@ -8,6 +8,7 @@ local OrbService = require(ServerScriptService.OS.OrbService)
 local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local t = require(ReplicatedStorage.Packages.t)
+local Maid = require(ReplicatedStorage.Util.Maid)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
@@ -29,6 +30,7 @@ local ReplayService = {}
 function ReplayService:Init()
 	self.OrbToStudio = ValueObject.new({})
 	self.OrbToStage = ValueObject.new({})
+	self._stageMaid = Maid.new()
 end
 
 function ReplayService:Start()
@@ -200,8 +202,33 @@ function ReplayService:Start()
 		return replays
 	end
 
-	Remotes.Play.OnServerEvent:Connect(function(_player: Player, orbPart, replayId: string)
-		self:Play(orbPart, replayId)
+	Remotes.InitReplay.OnServerEvent:Connect(function(_player: Player, orbPart, replayId: string, replayName: string)
+		-- TODO: just trusting the client with the replayName here. yikes
+		self:InitReplay(orbPart, replayId, replayName)
+	end)
+
+	Remotes.Play.OnServerEvent:Connect(function(_player: Player, orbPart)
+		self:Play(orbPart)
+	end)
+
+	Remotes.Pause.OnServerEvent:Connect(function(_player: Player, orbPart)
+		self:Pause(orbPart)
+	end)
+
+	Remotes.SkipAhead.OnServerEvent:Connect(function(_player: Player, orbPart, seconds: number)
+		self:SkipAhead(orbPart, seconds)
+	end)
+
+	Remotes.SkipBack.OnServerEvent:Connect(function(_player: Player, orbPart, seconds: number)
+		self:SkipBack(orbPart, seconds)
+	end)
+
+	Remotes.Restart.OnServerEvent:Connect(function(_player: Player, orbPart)
+		self:Restart(orbPart)
+	end)
+
+	Remotes.Stop.OnServerEvent:Connect(function(_player: Player, orbPart)
+		self:Stop(orbPart)
 	end)
 
 	Remotes.GetCharacterVoices.OnServerInvoke = function(_player: Player, replayId: string)
@@ -308,7 +335,7 @@ function ReplayService:NewOrbStudio(orbServer: OrbServer.OrbServer, recordingNam
 	return studio
 end
 
-function ReplayService:Play(orbPart, replayId: string)
+function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 	local stage = self.OrbToStage.Value[orbPart]
 	local orbServer: OrbServer.OrbServer = OrbService.Orbs[orbPart]
 	if not orbServer then
@@ -317,7 +344,7 @@ function ReplayService:Play(orbPart, replayId: string)
 	end
 
 	if stage then
-		stage.Destroy()
+		stage.Play()
 	end
 
 	stage = Stage {
@@ -328,8 +355,98 @@ function ReplayService:Play(orbPart, replayId: string)
 	}
 
 	self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
+
+	local cleanup = {function() warn("cleanup") end}
+	self._stageMaid[orbPart] = cleanup
+
+	table.insert(cleanup, stage)
+	table.insert(cleanup, function()
+		orbPart:SetAttribute("ReplayActive", false)
+		orbPart:SetAttribute("ReplayId", "")
+		orbPart:SetAttribute("ReplayName", "")
+		orbPart:SetAttribute("ReplayDuration", 0)
+		orbPart:SetAttribute("ReplayPlayState", "")
+		self.OrbToStage.Value = Sift.Dictionary.removeKey(self.OrbToStage.Value, orbPart)
+	end)
+
+	orbPart:SetAttribute("ReplayActive", true)
+	orbPart:SetAttribute("ReplayId", replayId)
+	orbPart:SetAttribute("ReplayName", replayName)
+	orbPart:SetAttribute("ReplayDuration", stage.GetDuration())
+	table.insert(cleanup, stage.ObservePlayState():Subscribe(function(playState)
+		orbPart:SetAttribute("ReplayPlayState", playState or "")
+	end))
+	table.insert(cleanup, stage.ObserveTimestampSeconds():Subscribe(function(timestamp)
+		orbPart:SetAttribute("ReplayTimestamp", timestamp)
+	end))
+
+	stage.GetFinishedSignal():Once(function()
+		self._stageMaid[orbPart] = nil
+	end)
+
 	stage.Init()
+	-- Immediately play?
 	stage.Play()
+end
+
+function ReplayService:Play(orbPart)
+	local stage: Stage.Stage = self.OrbToStage.Value[orbPart]
+	if not stage then
+		warn("No active stage found")
+		return
+	end
+
+	stage.Play()
+end
+
+function ReplayService:Pause(orbPart)
+	local stage: Stage.Stage = self.OrbToStage.Value[orbPart]
+	if not stage then
+		warn("No active stage found")
+		return
+	end
+	
+	stage.Pause()
+end
+
+function ReplayService:SkipAhead(orbPart, seconds: number)
+	local stage: Stage.Stage = self.OrbToStage.Value[orbPart]
+	if not stage then
+		warn("No active stage found")
+		return
+	end
+	
+	stage.SkipAhead(seconds)
+end
+
+function ReplayService:SkipBack(orbPart, seconds: number)
+	local stage: Stage.Stage = self.OrbToStage.Value[orbPart]
+	if not stage then
+		warn("No active stage found")
+		return
+	end
+	
+	stage.SkipBack(seconds)
+end
+
+function ReplayService:Restart(orbPart)
+	local stage: Stage.Stage = self.OrbToStage.Value[orbPart]
+	if not stage then
+		warn("No active stage found")
+		return
+	end
+	
+	stage.Restart()
+end
+
+function ReplayService:Stop(orbPart)
+	local stage: Stage.Stage = self.OrbToStage.Value[orbPart]
+	if not stage then
+		warn("No active stage found")
+		return
+	end
+	
+	self._stageMaid[orbPart] = nil
 end
 
 

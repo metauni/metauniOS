@@ -11,7 +11,7 @@ return function(props: {
 	SaveReplayCharacterVoicesPromise: (string, any) -> any,
 	OnRecord: (string) -> (),
 	OnClose: () -> (),
-	OnPlay: (string) -> (),
+	OnPlay: (string, string) -> (),
 })
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap() }
@@ -167,7 +167,7 @@ return function(props: {
 					
 					return ListEntry(i, replay, {
 						OnPlay = function()
-							props.OnPlay(replay.ReplayId)
+							props.OnPlay(replay.ReplayId, replay.ReplayName)
 						end,
 						OnEdit = function()
 							CurrentEditingReplay.Value = replay

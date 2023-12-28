@@ -204,7 +204,7 @@ end
 
 function UI.VerticalListLayout(props)
 	props = Sift.Dictionary.merge({
-		FillDirection = Enum.FillDirection.Horizontal,
+		FillDirection = Enum.FillDirection.Vertical,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}, props)

@@ -37,6 +37,7 @@ export type BoardReplayProps = {
 		RecordType: "BoardRecord",
 		Timeline: {any},
 		BoardId: string,
+		AspectRatio: number,
 
 		InitialBoardState: metaboard.BoardState?,
 		BoardInstanceRbx: {
@@ -86,22 +87,36 @@ local function BoardReplay(props: BoardReplayProps): BoardReplay
 	local timelineIndex = 1
 	local finished = false
 
-	local boardContainer = props.Record.BoardInstanceRbx.BoardInstanceContainer:Clone()
-	local boardServer = initBoardInstance(boardContainer, props.BoardParent)
-	maid:GiveTask(boardContainer)
+	-- Bad things happen if Init isn't called
+	local boardServer
 
+	local function initialiseBoardState()
+		local initBoardState = table.clone(props.Record.InitialBoardState or metaboard.BoardState.emptyState(props.Record.AspectRatio))
+
+		if boardServer.Loaded.Value == false then
+			boardServer.State = initBoardState
+			boardServer.Loaded.Value = true
+		else
+			boardServer:SetState(initBoardState)
+		end
+	end
+	
 	function self.Init()
 		timelineIndex = 1
 		finished = false
 
-		if props.Record.InitialBoardState then
-			if boardServer.Loaded.Value == false then
-				boardServer.State = props.Record.InitialBoardState
-				boardServer.Loaded.Value = true
-			else
-				boardServer:SetState(props.Record.InitialBoardState)
-			end
-		end
+		local boardContainer = props.Record.BoardInstanceRbx.BoardInstanceContainer:Clone()
+		boardServer = initBoardInstance(boardContainer, props.BoardParent)
+		maid:GiveTask(boardContainer)
+
+		initialiseBoardState()
+	end
+
+	function self.RewindTo(playhead: number)
+		timelineIndex = 1
+		finished = false
+		initialiseBoardState()
+		self.UpdatePlayhead(playhead)
 	end
 
 	function self.IsFinished()

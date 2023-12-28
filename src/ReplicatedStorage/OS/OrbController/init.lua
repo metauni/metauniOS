@@ -40,6 +40,18 @@ local OrbController = {
 	Orbs = {} :: {[Part]: Orb}
 }
 
+function OrbController:ObserveAttachedOrb()
+	return Rx.of(ReplicatedStorage.OS.OrbController):Pipe {
+		Rxi.findFirstChild("PlayerToOrb"),
+		Rxi.findFirstChildWithClass("ObjectValue", tostring(Players.LocalPlayer.UserId)),
+		Rxi.property("Value"),
+	}
+end
+
+function OrbController:GetAttachedOrb()
+	return Rx.toPromise(OrbController:ObserveAttachedOrb()):Wait()
+end
+
 function OrbController:Start()
 
 	self._showReplayMenu = ValueObject.new(false, "boolean")
@@ -799,10 +811,11 @@ function OrbController:Start()
 			end
 			self._showReplayMenu.Value = false
 		end,
-		OnPlay = function(replayId)
+		OnPlay = function(replayId, replayName)
 			local attachedOrb = AttachedOrb:get()
 			if attachedOrb then
-				ReplayRemotes.Play:FireServer(attachedOrb, replayId)
+				ReplayRemotes.InitReplay:FireServer(attachedOrb, replayId, replayName)
+				ReplayController.showStageUI(attachedOrb)
 			end
 			self._showReplayMenu.Value = false
 		end,
@@ -830,6 +843,12 @@ function OrbController:Start()
 			self._showReplayMenu.Value = false
 		end,
 	})
+
+	observeAttachedOrb:Subscribe(function(orb)
+		if orb == nil then
+			ReplayController.destroyStageUI()
+		end
+	end)
 
 	self._showReplayMenu.Changed:Connect(function()
 		if self._showReplayMenu.Value then

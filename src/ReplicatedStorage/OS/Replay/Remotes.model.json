@@ -22,7 +22,31 @@
 			"ClassName": "RemoteFunction"
 		},
 		{
+			"Name": "InitReplay",
+			"ClassName": "RemoteEvent"
+		},
+		{
 			"Name": "Play",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Pause",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SkipAhead",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "SkipBack",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Restart",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Stop",
 			"ClassName": "RemoteEvent"
 		}
 	]

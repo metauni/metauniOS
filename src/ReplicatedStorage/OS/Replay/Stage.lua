@@ -7,7 +7,10 @@ local RunService = game:GetService("RunService")
 local VRCharacterReplay = require(ReplicatedStorage.OS.Replay.VRCharacterRecorder.VRCharacterReplay)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
+local t = require(ReplicatedStorage.Packages.t)
+local GoodSignal = require(ReplicatedStorage.Util.GoodSignal)
 local Maid = require(ReplicatedStorage.Util.Maid)
+local Rx = require(ReplicatedStorage.Util.Rx)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local Serialiser = require(script.Parent.Serialiser)
 local BoardReplay = require(script.Parent.BoardRecorder.BoardReplay)
@@ -31,10 +34,12 @@ local function Stage(props: StageProps)
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap(), props = props }
 
-	local Playing = ValueObject.new(false)
-	local SegmentIndex = ValueObject.new(1, "number")
-	local Pausehead = ValueObject.new(0)
+	local Playing = maid:Add(ValueObject.new(false))
+	local SegmentIndex = maid:Add(ValueObject.new(1, "number"))
+	local Pausehead = maid:Add(ValueObject.new(0))
 	local initialised = false
+	local finishedSignal = maid:Add(GoodSignal.new())
+	local TimestampSeconds = maid:Add(ValueObject.new(0))
 
 	local segments = {}
 	maid:GiveTask(function()
@@ -131,6 +136,13 @@ local function Stage(props: StageProps)
 		initialised = true
 	end
 
+	function self.GetFinishedSignal()
+		return finishedSignal
+	end
+
+	-- Remember could be nil
+	local timeAtResume
+
 	function self.Play()
 		if not initialised then
 			error("Not initialised. Call stage.Init()")
@@ -140,19 +152,17 @@ local function Stage(props: StageProps)
 		end
 		local segment = getSegment()
 
-		local cleanup = {}
-		maid._playing = cleanup
-
 		for _, replay in segment.Replays do
 			if typeof(replay.SetActive) == "function" then
 				replay.SetActive(true)
 			end
 		end
 
-		local timeAtResume = os.clock()
+		timeAtResume = os.clock()
 
-		table.insert(cleanup, RunService.Heartbeat:Connect(function()
+		maid._playing = RunService.Heartbeat:Connect(function()
 			local timestamp = Pausehead.Value + (os.clock() - timeAtResume)
+			TimestampSeconds.Value = math.round(timestamp)
 			for _, replay in segment.Replays do
 				replay.UpdatePlayhead(timestamp)
 			end
@@ -165,11 +175,85 @@ local function Stage(props: StageProps)
 						replay.SetActive(false)
 					end
 				end
-				self.Destroy()
+				
+				print("finished!")
+				finishedSignal:Fire()
 			end
-		end))
+		end)
 
 		Playing.Value = true
+	end
+
+	function self.Pause()
+		maid._playing = nil
+		local segment = getSegment()
+		for _, replay in segment.Replays do
+			if typeof(replay.SetActive) == "function" then
+				replay.SetActive(false)
+			end
+		end 
+
+		if timeAtResume then
+			Pausehead.Value = Pausehead.Value + (os.clock() - timeAtResume)
+			timeAtResume = nil
+		end
+		Playing.Value = false
+	end
+
+	function self.SkipAhead(seconds: number)
+		assert(t.numberPositive(seconds), "Bad seconds")
+		Pausehead.Value += seconds
+	end
+
+	function self.SkipBack(seconds: number)
+		assert(t.numberPositive(seconds), "Bad seconds")
+		
+		local wasPlaying = Playing.Value
+		self.Pause()
+		local newPausehead = math.max(0, Pausehead.Value - seconds)
+		local segment = getSegment()
+		for _, replay in segment.Replays do
+			if typeof(replay.RewindTo) == "function" then
+				replay.RewindTo(newPausehead)
+			end
+		end
+		Pausehead.Value = newPausehead
+		if wasPlaying then
+			self.Play()
+		end
+	end
+
+	function self.Restart()
+		
+		local wasPlaying = Playing.Value
+		self.Pause()
+		local segment = getSegment()
+		for _, replay in segment.Replays do
+			if typeof(replay.RewindTo) == "function" then
+				replay.RewindTo(0)
+			end
+		end
+		Pausehead.Value = 0
+		if wasPlaying then
+			self.Play()
+		end
+	end
+
+	function self.ObservePlayState()
+		return Playing:Observe():Pipe {
+			Rx.map(function(playing)
+				return playing and "Playing" or "Paused"
+			end)
+		}
+	end
+
+	function self.ObserveTimestampSeconds()
+		return TimestampSeconds:Observe()
+	end
+
+	function self.GetDuration()
+		local segment = getSegment()
+		return segment.EndTimestamp
 	end
 
 	return self

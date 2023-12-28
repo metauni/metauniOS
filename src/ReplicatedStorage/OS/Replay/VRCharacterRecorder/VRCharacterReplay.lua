@@ -246,10 +246,6 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 		table.insert(cleanup, Blend.mount(chalk, {
 			Parent = ChalkParent,
 		}))
-
-		table.insert(cleanup, function()
-			character.Parent = nil
-		end)
 	end))
 
 	function self.UpdatePlayhead(playhead: number)
@@ -288,7 +284,13 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 			break
 		end
 	end
-		
+	
+	function self.RewindTo(playhead: number)
+		timelineIndex = 1
+		visibleTimelineIndex = 1
+		chalkTimelineIndex = 1
+		self.UpdatePlayhead(playhead)
+	end
 
 	return self
 end
