@@ -100,7 +100,7 @@ local function StudioMenu(props: {
 	function self.render()
 		return UI.Div {
 			AnchorPoint = Vector2.new(0.5,0),
-			Position = UDim2.fromScale(0.5,0),
+			Position = UDim2.new(0.5,0,0,40),
 			Size = UDim2.fromOffset(130, 40),
 			BackgroundTransparency = 0.4,
 			BackgroundColor3 = Color3.new(0.3,0.3,0.35),
