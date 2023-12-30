@@ -12,6 +12,10 @@
         {
             "Name": "ShowToAI",
             "ClassName": "RemoteEvent"
+        },
+        {
+            "Name": "RequestBuilderTools",
+            "ClassName": "RemoteEvent"
         }
 	]
 }

@@ -1,17 +1,16 @@
--- Roblox services
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
--- Other services
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
 local Value = Fusion.Value
 local Children = Fusion.Children
 local OnEvent = Fusion.OnEvent
 
--- Globals
+local Remotes = script.Parent.Remotes
+
 local BLOCKTAG = "builderservice_block"
 local localPlayer = Players.LocalPlayer
 local placeBlockEvent = ReplicatedStorage:WaitForChild("BuilderPlaceBlock")
@@ -179,8 +178,8 @@ local function tearDown()
 end
 
 local function Setup()
-    localPlayer:WaitForChild("Backpack")
-    local tool = localPlayer.Backpack:WaitForChild("Builder Tools",120)
+    Remotes.RequestBuilderTools:FireServer()
+    local tool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Builder Tools")
     
     tool.Equipped:Connect(function()
         -- Do not setup if already connected

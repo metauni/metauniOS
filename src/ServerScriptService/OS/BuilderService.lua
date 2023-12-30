@@ -1,16 +1,11 @@
---
--- BuilderService
---
-
 -- Services
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Imports
 local Destructor = require(ReplicatedStorage.OS.Destructor)
+local Remotes = ReplicatedStorage.OS.Remotes
 
--- Globals
 local _infoOfPlayer = {}
 local BuildingStorage = nil
 local WorkspaceFolder = nil
@@ -32,38 +27,6 @@ end
 
 local BuilderService = {}
 BuilderService.__index = BuilderService
-
-local function initPlayer(player)
-	local destructor = Destructor.new()
-
-	local function initTool(character)
-			
-		local tool = Instance.new("Tool")
-		tool.Name = "Builder Tools"
-        tool.RequiresHandle = false
-		tool.Parent = player.Backpack
-
-		do
-			local connection
-			connection = player.CharacterRemoving:Connect(function()
-				tool:Destroy()
-				connection:Disconnect()
-			end)
-		end
-	end
-	
-	if player.Character then
-		initTool(player.Character)
-	end
-
-	destructor:Add(player.CharacterAdded:Connect(initTool))
-	
-	_infoOfPlayer[player] = {
-		Destroy = function()
-			destructor:Destroy()
-		end,
-	}
-end
 
 function BuilderService.DestroyBlock(pos)
     local size = 1/10 * GRID_SIZE
@@ -127,6 +90,14 @@ function BuilderService.Init()
 
         intersectPart:Destroy()
     end)
+
+    Remotes.RequestBuilderTools.OnServerEvent:Connect(function(player: Player)
+        local tool = Instance.new("Tool")
+		tool.Name = "Builder Tools"
+        tool.RequiresHandle = false
+        tool.CanBeDropped = false
+		tool.Parent = player:WaitForChild("Backpack")
+	end)
 end
 
 function BuilderService.Start()
@@ -142,10 +113,6 @@ function BuilderService.Start()
         WorkspaceFolder.Parent = workspace
     end
     
-    for _, player in ipairs(Players:GetPlayers()) do
-        initPlayer(player)
-    end
-
     Players.PlayerRemoving:Connect(function(player)
         local info = _infoOfPlayer[player]
         
@@ -155,8 +122,6 @@ function BuilderService.Start()
 
         _infoOfPlayer[player] = nil
     end)
-
-    Players.PlayerAdded:Connect(initPlayer)
 end
 
 return BuilderService
