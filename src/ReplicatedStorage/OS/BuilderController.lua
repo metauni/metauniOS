@@ -4,6 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
+local Rx = require(ReplicatedStorage.Util.Rx)
+local Rxi = require(ReplicatedStorage.Util.Rxi)
 local New = Fusion.New
 local Value = Fusion.Value
 local Children = Fusion.Children
@@ -177,34 +179,28 @@ local function tearDown()
     end
 end
 
-local function Setup()
-    if not Players.LocalPlayer:FindFirstChild("Backpack") then
-        Remotes.RequestBuilderTools:FireServer()
-        task.wait(3)
-
-        local tool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Builder Tools")
+local function Setup(tool: Tool)
     
-        tool.Equipped:Connect(function()
-            -- Do not setup if already connected
-            if inputConnection then return end
+    tool.Equipped:Connect(function()
+        -- Do not setup if already connected
+        if inputConnection then return end
 
-            if not UserInputService.TouchEnabled then
-                inputConnection = UserInputService.InputBegan:Connect(handleInputBegan)
-                inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
-                inputEndedConnection = UserInputService.InputEnded:Connect(handleInputEnded)
-            else
-                inputConnection = UserInputService.TouchStarted:Connect(handleInputBegan)
-                inputChangedConnection = UserInputService.TouchMoved:Connect(handleInputChanged)
-                inputEndedConnection = UserInputService.TouchEnded:Connect(handleInputEnded)
-            end
+        if not UserInputService.TouchEnabled then
+            inputConnection = UserInputService.InputBegan:Connect(handleInputBegan)
+            inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
+            inputEndedConnection = UserInputService.InputEnded:Connect(handleInputEnded)
+        else
+            inputConnection = UserInputService.TouchStarted:Connect(handleInputBegan)
+            inputChangedConnection = UserInputService.TouchMoved:Connect(handleInputChanged)
+            inputEndedConnection = UserInputService.TouchEnded:Connect(handleInputEnded)
+        end
 
-            BuilderUIEnabled:set(true)
-        end)
+        BuilderUIEnabled:set(true)
+    end)
 
-        tool.Unequipped:Connect(function()
-            tearDown()
-        end)
-    end
+    tool.Unequipped:Connect(function()
+        tearDown()
+    end)
 
     -- The block choosing UI
     local blockGuis = {}
@@ -256,11 +252,16 @@ local function Setup()
     }
 end
 
-Players.LocalPlayer.CharacterAdded:Connect(function(character)
-    tearDown()
-    Setup()
-end)
-
 return {
-    Start = Setup
+    Start = function()
+        Rx.of(localPlayer):Pipe {
+            Rxi.findFirstChild("Backpack"),
+            Rxi.findFirstChild("Builder Tools"),
+        }:Subscribe(function(tool: Tool?)
+            tearDown()
+            if tool then
+                Setup(tool)
+            end
+        end)
+    end
 }
