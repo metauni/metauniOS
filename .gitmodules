@@ -1,0 +1,3 @@
+[submodule "metaboard"]
+	path = metaboard
+	url = https://github.com/metauni/metaboard

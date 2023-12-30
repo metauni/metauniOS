@@ -15,7 +15,7 @@ dependencies = []
 [[package]]
 name = "donotpublish/metaunios"
 version = "0.1.0"
-dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Fusion", "elttob/fusion@0.2.0"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["metaboard", "metauni/metaboard@1.5.1-rc04"], ["t", "osyrisrblx/t@3.0.0"]]
+dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Fusion", "elttob/fusion@0.2.0"], ["GoodSignal", "stravant/goodsignal@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["t", "osyrisrblx/t@3.0.0"]]
 
 [[package]]
 name = "elttob/fusion"
@@ -26,11 +26,6 @@ dependencies = []
 name = "evaera/promise"
 version = "4.0.0"
 dependencies = []
-
-[[package]]
-name = "metauni/metaboard"
-version = "1.5.1-rc04"
-dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"], ["t", "osyrisrblx/t@3.0.0"]]
 
 [[package]]
 name = "osyrisrblx/t"
