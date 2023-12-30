@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ScriptContext = game:GetService("ScriptContext")
 local Players = game:GetService("Players")
+local VRService = game:GetService("VRService")
 
 local Icon = require(ReplicatedStorage.Packages.Icon)
 local Themes =  require(ReplicatedStorage.Packages.Icon.Themes)
@@ -42,7 +43,7 @@ local function createPocketMenu()
 	pocketMenuGui.Parent = Players.LocalPlayer.PlayerGui
 end
 
-if game.PlaceId == PocketConfig.RootPlaceId then
+if game.PlaceId == PocketConfig.RootPlaceId and not VRService.VREnabled then
 	createPocketMenu()
 end
 
