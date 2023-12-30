@@ -387,6 +387,8 @@ function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 	stage.Init()
 	-- Immediately play?
 	stage.Play()
+
+    return stage.GetFinishedSignal()
 end
 
 function ReplayService:Play(orbPart)
