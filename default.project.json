@@ -13,7 +13,47 @@
 		"ReplicatedStorage": {
 			"$className": "ReplicatedStorage",
 			"$ignoreUnknownInstances": true,
-			"$path": "src/ReplicatedStorage"
+			"$path": "src/ReplicatedStorage",
+
+			"Packages": {
+				"$className": "Folder",
+				"$path": "Packages",
+		
+				"NexusVRCharacterModel": {
+					"$path": "CompiledPackages/NexusVRCharacterModel.rbxm"
+				},
+		
+				"NexusVRBackpack": {
+					"$path": "CompiledPackages/NexusVRBackpack.rbxm"
+				},
+		
+				"yaml": {
+					"$path": "CompiledPackages/yaml.lua"
+				},
+		
+				"Icon": {
+					"$path": "CompiledPackages/Icon.rbxm"
+				},
+		
+				"BitBuffer": {
+					"$path": "CompiledPackages/BitBuffer.lua"
+				},
+		
+				"Rose": {
+					"$path": "CompiledPackages/Rose.luau"
+				},
+		
+				"metaboard": {
+					"$path": "metaboard/lib",
+
+					"Assets": {
+						"$path": "metaboard/assets/Assets.lua"
+					},
+					"Util": {
+						"$path": "metaboard/Util"
+					}
+				}
+			}
 		},
 
 		"StarterPlayer": {
