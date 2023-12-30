@@ -178,29 +178,33 @@ local function tearDown()
 end
 
 local function Setup()
-    Remotes.RequestBuilderTools:FireServer()
-    local tool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Builder Tools")
+    if not Players.LocalPlayer:FindFirstChild("Backpack") then
+        Remotes.RequestBuilderTools:FireServer()
+        task.wait(3)
+
+        local tool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Builder Tools")
     
-    tool.Equipped:Connect(function()
-        -- Do not setup if already connected
-        if inputConnection then return end
+        tool.Equipped:Connect(function()
+            -- Do not setup if already connected
+            if inputConnection then return end
 
-        if not UserInputService.TouchEnabled then
-            inputConnection = UserInputService.InputBegan:Connect(handleInputBegan)
-            inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
-            inputEndedConnection = UserInputService.InputEnded:Connect(handleInputEnded)
-        else
-            inputConnection = UserInputService.TouchStarted:Connect(handleInputBegan)
-            inputChangedConnection = UserInputService.TouchMoved:Connect(handleInputChanged)
-            inputEndedConnection = UserInputService.TouchEnded:Connect(handleInputEnded)
-        end
+            if not UserInputService.TouchEnabled then
+                inputConnection = UserInputService.InputBegan:Connect(handleInputBegan)
+                inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
+                inputEndedConnection = UserInputService.InputEnded:Connect(handleInputEnded)
+            else
+                inputConnection = UserInputService.TouchStarted:Connect(handleInputBegan)
+                inputChangedConnection = UserInputService.TouchMoved:Connect(handleInputChanged)
+                inputEndedConnection = UserInputService.TouchEnded:Connect(handleInputEnded)
+            end
 
-        BuilderUIEnabled:set(true)
-    end)
+            BuilderUIEnabled:set(true)
+        end)
 
-    tool.Unequipped:Connect(function()
-        tearDown()
-    end)
+        tool.Unequipped:Connect(function()
+            tearDown()
+        end)
+    end
 
     -- The block choosing UI
     local blockGuis = {}
