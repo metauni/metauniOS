@@ -148,7 +148,7 @@ return function(props: {
 
 				ScrollingDirection = Enum.ScrollingDirection.Y,
 				CanvasSize = Blend.Computed(ReplayList, function(replayList)
-					if #replayList == 0 then
+					if not replayList or #replayList == 0 then
 						return UDim2.fromScale(1,1)
 					end
 					local height = 4
