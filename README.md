@@ -2,6 +2,16 @@
 The metauni Operating System.
 
 ## Setup
+Clone the repo along with the metaboard submodule
+```bash
+git clone https://github.com/metauni/metauniOS --recurse-submodules
+```
+If you have already cloned it without --recurse-submodules, you need to initialise and update the submodules
+```bash
+git submodule update --init
+```
+
+Now install the tooling (with aftman), dependencies (with wally) and then start the rojo server
 ```bash
 aftman install
 wally install
@@ -12,6 +22,35 @@ rojo serve
 
 If wally.toml is updated, stop the rojo server, then `wally install` before
 restarting the rojo server.
+
+## Keeping up to date
+If you `git pull` changes to the repository someone else may have updated the wally.toml or the metaboard submodule.
+There is a script at [lune/sync.luau](./lune/sync.luau) which ensures the integrity of your local repository before
+starting the rojo server. It will also add types to the wally packages.
+```bash
+lune sync
+```
+
+## Updating metaboard
+Main reference: https://git-scm.com/book/en/v2/Git-Tools-Submodules
+To make changes to the metaboard submodule, you need to checkout the main branch from the metaboard directory before
+making changes.
+```bash
+cd metaboard
+git checkout main
+```
+Commit and push the changes within metaboard
+```bash
+git commit -am "commit msg"
+git push
+```
+Commit and push the updated submodule pointer to the main repo
+```bash
+git commit metaboard
+git push
+```
+
+These changes will be consumed by other collaborators when they run `git submodule update --remote` (or they run `lune sync`)
 
 ## Publishing
 metauniOS is versioned via the current commit hash and branch - these are printed
