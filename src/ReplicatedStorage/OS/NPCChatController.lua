@@ -343,6 +343,8 @@ local function SetupAIMenu()
 
             local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
             for _, npcInstance in npcInstances do
+                if not NPCState[npcInstance] then continue end
+                
                 if not npcInstance:IsDescendantOf(game.Workspace) then
                     NPCState[npcInstance]["Visible"]:set(false)
                 else

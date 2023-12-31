@@ -1,13 +1,6 @@
---
--- NPCService
---
--- Techniques for improving inference: https://github.com/openai/openai-cookbook/blob/main/techniques_to_improve_reliability.md
-
--- Roblox services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
-local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 local ChatService = game:GetService("Chat")
 local TweenService = game:GetService("TweenService")
@@ -16,7 +9,6 @@ local TextService = game:GetService("TextService")
 local MessagingService = game:GetService("MessagingService")
 local DataStoreService = game:GetService("DataStoreService")
 
--- Services
 local Pocket = ReplicatedStorage.OS.Pocket
 local AIService = require(script.Parent.AIService)
 local BoardService = require(script.Parent.BoardService)
@@ -267,6 +259,10 @@ function NPC.DefaultPersonalityProfiles()
         PersonalityLines = {}, -- configured per NPC
         Seminars = {}, -- configured per NPC
         References = {}, -- configured per NPC
+        AllowWalk = false,
+        AllowBuilderTools = false,
+        BoardsToRead = {}, -- array of board keys to be passed as images
+        ImageURLs = {}, -- array of URLs passed as images
     }
 
     personalityProfiles.Seminar = updateWith(personalityProfiles.Normal, {
@@ -311,6 +307,7 @@ function NPC.new(instance: Model)
     npc.OrbOffset = nil
     npc.TokenCount = 0
     npc.SearchQuery = nil -- if a player prompts us with a question
+    npc.StepCount = 0
     
     -- Personalisation
     local configScript = npc.Instance:FindFirstChild("NPCConfig")
@@ -339,6 +336,18 @@ function NPC.new(instance: Model)
     return npc
 end
 
+function NPC:Destroy()
+    for i, value in ipairs(NPCService.NPCs) do
+        if value == self then
+            table.remove(NPCService.NPCs, i)
+            break
+        end
+    end
+
+    NPCService.NPCFromInstance[self.Instance] = nil
+    self.Instance:Destroy()
+end
+
 function NPC:SetCurrentProfile(name)
     self.CurrentProfile = name
     self.TimestepDelay = self:GetPersonality("TimestepDelayNormal")
@@ -365,10 +374,26 @@ function NPC:GetPersonality(attribute)
     return self.PersonalityProfiles[self.CurrentProfile][attribute]
 end
 
+function NPC:SetPersonality(attribute, data)
+    self.PersonalityProfiles[self.CurrentProfile][attribute] = data
+end
+
 function NPC:Timestep(forceSearch)
     -- We force additional searches of our databases (e.g. on startup)
     -- including when a player asked a question (which is set in self.SearchQuery)
     forceSearch = forceSearch or self.SearchQuery
+
+    local inWorkspace = self.Instance:IsDescendantOf(game.Workspace)
+    if not inWorkspace then return end
+    if self.Instance.PrimaryPart == nil then return end
+
+    -- Don't double act if we were recently forced to timestep
+    if self.LastTimestep > tick() - 0.5 * self.TimestepDelay then return end
+
+    -- Don't sit around thinking too much without human input
+    if self.LastInteraction < tick() - self:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
+        return
+    end
 
     self:UpdatePersonalityProfile()
 
@@ -429,6 +454,17 @@ function NPC:Timestep(forceSearch)
 
     self.SearchQuery = nil
     self.LastTimestep = tick()
+
+    self.StepCount += 1
+    if self.stepCount == self:GetPersonality("IntervalBetweenSummaries") then
+        local summary = self:GenerateSummary("memory")
+        if summary ~= nil then
+            self:AddThought(summary, "summary")
+            self:AddSummary(summary)
+        end
+    
+        self.StepCount = 0
+    end
 end
 
 function NPC:IsRepeatAction(action)
@@ -723,6 +759,14 @@ function NPC:Prompt()
             table.insert(contentArray, {["type"] = "image_url", ["image_url"] = { ["url"] = `https://metauniservice.com/boards/{boardKey}.png` }})
         end
 
+        for _, boardKey in self:GetPersonality("BoardsToRead") do
+            table.insert(contentArray, {["type"] = "image_url", ["image_url"] = { ["url"] = `https://metauniservice.com/boards/{boardKey}.png` }})
+        end
+
+        for _, url in self:GetPersonality("ImageURLs") do
+            table.insert(contentArray, {["type"] = "image_url", ["image_url"] = { ["url"] = url }})
+        end
+
         table.insert(prompt, {["role"] = "system", ["content"] = contentArray})
     end
 
@@ -823,15 +867,13 @@ function NPC:Prompt()
             --end
 
             if parsedAction.Type == NPC.ActionType.Walk then
+                if not self:GetPersonality("AllowWalk") then continue end
                 if hasMoved then continue end
-                
-                if true then continue end -- TODO Disabling movement
-
-                if self.CurrentProfile == "Seminar" then
-                    continue
-                end
-                    
                 hasMoved = true
+            end
+
+            if parsedAction.Type == NPC.ActionType.Place or parsedAction.Type == NPC.ActionType.Destroy then
+                if not self:GetPersonality("AllowBuilderTools") then continue end
             end
 
             -- The agents sometimes have too much internal monologue
@@ -1225,6 +1267,7 @@ function NPC:WalkToPos(targetPos)
 end
 
 function NPC:RotateToFacePosition(targetPos)
+    if not self.Instance then return end
 	local npcPos = getInstancePosition(self.Instance)
 	if (npcPos - targetPos).Magnitude < 0.1 then
 		return
@@ -1411,16 +1454,19 @@ function NPCService.Init()
     NPCService.PlayerPerms = {} -- plr to permissions for each NPC
     NPCService.BoardsToRead = {}
 
-	local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
-	for _, npcInstance in npcInstances do
+    local function addNPC(npcInstance)
         local npc = NPC.new(npcInstance)
         table.insert(NPCService.NPCs, npc)
         NPCService.NPCFromInstance[npcInstance] = npc
+    end
+
+	local npcInstances = CollectionService:GetTagged(NPCService.NPCTag)
+	for _, npcInstance in npcInstances do
+        addNPC(npcInstance)
 	end
 
     CollectionService:GetInstanceAddedSignal(NPCService.NPCTag):Connect(function(npcInstance)
-        local npc = NPC.new(npcInstance)
-        table.insert(NPCService.NPCs, npc)
+        addNPC(npcInstance)
     end)
 	
     local function playerInit(plr)
@@ -1601,7 +1647,7 @@ end
 
 function NPCService.Start()
     -- Subscribe to messages of voice transcriptions
-    local subscribeSuccess, subscribeConnection = pcall(function()
+    local subscribeSuccess, _ = pcall(function()
         return MessagingService:SubscribeAsync(NPCService.TranscriptionTopic, function(message)
             local messageString = message.Data
             local sourcePlayerName, message = string.match(messageString, "(.+)::(.+)")
@@ -1632,44 +1678,25 @@ function NPCService.Start()
         warn("[NPCService] Failed to subscribe to transcription topic")
     end
 
-    for _, npc in NPCService.NPCs do
-        task.spawn(function()
-            local stepCount = 0
+    local function NPCLoop(npc)
+        while npc and npc.Instance do
+            npc:Timestep()
 
-            while true do
-                local timestepDelay = npc.TimestepDelay
-                timestepDelay += math.random(0, 2)
-                task.wait(timestepDelay)
-
-                local inWorkspace = npc.Instance:IsDescendantOf(game.Workspace)
-                if not inWorkspace then continue end
-                if npc.Instance.PrimaryPart == nil then continue end
-
-                -- Don't double act if we were recently forced to timestep
-                if npc.LastTimestep > tick() - 0.5 * npc.TimestepDelay then continue end
-
-                -- Don't sit around thinking too much without human input
-                if npc.LastInteraction < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
-                    continue
-                end
-
-                ----- take the step ----
-                npc:Timestep()
-                ------------------------
-
-                stepCount += 1
-                if stepCount == npc:GetPersonality("IntervalBetweenSummaries") then
-                    local summary = npc:GenerateSummary("memory")
-                    if summary ~= nil then
-                        npc:AddThought(summary, "summary")
-                        npc:AddSummary(summary)
-                    end
-                
-                    stepCount = 0
-                end
-            end
-        end)
+            local timestepDelay = npc.TimestepDelay
+            timestepDelay += math.random(0, 2)
+            task.wait(timestepDelay)
+        end
     end
+
+    for _, npc in NPCService.NPCs do
+        task.spawn(NPCLoop, npc)
+    end
+
+    CollectionService:GetInstanceAddedSignal(NPCService.NPCTag):Connect(function(npcInstance)
+        local npc = NPCService.NPCFromInstance[npcInstance]
+        if not npc then return end
+        task.spawn(NPCLoop, npc)
+    end)
 
     task.spawn(NPCService.CheckScenes)
                 
@@ -1764,11 +1791,13 @@ function NPCService.HandleTranscription(sourcePlayer, message)
             npc.TimestepDelay = npc:GetPersonality("TimestepDelayVoiceChat")
 
             -- If the agent has been dormant for some time, then force searches
+            local forceSearch = false
             if npc.LastInteraction < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
-                npc:Timestep(true)
+                forceSearch = true
             end
 
             npc.LastInteraction = tick()
+            npc:Timestep(forceSearch)
 		else
             npc.Instance:SetAttribute("npcservice_hearing", false)
             npc.TimestepDelay = npc:GetPersonality("TimestepDelayNormal")
@@ -1925,13 +1954,15 @@ function NPCService.HandleChat(speaker, message, target)
                 end
 
                 -- If the agent has been dormant for some time, then force searches
+                local forceSearch = false
                 if npc.LastInteraction < tick() - npc:GetPersonality("SecondsWithoutInteractionBeforeSleep") then
-                    task.spawn(function()
-                        npc:Timestep(true)
-                    end)
+                    forceSearch = true
                 end
 
                 npc.LastInteraction = tick()
+                task.spawn(function()
+                    npc:Timestep(forceSearch)
+                end)
             end
 		end
 	end
