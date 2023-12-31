@@ -458,7 +458,7 @@ function PocketMenu:render()
 
     local screenGui
     local wholeMenu
-	local SubMenu = Fusion.Value("Seminars")
+	local SubMenu = Fusion.Value("Pockets")
 
 	local function ScrollingFrame()
 	

@@ -25,7 +25,7 @@ local function createPocketMenu()
 		{Name = "Storyboard 1", Image = PocketConfig.PocketTeleportBackgrounds["Storyboard"]},
 		{Name = "Big Sir 2", Image = PocketConfig.PocketTeleportBackgrounds["Big Sir"]},
 		{Name = "Overland 1", Image = PocketConfig.PocketTeleportBackgrounds["Overland"]},
-        {Name = "Cstar Bridge 1", Image = PocketConfig.PocketTeleportBackgrounds["Cstar Bridge"]},
+        {Name = "Elements 1", Image = PocketConfig.PocketTeleportBackgrounds["Elements"]},
 	}
 
 	-- Add metauni-dev world for Billy and Dan
