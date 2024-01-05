@@ -120,16 +120,15 @@ local function Stage(props: StageProps)
 					Handler = function(state)
 						local characters = getCharacters(segment)
 						local character = characters[state.SpeakerId]
-						props.OrbServer.SetSpeakerCharacter(character)
+						if false then
+							-- TODO: enable this functionality without allowing speakerAttachment to be destroyed on cleanup
+							props.OrbServer.SetSpeakerCharacter(character)
+						end
 						props.OrbServer.SetViewMode(state.ViewMode)
 						props.OrbServer.SetWaypointOnly(state.WaypointOnly)
 						props.OrbServer.SetShowAudience(state.ShowAudience)
 					end,
 				})
-
-				maid:GiveTask(function()
-					props.OrbServer.SetSpeakerCharacter(nil)
-				end)
 
 			elseif record.RecordType == "SoundRecord" then
 				-- Handled by character replays
