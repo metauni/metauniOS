@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local VRCharacterRecorder = require(script.Parent)
 local SoundReplay = require(ReplicatedStorage.OS.Replay.SoundReplay)
 local t = require(ReplicatedStorage.Packages.t)
 local Blend = require(ReplicatedStorage.Util.Blend)
@@ -132,7 +133,7 @@ local function bindTranslucency(character: Model, Translucent): Maid.Task
 end
 
 export type Props = {
-	Record: any,
+	Record: VRCharacterRecorder.VRCharacterRecord,
 	Origin: CFrame,
 	VoiceRecord: any,
 }
@@ -155,7 +156,7 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 	local nexusVRCharacter = toNexusVRCharacter(character)
 
 	local maid = Maid.new()
-	local self = { Destroy = maid:Wrap() }
+	local self = { Destroy = maid:Wrap(), props = props, ReplayType = "VRCharacterReplay" }
 
 	maid:GiveTask(chalk)
 	maid:GiveTask(character)
@@ -212,6 +213,10 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 
 	function self.SetActive(value)
 		Active.Value = value
+	end
+
+	function self.GetCharacter()
+		return character
 	end
 
 	function self.Init()

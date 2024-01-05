@@ -172,6 +172,11 @@ function OrbController:Start()
 			Rxi.findFirstChildWithClass("ObjectValue", "Speaker"),
 			Rxi.property("Value"),
 		}
+	local observeSpeakerCharacter = -- Observable<Model?>
+		observeAttachedOrb:Pipe {
+			Rxi.findFirstChildWithClass("ObjectValue", "SpeakerCharacter"),
+			Rxi.property("Value"),
+		}
 	local observeLocalSpeaker = -- Observable<Player?>
 		observeSpeaker:Pipe{
 			Rx.whereElse(function(speaker: Player?)
@@ -329,9 +334,7 @@ function OrbController:Start()
 		Poi1 = observePoi1,
 		Poi2 = observePoi2,
 		NearestBoard = observeNearestBoard,
-		SpeakerCharacter = observeSpeaker:Pipe{
-			Rxi.property("Character")
-		},
+		SpeakerCharacter = observeSpeakerCharacter,
 		ViewMode = observeViewMode,
 		ViewportSize = Rxi.propertyOf(workspace, "CurrentCamera"):Pipe {
 			Rxi.property("ViewportSize"),

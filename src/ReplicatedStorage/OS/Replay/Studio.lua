@@ -2,15 +2,19 @@
 	For managing the recording, and editing of a replay recording.
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
+local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local VRServerService = require(ReplicatedStorage.OS.VR.VRServerService)
 local BoardRecorder = require(script.Parent.BoardRecorder)
 local Sift = require(ReplicatedStorage.Packages.Sift)
+local Rx = require(ReplicatedStorage.Util.Rx)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
 local CharacterRecorder = require(script.Parent.CharacterRecorder)
 local Serialiser = require(script.Parent.Serialiser)
+local StateRecorder = require(script.Parent.StateRecorder)
 local VRCharacterRecorder = require(script.Parent.VRCharacterRecorder)
 
 export type Phase = "Uninitialised" | "Initialised" | "Recording" | "Recorded" | "Saved"
@@ -28,7 +32,8 @@ local function Studio(props: StudioProps): Studio
 	local self = { Destroy = maid:Wrap(), props = props }
 	
 	local recorders = {}
-	local StartTime = ValueObject.new(nil)
+	local orb: OrbServer.OrbServer = nil
+	local startTime = nil
 
 	-- "Uninitialised" -> "Initialised" -> "Recording" -> "Recorded" -> "Saved"
 	local RecordingPhase = maid:Add(ValueObject.new("Uninitialised"))
@@ -103,10 +108,39 @@ local function Studio(props: StudioProps): Studio
 		end
 	end
 
+	function self.TrackOrb(orbServer: OrbServer.OrbServer)
+		if orb then
+			error("[ReplayStudio] already tracking orb")
+		end
+
+		orb = orbServer
+
+		table.insert(recorders, StateRecorder {
+			StateType = "Orb",
+			StateInfo = {
+				OrbId = orbServer:GetOrbId(),
+			},
+			Observable = Rx.combineLatest {
+				SpeakerId = orbServer.ObserveSpeaker():Pipe {
+					Rx.map(function(speaker: Player?)
+						if speaker then
+							return tostring(speaker.UserId)
+						else
+							return ""
+						end
+					end)
+				},
+				ViewMode = orbServer.ObserveViewMode(),
+				ShowAudience = orbServer.ObserveShowAudience(),
+				WaypointOnly = orbServer.ObserveWaypointOnly(),
+			},
+		})
+	end
+
 	function self.InitRecording()
 		assert(self.PhaseIsBefore("Initialised"), `[Replay Studio] Tried to initialise during phase {RecordingPhase.Value}`)
 
-		StartTime.Value = os.clock()
+		startTime = os.clock()
 		
 		RecordingPhase.Value = "Initialised"
 	end
@@ -115,7 +149,7 @@ local function Studio(props: StudioProps): Studio
 		assert(self.PhaseIsBefore("Recording"), `[Replay Studio] Tried to start recording during phase {RecordingPhase.Value}`)
 		
 		for _, recorder in recorders do
-			recorder.Start(StartTime.Value)
+			recorder.Start(startTime)
 		end
 		RecordingPhase.Value = "Recording"
 	end
@@ -133,7 +167,7 @@ local function Studio(props: StudioProps): Studio
 			recorder.Stop()
 			table.insert(segmentOfRecords.Records, recorder.FlushToRecord())
 		end
-		segmentOfRecords.EndTimestamp = os.clock() - StartTime.Value
+		segmentOfRecords.EndTimestamp = os.clock() - startTime
 
 		RecordingPhase.Value = "Recorded"
 

@@ -7,6 +7,20 @@ local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
+export type VRCharacterRecord = {
+	RecordType: "VRCharacterRecord",
+
+	PlayerUserId: number,
+	CharacterId: string,
+	CharacterName: string,
+	HumanoidDescription: HumanoidDescription, 
+	HumanoidRigType: Enum.HumanoidRigType, 
+
+	Timeline: {any},
+	VisibleTimeline: {any},
+	ChalkTimeline: {any},
+}
+
 local function getUpdateInputsRemoteEvent(): RemoteEvent
 	local NexusVRCharacterModelScript = ReplicatedStorage:FindFirstChild("NexusVRCharacterModel")
 	assert(t.instanceOf("ModuleScript")(NexusVRCharacterModelScript), "[VRCharacterRecorder] Expected NexusVRCharacterModel in ReplicatedStorage")
@@ -83,7 +97,7 @@ local function VRCharacterRecorder(props: VRCharacterRecorderProps): VRCharacter
 		HumanoidRigType = humanoidRigType
 	end)
 	
-	function self.FlushToRecord()
+	function self.FlushToRecord(): VRCharacterRecord
 
 		local humanoidDescription = HumanoidDescription
 		local humanoidRigType = HumanoidRigType

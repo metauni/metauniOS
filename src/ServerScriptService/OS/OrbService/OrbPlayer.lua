@@ -49,6 +49,12 @@ return function(player: Player)
 			Rxi.property("Value"),
 		}
 
+	local observeSpeakerCharacter =
+		observeAttachedOrb:Pipe {
+			Rxi.findFirstChildWithClass("ObjectValue", "SpeakerCharacter"),
+			Rxi.property("Value"),
+		}
+
 	local observeWaypoint =
 		observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("CFrameValue", "Waypoint"),
@@ -63,8 +69,10 @@ return function(player: Player)
 
 		if orbValue.Value then
 			local speakerValue = orbValue.Value:FindFirstChild("Speaker")
+			local speakerCharacterValue = orbValue.Value:FindFirstChild("SpeakerCharacter")
 			if speakerValue and speakerValue.Value == player then
 				speakerValue.Value = nil
+				speakerCharacterValue.Value = nil
 			end
 		end
 		orbValue.Value = nil
@@ -239,8 +247,7 @@ return function(player: Player)
 				GhostPos = Rx.of(ghost.PrimaryPart):Pipe {
 					throttledMovement(0.5),
 				},
-				SpeakerPos = observeSpeaker:Pipe {
-					Rxi.property("Character"),
+				SpeakerCharacterPos = observeSpeakerCharacter:Pipe {
 					Rxi.property("PrimaryPart"),
 					throttledMovement(0.5),
 				},
@@ -248,7 +255,7 @@ return function(player: Player)
 					throttledMovement(0.5),
 				}
 			}:Subscribe(function(data)
-				local target = data.SpeakerPos or data.OrbPos
+				local target = data.SpeakerCharacterPos or data.OrbPos
 				if target and data.GhostPos then
 					local dir = (target - data.GhostPos) * Vector3.new(1,0,1)
 					alignGhost.CFrame = CFrame.lookAt(data.GhostPos, data.GhostPos + dir)
@@ -393,8 +400,7 @@ return function(player: Player)
 					Rxi.property("PrimaryPart"),
 					throttledMovement(0.5),
 				},
-				observeSpeaker:Pipe{
-					Rxi.property("Character"),
+				observeSpeakerCharacter:Pipe{
 					Rxi.property("PrimaryPart"),
 					throttledMovement(0.5),
 				},
@@ -526,10 +532,10 @@ return function(player: Player)
 				observeAttachedOrb,
 				observeState(Ghost),
 				observeState(Mode),
-				observeSpeaker,
+				observeSpeakerCharacter,
 			},
 			Rx.unpacked,
-		}:Subscribe(function(_eventTrigger: any, attachedOrb: Part?, ghost: Model?, mode: Mode, speaker: Player?)
+		}:Subscribe(function(_eventTrigger: any, attachedOrb: Part?, ghost: Model?, mode: Mode, speakerCharacter: Model?)
 			if ghost and player.Character then
 				local character = player.Character
 				if mode == "standing" and ghost then
@@ -542,13 +548,12 @@ return function(player: Player)
 						local orbValue = PlayerToOrb:FindFirstChild(otherPlayer.UserId)
 						if 
 							otherPlayer ~= player
-							and otherPlayer ~= speaker
-							and otherPlayer.Character
+							and otherPlayer.Character ~= speakerCharacter
 							and orbValue
 							and orbValue.Value == attachedOrb
 						then
 							-- Land on top of an audience member
-							character:PivotTo(character:GetPivot() + Vector3.new(0,10,0))
+							character:PivotTo(otherPlayer.Character:GetPivot() + Vector3.new(0,10,0))
 							return
 						end
 					end

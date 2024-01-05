@@ -1206,7 +1206,13 @@ local checkSegmentOfRecordsData = t.strictInterface {
 		t.number, t.number, t.number
 	),
 	Records = t.array(t.interface {
-		RecordType = t.union(t.literal("CharacterRecord"), t.literal("VRCharacterRecord"), t.literal("BoardRecord"), t.literal("SoundRecord"))
+		RecordType = t.union(
+			t.literal("CharacterRecord"),
+			t.literal("VRCharacterRecord"),
+			t.literal("BoardRecord"),
+			t.literal("SoundRecord"),
+			t.literal("StateRecord")
+		)
 	}),
 	EndTimestamp = t.number,
 	Index = checkPositiveInteger,
@@ -1228,6 +1234,9 @@ function export.serialiseSegmentOfRecords(segmentOfRecords, segmentIndex: number
 			table.insert(data.Records, serialiseVRCharacterRecord(record))
 		elseif record.RecordType == "BoardRecord" then
 			table.insert(data.Records, serialiseBoardRecord(record))
+		elseif record.RecordType == "StateRecord" then
+			-- Assumed JSONable
+			table.insert(data.Records, record)
 		else
 			error(`RecordType not handled {record.RecordType}`)
 		end
@@ -1265,6 +1274,8 @@ function export.deserialiseSegmentOfRecords(data)
 			table.insert(segmentOfRecords.Records, deserialiseVRCharacterRecord(record))
 		elseif record.RecordType == "BoardRecord" then
 			table.insert(segmentOfRecords.Records, deserialiseBoardRecord(record))
+		elseif record.RecordType == "StateRecord" then
+			table.insert(segmentOfRecords.Records, record)
 		elseif record.RecordType == "SoundRecord" then
 			-- Nothing to deserialise. Just tables, numbers, strings etc
 			assert(checkSoundRecordData(record))

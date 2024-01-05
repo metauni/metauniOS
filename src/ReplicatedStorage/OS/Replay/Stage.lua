@@ -3,8 +3,10 @@
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
-local VRCharacterReplay = require(ReplicatedStorage.OS.Replay.VRCharacterRecorder.VRCharacterReplay)
+local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
+local StateReplay = require(ReplicatedStorage.OS.Replay.StateRecorder.StateReplay)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local t = require(ReplicatedStorage.Packages.t)
@@ -15,11 +17,14 @@ local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local Serialiser = require(script.Parent.Serialiser)
 local BoardReplay = require(script.Parent.BoardRecorder.BoardReplay)
 local CharacterReplay = require(script.Parent.CharacterRecorder.CharacterReplay)
+local VRCharacterReplay = require(script.Parent.VRCharacterRecorder.VRCharacterReplay)
 
 local ENDTIMESTAMP_BUFFER = 0.5
 
+export type AnyReplay = CharacterReplay.CharacterReplay | VRCharacterReplay.VRCharacterReplay | BoardReplay.BoardReplay | StateReplay.StateReplay
+
 export type SegmentOfReplays = {
-	Replays: {CharacterReplay.CharacterReplay | VRCharacterReplay.VRCharacterReplay | BoardReplay.BoardReplay},
+	Replays: {AnyReplay},
 	EndTimestamp: number,
 }
 
@@ -28,6 +33,7 @@ export type StageProps = {
 	Origin: CFrame, -- We ignore the stored origin, and play the replay relative to this one
 	DataStore: DataStore,
 	BoardGroup: Instance,
+	OrbServer: OrbServer.OrbServer?
 }
 
 local function Stage(props: StageProps)
@@ -49,6 +55,16 @@ local function Stage(props: StageProps)
 			end
 		end
 	end)
+
+	local function getCharacters(segment: SegmentOfReplays): {[string]: Model?}
+		local characterReplays = Sift.Array.filter(segment.Replays, function(replay: AnyReplay)
+			return replay.ReplayType == "CharacterReplay" or replay.ReplayType == "VRCharacterReplay"
+		end)
+
+		return Sift.Dictionary.map(characterReplays, function(replay: CharacterReplay.CharacterReplay | VRCharacterReplay.VRCharacterReplay)
+			return replay.GetCharacter(), replay.props.Record.CharacterId
+		end)
+	end
 
 	local function fetchSegment(): SegmentOfReplays
 
@@ -94,6 +110,27 @@ local function Stage(props: StageProps)
 					Record = record,
 					BoardParent = props.BoardGroup,
 				})
+			elseif record.RecordType == "StateRecord" and record.StateType == "Orb" then
+				if not props.OrbServer then
+					error("No orb given")
+				end
+
+				replay = StateReplay({
+					Record = record,
+					Handler = function(state)
+						local characters = getCharacters(segment)
+						local character = characters[state.SpeakerId]
+						props.OrbServer.SetSpeakerCharacter(character)
+						props.OrbServer.SetViewMode(state.ViewMode)
+						props.OrbServer.SetWaypointOnly(state.WaypointOnly)
+						props.OrbServer.SetShowAudience(state.ShowAudience)
+					end,
+				})
+
+				maid:GiveTask(function()
+					props.OrbServer.SetSpeakerCharacter(nil)
+				end)
+
 			elseif record.RecordType == "SoundRecord" then
 				-- Handled by character replays
 				continue

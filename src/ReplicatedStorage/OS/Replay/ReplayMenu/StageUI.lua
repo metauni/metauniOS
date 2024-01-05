@@ -29,7 +29,9 @@ local function StageUI(props: {
 			Size = UDim2.fromOffset(200, 20),
 			BackgroundTransparency = 1,
 			
-			Text = props.ReplayName,
+			Text = Blend.Computed(props.ReplayName, function(replayName: string?)
+				return replayName or ""
+			end),
 			FontFace = Font.fromName("Merriweather"),
 			TextYAlignment = Enum.TextYAlignment.Bottom,
 			TextSize = 18,
@@ -76,6 +78,9 @@ local function StageUI(props: {
 			Size = UDim2.fromOffset(120,30),
 
 			Text = Blend.Computed(props.Timestamp, props.Duration, function(timestamp, duration)
+				if not duration or not timestamp then
+					return ""
+				end
 				if duration < 3600 then -- <1hr
 					return `{os.date("!%M:%S", timestamp or 0)} - {os.date("!%M:%S", duration)}`
 				else

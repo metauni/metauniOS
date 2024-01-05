@@ -82,7 +82,7 @@ end
 local function BoardReplay(props: BoardReplayProps): BoardReplay
 	assert(checkProps(props))
 	local maid = Maid.new()
-	local self = { Destroy = maid:Wrap(), props = props }
+	local self = { Destroy = maid:Wrap(), props = props, ReplayType = "BoardReplay" }
 
 	local timelineIndex = 1
 	local finished = false

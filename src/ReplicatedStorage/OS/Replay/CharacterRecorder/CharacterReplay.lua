@@ -25,7 +25,15 @@ local checkRecord = t.interface {
 }
 
 export type Props = {
-	Record: any,
+	Record: {
+		RecordType: "CharacterRecord",
+		HumanoidDescription: HumanoidDescription,
+		HumanoidRigType: Enum.HumanoidRigType,
+		Timeline: {any},
+		VisibleTimeline: {any},
+		CharacterId: string,
+		CharacterName: string,
+	},
 	Origin: CFrame,
 	VoiceRecord: any?,
 }
@@ -42,7 +50,7 @@ local function CharacterReplay(props: Props)
 	local voiceRecord = props.VoiceRecord
 
 	local maid = Maid.new()
-	local self = { Destroy = maid:Wrap() }
+	local self = { Destroy = maid:Wrap(), props = props, ReplayType = "CharacterReplay"  }
 
 	local character = getCharacter(record)
 	maid:GiveTask(character)
@@ -84,6 +92,10 @@ local function CharacterReplay(props: Props)
 
 	function self.SetActive(value)
 		Active.Value = value
+	end
+
+	function self.GetCharacter()
+		return character
 	end
 
 	function self.Init()
@@ -141,6 +153,9 @@ local function CharacterReplay(props: Props)
 			Parent = CharacterParent,
 
 			Blend.New "AlignPosition" {
+				Enabled = Blend.Computed(RootCFrame, function(cframe)
+					return cframe ~= nil
+				end),
 				Position = Blend.Computed(RootCFrame, function(cframe)
 					return (cframe or CFrame.new()).Position
 				end),
@@ -153,7 +168,12 @@ local function CharacterReplay(props: Props)
 			},
 			
 			Blend.New "AlignOrientation" {
-				CFrame = RootCFrame,
+				Enabled = Blend.Computed(RootCFrame, function(cframe)
+					return cframe ~= nil
+				end),
+				CFrame = Blend.Computed(RootCFrame, function(cframe)
+					return cframe or CFrame.new()
+				end),
 				Mode = Enum.OrientationAlignmentMode.OneAttachment,
 				Attachment0 = character.HumanoidRootPart.RootAttachment,
 				RigidityEnabled = true,

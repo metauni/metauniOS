@@ -67,6 +67,19 @@ local function getHumanoidDataFromPlayerUserIdAsync(userId: number)
 	return humanoidDescription, humanoidRigType
 end
 
+export type CharacterRecord = {
+	RecordType: "CharacterRecord",
+
+	PlayerUserId: number,
+	CharacterId: string,
+	CharacterName: string,
+	HumanoidDescription: HumanoidDescription, 
+	HumanoidRigType: Enum.HumanoidRigType, 
+
+	Timeline: {any},
+	VisibleTimeline: {any},
+}
+
 export type CharacterRecorderProps = {
 	Origin: CFrame,
 	CharacterName: string,

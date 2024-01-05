@@ -72,7 +72,7 @@ function OrbClient.new(orbPart: BasePart, observeAttached: Rx.Observable)
 			Rx.combineLatest({
 				observeAttached,
 				Rx.of(orbPart):Pipe {
-					Rxi.findFirstChildWithClass("ObjectValue", "Speaker"),
+					Rxi.findFirstChildWithClass("ObjectValue", "SpeakerCharacter"),
 					Rxi.property("Value"),
 				},
 				Rx.of(Players.LocalPlayer):Pipe({
@@ -81,8 +81,8 @@ function OrbClient.new(orbPart: BasePart, observeAttached: Rx.Observable)
 			})
 			:Pipe {
 				Rx.unpacked,
-				Rx.map(function(attached: boolean, speaker: Player?, isScribe: boolean?)
-					return (not attached) and (isScribe or RunService:IsStudio()) and speaker == nil
+				Rx.map(function(attached: boolean, speakerCharacter: Model?, isScribe: boolean?)
+					return (not attached) and (isScribe or RunService:IsStudio()) and speakerCharacter == nil
 				end)
 			}
 		),

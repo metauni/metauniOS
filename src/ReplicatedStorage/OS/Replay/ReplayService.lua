@@ -319,6 +319,8 @@ function ReplayService:NewOrbStudio(orbServer: OrbServer.OrbServer, recordingNam
 		DataStore = self.ReplayDataStore,
 	})
 
+	studio.TrackOrb(orbServer)
+
 	for _, board in orbServer.GetBoardsInBoardGroup() do
 		local persistId = board:GetPersistId()
 		if persistId then
@@ -352,6 +354,7 @@ function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 		Origin = orbServer.GetReplayOrigin(),
 		ReplayId = replayId,
 		BoardGroup = orbServer.GetBoardGroup(),
+		OrbServer = orbServer,
 	}
 
 	self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)

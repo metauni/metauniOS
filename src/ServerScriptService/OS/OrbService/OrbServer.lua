@@ -20,6 +20,9 @@ local Ring = require(script.Parent.Ring)
 local Remotes = ReplicatedStorage.OS.OrbController.Remotes
 local Config = require(ReplicatedStorage.OS.OrbController.Config)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
+local t = require(ReplicatedStorage.Packages.t)
+
+local checkViewMode = t.union(t.literal("single"), t.literal("double"), t.literal("freecam"))
 
 local OrbServer = {}
 
@@ -85,6 +88,13 @@ function OrbServer.new(orbPart: Part)
 		Rx.of(speakerValue):Pipe {
 			Rxi.property("Value"),
 		}
+
+	-- This is separate from speakerValue so that Replay characters can be speaker (they aren't players)
+	local speakerCharacterValue = NewTracked "ObjectValue" {
+		Name = "SpeakerCharacter",
+		Parent = orbPart,
+	}
+	local observeSpeakerCharacter = Rxi.propertyOf(speakerCharacterValue, "Value")
 
 	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
@@ -155,19 +165,26 @@ function OrbServer.new(orbPart: Part)
 			if triggeredOrb ~= orbPart then
 				if speakerValue.Value == player then
 					speakerValue.Value = nil
+					speakerCharacterValue.Value = nil
 					detachSound:Play()
 				end
 				return
 			end
 
-			local attachedOrb = PlayerToOrb:FindFirstChild(player.UserId) or New "ObjectValue" {
-				Name = player.UserId,
-				Parent = PlayerToOrb,
-			}
-			attachedOrb.Value = orbPart
+			local character = player.Character
+			if not character then
+				warn("Speaker has no character, cannot attach")
+			end
 
 			if RunService:IsStudio() or player:GetAttribute("metaadmin_isscribe") then
+				local attachedOrb = PlayerToOrb:FindFirstChild(player.UserId) or New "ObjectValue" {
+					Name = player.UserId,
+					Parent = PlayerToOrb,
+				}
+				attachedOrb.Value = orbPart
+
 				speakerValue.Value = player
+				speakerCharacterValue.Value = character
 				
 				attachSound.SoundId = "rbxassetid://"..attachSoundIds[math.random(1, #attachSoundIds)]
 				attachSound:Play()
@@ -180,6 +197,7 @@ function OrbServer.new(orbPart: Part)
 			if triggeredOrb ~= orbPart then
 				if speakerValue.Value == player then
 					speakerValue.Value = nil
+					speakerCharacterValue.Value = nil
 					detachSound:Play()
 				end
 				return
@@ -198,6 +216,7 @@ function OrbServer.new(orbPart: Part)
 		Players.PlayerRemoving:Connect(function(player: Player)
 			if speakerValue.Value == player then
 				speakerValue.Value = nil
+				speakerCharacterValue.Value = nil
 				detachSound:Play()
 			end
 		end)
@@ -208,6 +227,7 @@ function OrbServer.new(orbPart: Part)
 			if triggeredOrb == orbPart then
 				if speakerValue.Value == player then
 					speakerValue.Value = nil
+					speakerCharacterValue.Value = nil
 					detachSound:Play()
 				end
 
@@ -256,6 +276,7 @@ function OrbServer.new(orbPart: Part)
 			if triggeredOrb ~= orbPart then
 				return
 			end
+			assert(t.union(t.literal("single"), t.literal("double"), t.literal("freecam"))(viewMode))
 			if speakerValue.Value == player then
 				viewModeValue.Value = viewMode
 			end
@@ -267,10 +288,10 @@ function OrbServer.new(orbPart: Part)
 		Value = false,
 		Parent = orbPart,
 	}
-	-- local observeShowAudience: Observable<boolean> = 
-	-- 	Rx.of(showAudienceValue):Pipe {
-	-- 		Rxi.property("Value"),
-	-- 	}
+	local observeShowAudience: Observable<boolean> = 
+		Rx.of(showAudienceValue):Pipe {
+			Rxi.property("Value"),
+		}
 
 	destructor:Add(
 		Remotes.SetShowAudience.OnServerEvent:Connect(function(player: Player, triggeredOrb: Part, showAudience: boolean)
@@ -309,8 +330,7 @@ function OrbServer.new(orbPart: Part)
 
 	-- Parent the speaker attachment to the speaker
 	destructor:Add(
-		observeSpeaker:Pipe {
-			Rxi.property("Character"),
+		observeSpeakerCharacter:Pipe {
 			Rxi.property("PrimaryPart"),
 		}:Subscribe(function(rootPart: Part?)
 			if rootPart then
@@ -324,8 +344,7 @@ function OrbServer.new(orbPart: Part)
 
 	-- Position the speaker attachment offset in front of feet
 	destructor:Add(
-		observeSpeaker:Pipe {
-			Rxi.property("Character"),
+		observeSpeakerCharacter:Pipe {
 			Rxi.findFirstChildWithClass("MeshPart", "RightFoot"),
 			Rxi.notNil(),
 		}:Subscribe(function(rightFoot: BasePart)
@@ -420,8 +439,7 @@ function OrbServer.new(orbPart: Part)
 	destructor:Add(
 		Rx.combineLatest({
 			-- Speaker Movement
-			SpeakerPosition = observeSpeaker:Pipe {
-				Rxi.property("Character"),
+			SpeakerPosition = observeSpeakerCharacter:Pipe {
 				Rxi.findFirstChild("Head"),
 				throttledMovement(0.5),
 			},
@@ -479,7 +497,7 @@ function OrbServer.new(orbPart: Part)
 			end
 
 			local poiBoardsSet = Sift.Set.filter(BoardService.BoardServerBinder:GetAllSet(), function(board)
-				return not board:GetPart():HasTag("metaboard_personal_board") and not board:GetPart():HasTag("orbcam_ignore") and not (board:GetPart() :: Instance):IsDescendantOf(workspace)
+				return not board:GetPart():HasTag("metaboard_personal_board") and not board:GetPart():HasTag("orbcam_ignore") and (board:GetPart() :: Instance):IsDescendantOf(workspace)
 			end)
 
 			local firstBoard, firstPart do
@@ -693,8 +711,7 @@ function OrbServer.new(orbPart: Part)
 
 	destructor:Add(
 		Rx.combineLatest {
-			SpeakerHead = observeSpeaker:Pipe {
-				Rxi.property("Character"),
+			SpeakerHead = observeSpeakerCharacter:Pipe {
 				Rxi.findFirstChild("Head"),
 			},
 			Poi1Pos = Rx.of(poi1Value):Pipe { Rxi.property("Value"), Rxi.property("Position") },
@@ -782,6 +799,42 @@ function OrbServer.new(orbPart: Part)
 			end
 			assert(value:IsA("IntValue"), "Bad OrbId")
 			return value.Value
+		end,
+
+		ObserveSpeaker = function()
+			return observeSpeaker
+		end,
+
+		ObserveViewMode = function()
+			return observeViewMode
+		end,
+
+		ObserveShowAudience = function()
+			return observeShowAudience
+		end,
+
+		ObserveWaypointOnly = function()
+			return observeWaypointOnly
+		end,
+
+		SetSpeakerCharacter = function(speakerCharacter: Model?)
+			speakerValue.Value = nil
+			speakerCharacterValue.Value = speakerCharacter
+		end,
+
+		SetViewMode = function(viewMode: "single" | "double" | "freecam")
+			assert(checkViewMode(viewMode))
+			viewModeValue.Value = viewMode
+		end,
+
+		SetShowAudience = function(showAudience: boolean)
+			assert(t.boolean(showAudience))
+			showAudienceValue.Value = showAudience
+		end,
+
+		SetWaypointOnly = function(waypointOnly: boolean)
+			assert(t.boolean(waypointOnly))
+			waypointOnlyValue.Value = waypointOnly
 		end,
 
 		GetReplayOrigin = function()
