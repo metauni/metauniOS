@@ -15,17 +15,55 @@ local t = require(ReplicatedStorage.Packages.t)
 		rstk/bitbuffer@1.0.0 (https://github.com/rstk/BitBuffer/blob/31c6d19a9d76e8055fd10aa06f6c5ac3f76608c9/src/init.lua)
 ]]
 
-local FORMAT_VERSION = "v0.0.1-alpha"
+local FORMAT_VERSION = "v0.1.0"
 -- vMAJOR.MINOR.PATCH-ADDITIONAL
-local function getsemver(semverStr: string)
+local function parseSemver(semverStr: string)
+	assert(t.string(semverStr))
 	local major, minor, patch = string.match(semverStr, "^v(%d+)%.(%d+)%.(%d+)")
 	local additional = string.match(semverStr, "^v%d+%.%d+%.%d+%-(.*)")
 	return {
-		Major = major,
-		Minor = minor,
-		Patch = patch,
+		Major = tonumber(major),
+		Minor = tonumber(minor),
+		Patch = tonumber(patch),
 		Additional = additional,
 	}
+end
+
+local checkSemVer = t.strictInterface {
+	Major = t.number,
+	Minor = t.number,
+	Patch = t.number,
+	Additional = t.optional(t.any),
+}
+
+local CURRENT_SEMVER = parseSemver(FORMAT_VERSION)
+assert(checkSemVer(CURRENT_SEMVER))
+
+local function checkSemVerOrWarnOrError(semverStr: string)
+	local semver = parseSemver(semverStr)
+	do
+		local ok, msg = checkSemVer(semver)
+		if not ok then
+			error(`Bad semver formatting {semverStr}: {msg}`)
+		end
+	end
+
+	if typeof(semver.Additional) == "string" and string.match(semver.Additional, "alpha") then
+		warn(`Replay recording is alpha version ({semverStr})`)
+		return
+	end
+
+	if semver.Major < CURRENT_SEMVER.Major then
+		error(`Replay recording is on outdated major version {semver.Major} (semver: {semverStr}, current: {FORMAT_VERSION})`)
+	end
+
+	if semver.Major > CURRENT_SEMVER.Major then
+		error(`Unable to parse record with later major version {semver.Major} (semver: {semverStr}, current: {FORMAT_VERSION})`)
+	end
+
+	if semver.Minor > CURRENT_SEMVER.Minor then
+		warn(`Replay recording is newer minor version than current {semver.Minor} (semver: {semverStr}, current: {FORMAT_VERSION})`)
+	end
 end
 
 export type BitWidth1to32 = number
@@ -430,7 +468,8 @@ type RbxStruct = {
 local checkRbxStructDataShapeMap = t.map(t.string, t.union(checkDataShape, t.literal("Instance")))
 
 local checkRbxStruct = t.every(t.strictInterface {
-	__FormatVersion = t.string,
+	__FormatVersion = t.optional(t.string),
+	_FormatVersion = t.optional(t.string),
 	Type = t.literal("RbxStruct"),
 	DataShapeMap = checkRbxStructDataShapeMap,
 	InstancePackets = t.keys(t.string),
@@ -568,7 +607,8 @@ local function deserialiseTimeline(data)
 end
 
 local checkCharacterRecordData = t.strictInterface {
-	_FormatVersion = t.string, -- Must already verify this is correct code for this format
+	__FormatVersion = t.optional(t.string), -- Must already verify this is correct code for this format
+	_FormatVersion = t.optional(t.string),
 	RecordType = t.literal("CharacterRecord"),
 	PlayerUserId = t.integer,
 	CharacterId = t.string,
@@ -592,7 +632,7 @@ local function serialiseCharacterRecord(record, force: true?)
 	})
 
 	local data = {
-		_FormatVersion = FORMAT_VERSION,
+		__FormatVersion = FORMAT_VERSION,
 
 		RecordType = "CharacterRecord",
 		PlayerUserId = record.PlayerUserId,
@@ -653,7 +693,8 @@ end
 
 
 local checkVRCharacterRecordData = t.strictInterface {
-	_FormatVersion = t.string, -- Must already verify this is correct code for this format
+	__FormatVersion = t.optional(t.string), -- Must already verify this is correct code for this format
+	_FormatVersion = t.optional(t.string),
 	RecordType = t.literal("VRCharacterRecord"),
 	PlayerUserId = t.integer,
 	CharacterId = t.string,
@@ -679,7 +720,7 @@ local function serialiseVRCharacterRecord(record, force: true?)
 	})
 
 	local data = {
-		_FormatVersion = FORMAT_VERSION,
+		__FormatVersion = FORMAT_VERSION,
 
 		RecordType = "VRCharacterRecord",
 		PlayerUserId = record.PlayerUserId,
@@ -741,7 +782,8 @@ local function deserialiseVRCharacterRecord(data)
 end
 
 local checkBoardStateData = t.strictInterface {
-	_FormatVersion = t.string,
+	__FormatVersion = t.optional(t.string),
+	_FormatVersion = t.optional(t.string),
 	AspectRatio = t.numberPositive,
 	NextFigureZIndex = checkNonNegativeInteger,
 	ClearCount = t.optional(checkNonNegativeInteger),
@@ -790,7 +832,7 @@ local function serialiseBoardState(boardState: metaboard.BoardState)
 	local pointsArrayShape  = makeArrayShape({xCanvasShape, yCanvasShape})
 
 	local data = {
-		_FormatVersion = FORMAT_VERSION,
+		__FormatVersion = FORMAT_VERSION,
 		AspectRatio = aspectRatio,
 		NextFigureZIndex = nextFigureZIndex,
 		ClearCount = clearCount,
@@ -931,7 +973,8 @@ local function deserialiseBoardState(data): metaboard.BoardState
 end
 
 local checkBoardRecordData = t.strictInterface {
-	_FormatVersion = t.string, -- Must already verify this is correct code for this format
+	__FormatVersion = t.optional(t.string), -- Must already verify this is correct code for this format
+	_FormatVersion = t.optional(t.string),
 	RecordType = t.literal("BoardRecord"),
 	AspectRatio = t.every(t.numberPositive, checkRealNumber),
 	BoardId = t.string,
@@ -987,7 +1030,7 @@ local function serialiseBoardRecord(record, force: true?)
 	}(record))
 
 	local data = {
-		_FormatVersion = FORMAT_VERSION,
+		__FormatVersion = FORMAT_VERSION,
 
 		RecordType = "BoardRecord",
 		AspectRatio = record.AspectRatio,
@@ -1197,7 +1240,10 @@ end
 local export = {}
 
 local checkSegmentOfRecordsData = t.strictInterface {
-	_FormatVersion = t.string,
+	__FormatVersion = t.optional(t.string),
+	-- The legacy of an oopsie
+	_FormatVersion = t.optional(t.string),
+	ReplayName = t.optional(t.string),
 	Origin = t.strictArray(
 		-- 12 cframe matrix components
 		t.number, t.number, t.number,
@@ -1220,8 +1266,9 @@ local checkSegmentOfRecordsData = t.strictInterface {
 
 function export.serialiseSegmentOfRecords(segmentOfRecords, segmentIndex: number)
 	local data = {
-		_FormatVersion = FORMAT_VERSION,
+		__FormatVersion = FORMAT_VERSION,
 
+		ReplayName = segmentOfRecords.ReplayName,
 		Origin = {segmentOfRecords.Origin:GetComponents()},
 		Records = {},
 		EndTimestamp = segmentOfRecords.EndTimestamp,
@@ -1261,7 +1308,11 @@ local checkSoundRecordData = t.strictInterface {
 
 function export.deserialiseSegmentOfRecords(data)
 	assert(checkSegmentOfRecordsData(data))
+
+	checkSemVerOrWarnOrError(data.__FormatVersion or data._FormatVersion)
+
 	local segmentOfRecords = {
+		ReplayName = data.ReplayName,
 		Records = {},
 		Origin = CFrame.new(table.unpack(data.Origin)),
 		EndTimestamp = data.EndTimestamp,

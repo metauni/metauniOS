@@ -20,7 +20,7 @@ local PocketService = require(ServerScriptService.OS.PocketService)
 local Remotes = script.Parent.Remotes
 local PlayerToOrb = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
-local TESTING = true
+local TESTING = game.PlaceId == 10325447437
 
 --[[
 	Manages replay recording and selection for playback
@@ -36,6 +36,7 @@ end
 function ReplayService:Start()
 
 	if TESTING then
+		warn("Using ReplayTest datastore")
 		self.ReplayDataStore = DataStoreService:GetDataStore(`ReplayTest`)
 	elseif PocketService.IsPocket() then
 		local pocketId = PocketService.GetPocketIdAsync()
