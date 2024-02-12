@@ -6,6 +6,13 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 12/2/24
+- Improved board clicking method
+	- Board clicking is now raycast based (instead of invisible "BoardButton" with SurfaceGui+TextButton). The raycast filters only metaboards.
+	- Can request a board selection with metaboard.Client:PromiseBoardSelection(). On the next click/tap, the promise resolves with the selected board (or nil) and the board will not be opened.
+	- Board clicking is triggered by TouchTap and InputEnded for mouse clicks (can cancel click by dragging off board).
+	- Board highlighting on hover always (only for non-touch screens).
+
 ## 25/08/23
 - Centralised GraphMenu so only one exists
 	- Before each box would spawn their own menu. Now the GraphBoxController is passed as a service to the GraphBoxClient constructor, so they can all request to be the opened one.
