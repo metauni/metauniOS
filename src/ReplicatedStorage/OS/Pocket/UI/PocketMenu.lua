@@ -9,6 +9,9 @@ local Pocket = ReplicatedStorage.OS.Pocket
 local PocketConfig = require(Pocket.Config)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local UI = require(ReplicatedStorage.OS.UI)
+local metaboard = require(ReplicatedStorage.Packages.metaboard)
+local Maid = require(ReplicatedStorage.Packages.metaboard.Util.Maid)
+local Blend = require(ReplicatedStorage.Util.Blend)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 
@@ -28,11 +31,8 @@ function PocketMenu.new()
 
 	self._pockets = Fusion.Value({})
 	self._schedule = Fusion.Value({})
-    self._boardSelectModeActive = false
-    self._inputChangedConnection = nil
-    self._inputConnection = nil
-    self._modalGuiActive = false
-    self._highlightedBoard = nil
+	self._modalGuiActive = false
+	self._maid = Maid.new()
 	return self
 end
 
@@ -42,158 +42,63 @@ export type PocketData = {
 }
 
 function PocketMenu:_startBoardSelectMode(onBoardSelected, displayType)
-    if self._boardSelectModeActive then return end
 
-	local screenGui = localPlayer.PlayerGui:FindFirstChild("BoardKeyGui")
-	if screenGui ~= nil then return end
+	local promise, maid = metaboard.Client:PromiseBoardSelection()
+	-- cleans up the last maid if there was one
+	self._maid._selectBoard = maid
 
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "BoardKeyGui"
+	maid:Add(Blend.mount(Players.LocalPlayer.PlayerGui, {
+		Blend.New "ScreenGui" {
+			Name = "BoardSelectGui",
 
-	local cancelButton = Instance.new("TextButton")
-	cancelButton.Name = "CancelButton"
-	cancelButton.BackgroundColor3 = Color3.fromRGB(148,148,148)
-	cancelButton.Size = UDim2.new(0,200,0,50)
-	cancelButton.Position = UDim2.new(0.5,-100,0.9,-70)
-	cancelButton.Parent = screenGui
-	cancelButton.TextColor3 = Color3.new(1,1,1)
-	cancelButton.TextSize = 18
-	cancelButton.Text = "Cancel"
-	cancelButton.Activated:Connect(function()
-		self:_endBoardSelectMode()
-		screenGui:Destroy()
-        self._boardSelectModeActive = false
+			Blend.New "TextButton" {
+				Name = "CancelButton",
+				BackgroundColor3 = Color3.fromRGB(148,148,148),
+				Size = UDim2.new(0,200,0,50),
+				Position = UDim2.new(0.5,-100,0.9,-70),
+				TextColor3 = Color3.new(1,1,1),
+				TextScaled = true,
+				Text = "Cancel",
+				[Blend.OnEvent "Activated"] = function()
+					self._maid._selectBoard = nil
+				end,
+
+				Blend.New "UICorner" {},
+			},
+
+			Blend.New "TextLabel" {
+				Name = "TextLabel",
+				BackgroundColor3 = Color3.new(0,0,0),
+				BackgroundTransparency = 0.9,
+				Size = UDim2.new(0,300,0,50),
+				Position = UDim2.new(0.5,-150,0,80),
+				TextColor3 = Color3.new(1,1,1),
+				TextScaled = true,
+				Text = "Select a board",
+			}
+		}
+	}))
+
+	promise:Then(function(board)
+		if not board then
+			return
+		end
+		if onBoardSelected == "startDisplay" then
+			self:_startDisplay(displayType, board)
+		elseif onBoardSelected == "startDecalEntryDisplay" then
+			self:_startDecalEntryDisplay(board)
+		elseif onBoardSelected == "showToAI" then
+			self:_showBoardToAI(board)
+		end
 	end)
-	Instance.new("UICorner").Parent = cancelButton
-
-	local textLabel = Instance.new("TextLabel")
-	textLabel.Name = "TextLabel"
-	textLabel.BackgroundColor3 = Color3.new(0,0,0)
-	textLabel.BackgroundTransparency = 0.9
-	textLabel.Size = UDim2.new(0,300,0,50)
-	textLabel.Position = UDim2.new(0.5,-150,0,80)
-	textLabel.TextColor3 = Color3.new(1,1,1)
-	textLabel.TextSize = 18
-	textLabel.Text = "Select a board"
-	textLabel.Parent = screenGui
-
-	screenGui.Parent = localPlayer.PlayerGui
-    local boardParts = CollectionService:GetTagged("metaboard")
-
-    local function raycastToPos(pos)
-        local ray = game.Workspace.CurrentCamera:ScreenPointToRay(pos.X, pos.Y)
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Include
-        raycastParams.FilterDescendantsInstances = boardParts
-        return workspace:Raycast(ray.Origin, 500*ray.Direction, raycastParams)
-    end
-
-    local function handleInputBegan(input, gameProcessedEvent)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if gameProcessedEvent then return end
-
-        if self._highlightedBoard == nil then return end
-
-        if onBoardSelected == "startDisplay" then
-            self:_startDisplay(displayType)
-        elseif onBoardSelected == "startDecalEntryDisplay" then
-            self:_startDecalEntryDisplay()
-        elseif onBoardSelected == "showToAI" then
-            self:_showBoardToAI()
-        end
-
-        self._boardSelectModeActive = false
-        self:_endBoardSelectMode()
-    end
-
-    local function handleInputChanged(input, gameProcessedEvent)
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if gameProcessedEvent then return end
-        
-        local function checkHighlight()
-            if self._highlightedBoard then
-                local oldHighlight = self._highlightedBoard:FindFirstChild("BoardSelectHighlight")
-                if oldHighlight then oldHighlight:Destroy() end
-            end
-        end
-
-        local pos = if UserInputService.TouchEnabled then input.Position else UserInputService:GetMouseLocation()
-        local raycastResult = raycastToPos(pos)
-        if not raycastResult or (raycastResult.Instance and not raycastResult.Instance:FindFirstChild("PersistId")) then
-            checkHighlight()
-            return
-        end
-    
-        local boardHit = raycastResult.Instance
-
-        if boardHit:FindFirstChild("BoardSelectHighlight") == nil then
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "BoardSelectHighlight"
-            highlight.Parent = boardHit
-        end
-
-        if self._highlightedBoard and boardHit ~= self._highlightedBoard then
-            local oldHighlight = self._highlightedBoard:FindFirstChild("BoardSelectHighlight")
-            if oldHighlight then oldHighlight:Destroy() end
-        end
-
-        self._highlightedBoard = boardHit
-    end
-
-    if not UserInputService.TouchEnabled then
-        self._inputConnection = UserInputService.InputBegan:Connect(handleInputBegan)
-        self._inputChangedConnection = UserInputService.InputChanged:Connect(handleInputChanged)
-    else
-        self._inputConnection = UserInputService.TouchStarted:Connect(handleInputBegan)
-        self._inputChangedConnection = UserInputService.TouchMoved:Connect(handleInputChanged)
-    end
-
-    -- Temporarily disable all the BoardButtons
-    for _, obj in ipairs(game.Workspace:GetChildren()) do
-        if obj.Name == "BoardButton" and obj:IsA("BasePart") then
-            obj.SurfaceGui.Active = false
-        end
-    end
-
-    self._boardSelectModeActive = true
 end
 
-function PocketMenu:_endBoardSelectMode()
-    if self._inputChangedConnection then
-        self._inputChangedConnection:Disconnect()
-        self._inputChangedConnection = nil
-    end
-
-    if self._inputConnection then
-        self._inputConnection:Disconnect()
-        self._inputConnection = nil
-    end
-
-	local screenGui = localPlayer.PlayerGui:FindFirstChild("BoardKeyGui")
-	if screenGui ~= nil then
-		screenGui:Destroy()
-	end
-
-    for _, obj in ipairs(game.Workspace:GetChildren()) do
-        if obj.Name == "BoardButton" and obj:IsA("BasePart") then
-            obj.SurfaceGui.Active = true
-        end
-    end
-
-    if self._highlightedBoard then
-        local oldHighlight = self._highlightedBoard:FindFirstChild("BoardSelectHighlight")
-        if oldHighlight then oldHighlight:Destroy() end
-    end
-end
-
-function PocketMenu:_startDisplay(displayType)
-    local board = self._highlightedBoard
+function PocketMenu:_startDisplay(displayType, board: metaboard.BoardClient)
     if self._modalGuiActive then return end
     self._modalGuiActive = true
 
-    if not board:FindFirstChild("PersistId") then return end
-
-    local boardPersistId = board.PersistId.Value
+    if not board:GetPart():FindFirstChild("PersistId") then return end
+    local boardPersistId = board:GetPart():FindFirstChild("PersistId").Value
 	
     local isPocket = Pocket:GetAttribute("IsPocket")
     local pocketId = nil
@@ -271,14 +176,12 @@ function PocketMenu:_startDisplay(displayType)
 	screenGui.Parent = localPlayer.PlayerGui
 end
 
-function PocketMenu:_showBoardToAI()
-    if not self._highlightedBoard then return end
-    local remoteEvent = ReplicatedStorage.OS.Remotes.ShowToAI
-    remoteEvent:FireServer(self._highlightedBoard)
+function PocketMenu:_showBoardToAI(board: metaboard.BoardClient)
+	local remoteEvent = ReplicatedStorage.OS.Remotes.ShowToAI
+	remoteEvent:FireServer(board:GetPart())
 end
 
-function PocketMenu:_startDecalEntryDisplay()
-    local board = self._highlightedBoard
+function PocketMenu:_startDecalEntryDisplay(board)
     local remoteEvent = ReplicatedStorage.OS.Remotes.AddDecalToBoard
 
     local screenGui = Instance.new("ScreenGui")
@@ -299,8 +202,7 @@ function PocketMenu:_startDecalEntryDisplay()
 	textBox.TextWrapped = true
 	textBox.ClearTextOnFocus = false
 
-    local boardPart = if board:IsA("BasePart") then board else board.PrimaryPart
-    local decal = boardPart:FindFirstChild("BoardDecal")
+	local decal = board:GetPart():FindFirstChild("BoardDecal")
 	if decal ~= nil then 
 		textBox.Text = decal.Texture
 	end
@@ -327,7 +229,7 @@ function PocketMenu:_startDecalEntryDisplay()
 	button.Activated:Connect(function()
         self._modalGuiActive = false
 		screenGui:Destroy()
-        remoteEvent:FireServer(board, textBox.Text)
+        remoteEvent:FireServer(board:GetPart(), textBox.Text)
 	end)
 	Instance.new("UICorner").Parent = button
 

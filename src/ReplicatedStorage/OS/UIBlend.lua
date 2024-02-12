@@ -311,14 +311,15 @@ function UI.RoundedBackplate(props: {[any]: any?} & {Visible: any?})
 			state.Part.CFrame = state.CamProps.CFrame * CFrame.new(x, y, 0) + state.CamProps.CFrame.LookVector * (zDistance + BLOCKERTHICKNESS / 2)
 		end))
 
-		maid:Add(Blend.mount(workspace, {
+		maid:Add(
 			Blend.New "Part" {
 				Name = "MuteButtonBlocker",
 				Color = Color3.new(0,0,0),
 
-				Transparency = Blend.Computed(InsideEnabledScreenGui, props.Visible or true, function(enabled, visible)
-					return if enabled and visible then 0.95 else 1 -- Must be semi-transparent (not fully) to actually block click events
+				Parent = Blend.Computed(InsideEnabledScreenGui, props.Visible or true, function(enabled, visible)
+					return if enabled and visible then workspace else nil
 				end),
+				Transparency = 0.95,  -- Must be semi-transparent (not fully) to actually block click events
 				Anchored = true,
 				CanCollide = false,
 				CastShadow = false,
@@ -327,8 +328,8 @@ function UI.RoundedBackplate(props: {[any]: any?} & {Visible: any?})
 				function(part)
 					Part.Value = part
 				end,
-			}
-		}))
+			}:Subscribe()
+		)
 
 		return maid
 	end)] = true
