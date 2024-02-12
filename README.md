@@ -46,6 +46,7 @@ git push
 ```
 Commit and push the updated submodule pointer to the main repo
 ```bash
+cd ..
 git commit metaboard
 git push
 ```
