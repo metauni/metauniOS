@@ -92,6 +92,9 @@ local function CharacterReplay(props: Props)
 
 	function self.SetActive(value)
 		Active.Value = value
+		if maybeSoundReplay then
+			maybeSoundReplay.SetActive(value)
+		end
 	end
 
 	function self.GetCharacter()
@@ -218,6 +221,9 @@ local function CharacterReplay(props: Props)
 		timelineIndex = 1
 		visibleTimelineIndex = 1
 		self.UpdatePlayhead(playhead)
+		if maybeSoundReplay then
+			maybeSoundReplay.RewindTo(playhead)
+		end
 	end
 
 	return self

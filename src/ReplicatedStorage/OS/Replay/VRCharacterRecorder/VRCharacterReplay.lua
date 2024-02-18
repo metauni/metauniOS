@@ -213,6 +213,9 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 
 	function self.SetActive(value)
 		Active.Value = value
+		if maybeSoundReplay then
+			maybeSoundReplay.SetActive(value)
+		end
 	end
 
 	function self.GetCharacter()
@@ -295,6 +298,9 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 		visibleTimelineIndex = 1
 		chalkTimelineIndex = 1
 		self.UpdatePlayhead(playhead)
+		if maybeSoundReplay then
+			maybeSoundReplay.RewindTo(playhead)
+		end
 	end
 
 	return self

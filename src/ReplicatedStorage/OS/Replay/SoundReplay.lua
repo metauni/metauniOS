@@ -52,6 +52,12 @@ local function SoundReplay(props: Props): SoundReplay
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap() }
 
+	local Active = maid:Add(Blend.State(false))
+
+	function self.SetActive(value)
+		Active.Value = value
+	end
+
 	local sounds: {Sound} = {}
 
 	for i, clip in record.Clips do
@@ -66,6 +72,14 @@ local function SoundReplay(props: Props): SoundReplay
 		table.insert(sounds, sound)
 	end
 
+	maid:GiveTask(Active:Observe():Subscribe(function(active)
+		if not active then
+			for _, sound in sounds do
+				sound:Pause()
+			end
+		end
+	end))
+
 	function self.Preload()
 		local toLoad = {}
 		for _, sound in sounds do
@@ -79,6 +93,10 @@ local function SoundReplay(props: Props): SoundReplay
 	end
 	
 	function self.UpdatePlayhead(playhead: number): ()
+		if not Active.Value then
+			return
+		end
+
 		for i=1, #sounds do
 			local clip = record.Clips[i]
 			local sound = sounds[i]
@@ -99,11 +117,13 @@ local function SoundReplay(props: Props): SoundReplay
 			end
 		end
 	end
+
+	function self.RewindTo(playhead: number): ()
+		self.UpdatePlayhead(playhead)
+	end
 	
 	function self.Pause()
-		for _, sound in ipairs(sounds) do
-			sound:Pause()
-		end
+		self.SetActive(false)
 	end
 
 	return self
