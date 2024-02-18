@@ -83,6 +83,7 @@ local function getCharacter(record)
 	character.RightHand.Anchored = true
 
 	character.Humanoid.DisplayName = "▶️-"..record.CharacterName
+	character.Humanoid:AddTag("HasDisplayName")
 
 	return character
 end

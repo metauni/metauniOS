@@ -806,6 +806,32 @@ function OrbController:Start()
 		end
 	end)
 
+	do -- Hide DisplayName tags from humanoids when orbcamActive
+		local function updateNameTag(humanoid: Humanoid?, orbcamActive: boolean)
+			if typeof(humanoid) ~= "Instance" or not humanoid:IsA("Humanoid") then
+				return
+			end
+			if orbcamActive then
+				humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			else
+				humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+			end
+		end
+	
+		observeState(OrbcamActive):Subscribe(function(orbcamActive: boolean)
+			for _, player in Players:GetPlayers() do
+				updateNameTag(player.Character and player.Character:FindFirstChild("Humanoid"), orbcamActive)
+			end
+			for _, humanoid in CollectionService:GetTagged("HasDisplayName") do
+				updateNameTag(humanoid, orbcamActive)
+			end
+		end)
+
+		CollectionService:GetInstanceAddedSignal("HasDisplayName"):Connect(function(humanoid)
+			updateNameTag(humanoid, OrbcamActive:get(false))
+		end)
+	end
+
 	local menu = ReplayMenu({
 		OnRecord = function(recordingName: string)
 			local attachedOrb = AttachedOrb:get()
