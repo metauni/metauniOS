@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BoardRecorder = require(script.Parent)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local t = require(ReplicatedStorage.Packages.t)
@@ -33,19 +34,7 @@ local checkProps = t.strictInterface({
 export type BoardReplayProps = {
 	BoardParent: Instance,
 	Origin: CFrame,
-	Record: {
-		RecordType: "BoardRecord",
-		Timeline: {any},
-		BoardId: string,
-		AspectRatio: number,
-
-		InitialBoardState: metaboard.BoardState?,
-		BoardInstanceRbx: {
-			SurfaceCFrame: CFrame,
-			SurfaceSize: Vector2,
-			BoardInstanceContainer: BasePart | Model,
-		},
-	},
+	Record: BoardRecorder.BoardRecord,
 }
 
 -- This mutates the board instance
@@ -149,6 +138,10 @@ local function BoardReplay(props: BoardReplayProps): BoardReplay
 	
 			finished = true
 		end
+	end
+
+	function self.ExtendRecord(nextRecord: BoardRecorder.BoardRecord)
+		table.move(nextRecord.Timeline, 1, #nextRecord.Timeline, #props.Record.Timeline + 1, props.Record.Timeline)
 	end
 
 	return self

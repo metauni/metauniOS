@@ -14,6 +14,7 @@ local t = require(ReplicatedStorage.Packages.t)
 	Dependencies: 
 		rstk/bitbuffer@1.0.0 (https://github.com/rstk/BitBuffer/blob/31c6d19a9d76e8055fd10aa06f6c5ac3f76608c9/src/init.lua)
 ]]
+local export = {}
 
 local FORMAT_VERSION = "v0.1.0"
 -- vMAJOR.MINOR.PATCH-ADDITIONAL
@@ -72,6 +73,7 @@ export type FloatPrecision = "Float32" | "Float64"
 local checkNonNegativeInteger = t.every(t.integer, t.numberMin(0))
 local checkPositiveInteger = t.every(t.integer, t.numberPositive)
 local checkFloatPrecision = t.union(t.literal("Float32"), t.literal("Float64"))
+local checkEncoding = t.union(t.literal("Base64"), t.literal("Base91"))
 local checkBoolShape = t.literal("Bool")
 local checkBitWidth = t.every(t.integer, t.numberConstrained(1, 32))
 local checkVector2Shape = t.strictInterface {
@@ -439,10 +441,15 @@ local function calculateEventShapeBits(eventShape: {any})
 			bits += 2 * calculateEventShapeBits({dataShape.Precision})
 		elseif typeof(dataShape) == "table" and dataShape.Type == "Vector3" then
 			bits += 3 * calculateEventShapeBits({dataShape.Precision})
+		elseif typeof(dataShape) == "table" and dataShape.Type == "UInt" then
+			bits += dataShape.BitWidth
+		elseif typeof(dataShape) == "table" and dataShape.Type == "Bytes" then
+			bits += 8 * dataShape.NumBytes
 		elseif typeof(dataShape) == "table" and dataShape.Type == "CFrame" then
 			bits += 3 * dataShape.AngleBitWidth
 			bits += 3 * calculateEventShapeBits({dataShape.PositionPrecision})
 		elseif typeof(dataShape) == "table" and dataShape.Type == "Quantized" then
+			-- selene:allow(if_same_then_else)
 			bits += dataShape.BitWidth
 		elseif typeof(dataShape) == "table" and dataShape.Type == "Enum" then
 			-- selene:allow(if_same_then_else)
@@ -453,6 +460,18 @@ local function calculateEventShapeBits(eventShape: {any})
 	end
 	assert(bits > 0, "Bad event shape")
 	return bits
+end
+
+local function estimateEncodingLength(numBits: number, encoding: "Base64" | "Base91")
+	assert(checkEncoding(encoding))
+
+	local bytes = math.ceil(numBits/32)
+	if encoding == "Base64" then
+		return 4 * math.ceil(32*bytes/24)
+	else
+		-- Not super accurate, could be improved with better understanding of Base91
+		return 2 * math.ceil(32*bytes/13)
+	end
 end
 
 type RbxStruct = {
@@ -545,8 +564,6 @@ local function fromRbxStruct(data: RbxStruct)
 	return decoded
 end
 
-
-local checkEncoding = t.union(t.literal("Base64"), t.literal("Base91"))
 local checkEventShape = t.array(checkDataShape)
 
 local checkTimelineConfig = t.strictInterface {
@@ -667,6 +684,29 @@ local function serialiseCharacterRecord(record, force: true?)
 	return data
 end
 
+--[[
+	Byte Estimation for CharacterRecord
+	WARNING: Keep this in sync with serialiseCharacterRecord
+]]
+do 
+	local timestampShape = "Float32"
+	local cframeShape = {
+		Type = "CFrame",
+		PositionPrecision = "Float32",
+		AngleBitWidth = 10, -- 2^10 many angles per axis
+	}
+
+	local PER_TIMELINE_EVENT = estimateEncodingLength(calculateEventShapeBits({ timestampShape, cframeShape }), "Base64")
+	local PER_VISIBLE_EVENT = estimateEncodingLength(calculateEventShapeBits({ timestampShape, "Bool" }), "Base64")
+	-- Manually estimated by taking the json of a CharacterRecord and removing the encoded timelines
+	local JSON_ESTIMATE = 2300
+
+	function export.estimateCharacterRecordBytes(timeline: {any}, visibleTimeline: {any}): number
+		return JSON_ESTIMATE + PER_TIMELINE_EVENT * #timeline
+			+ PER_VISIBLE_EVENT * #visibleTimeline
+	end
+end
+
 local nameToHumanoidRigType = {}
 for _, enum in Enum.HumanoidRigType:GetEnumItems() do
 	nameToHumanoidRigType[enum.Name] = enum
@@ -759,6 +799,32 @@ local function serialiseVRCharacterRecord(record, force: true?)
 	end
 
 	return data
+end
+
+--[[
+	Byte Estimation for VRCharacterRecord
+	WARNING: Keep this in sync with serialiseVRCharacterRecord
+]]
+do 
+	local timestampShape = "Float32"
+	local cframeShape = {
+		Type = "CFrame",
+		PositionPrecision = "Float32",
+		AngleBitWidth = 10, -- 2^10 many angles per axis
+	}
+
+	-- Byte length estimates
+	local TIMELINE_EVENT= estimateEncodingLength(calculateEventShapeBits({ timestampShape, cframeShape, cframeShape, cframeShape }), "Base64")
+	local VISIBLE_EVENT = estimateEncodingLength(calculateEventShapeBits({ timestampShape, "Bool" }), "Base64")
+	local CHALK_EVENT = estimateEncodingLength(calculateEventShapeBits({ timestampShape, "Bool" }), "Base64")
+	-- Manually estimated by taking the json of a CharacterRecord and removing the encoded timelines
+	local JSON_ESTIMATE = 2300
+
+	function export.estimateVRCharacterRecordBytes(timeline: {any}, visibleTimeline: {any}, chalkTimeline: {any}): number
+		return JSON_ESTIMATE + TIMELINE_EVENT * #timeline
+			+ VISIBLE_EVENT * #visibleTimeline
+			+ CHALK_EVENT * #chalkTimeline
+	end
 end
 
 local function deserialiseVRCharacterRecord(data)
@@ -1154,6 +1220,22 @@ local function serialiseBoardRecord(record, force: true?)
 	return data
 end
 
+do
+	-- Average taken from an example timeline buffer, it's about 10.1
+	local AVERAGE_TIMELINE_EVENT = 22280/2206
+	-- An entire example json (including BoardInstanceRbx encoding)
+	-- minus the timeline buffer and the InitialBoardState
+	local JSON_ESTIMATE = 2900
+
+	function export.estimateBoardRecordBytesMinusInitialState(timeline: {any})
+		return JSON_ESTIMATE + AVERAGE_TIMELINE_EVENT * #timeline
+	end
+
+	function export.slowCalculateBoardStateBytes(boardState): number
+		return #HttpService:JSONEncode(serialiseBoardState(boardState))
+	end
+end
+
 local function deserialiseBoardRecord(data)
 	assert(checkBoardRecordData(data))
 
@@ -1236,8 +1318,6 @@ local function deserialiseBoardRecord(data)
 
 	return record
 end
-
-local export = {}
 
 local checkSegmentOfRecordsData = t.strictInterface {
 	__FormatVersion = t.optional(t.string),

@@ -175,27 +175,25 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 	local visibleTimelineIndex = 1
 	local chalkTimelineIndex = 1
 
-	local maybeSoundReplay: SoundReplay.SoundReplay? do
-		if voiceRecord then
-			local soundReplay = SoundReplay({
-				Record = voiceRecord,
-				SoundParent = character.Head,
-				SoundInstanceProps = {
-					RollOffMinDistance = 10,
-					RollOffMaxDistance = 40,
-				},
-			})
-			maid:GiveTask(Blend.Computed(CharacterParent, Active, function(parent: Instance?, active: boolean)
-				if not active then
-					soundReplay.Pause()
-				elseif parent then
-					soundReplay.Preload()
-				end
-			end):Subscribe())
+	local voiceReplay: SoundReplay.SoundReplay = maid:Add(SoundReplay({
+		Record = {
+			RecordType = "SoundRecord",
+			Clips = {},
+		},
+		SoundParent = character.Head,
+		SoundInstanceProps = {
+			RollOffMinDistance = 10,
+			RollOffMaxDistance = 40,
+		},
+	}))
 
-			maybeSoundReplay = soundReplay
+	maid:GiveTask(Blend.Computed(CharacterParent, Active, function(parent: Instance?, active: boolean)
+		if not active then
+			voiceReplay.Pause()
+		elseif parent then
+			voiceReplay.Preload()
 		end
-	end
+	end):Subscribe())
 
 	local function updateCharacter(event, instantly: true?): ()
 		local headRel = event[2]
@@ -214,9 +212,7 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 
 	function self.SetActive(value)
 		Active.Value = value
-		if maybeSoundReplay then
-			maybeSoundReplay.SetActive(value)
-		end
+		voiceReplay.SetActive(value)
 	end
 
 	function self.GetCharacter()
@@ -259,9 +255,7 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 
 	function self.UpdatePlayhead(playhead: number)
 
-		if maybeSoundReplay then
-			maybeSoundReplay.UpdatePlayhead(playhead)
-		end
+		voiceReplay.UpdatePlayhead(playhead)
 
 		while timelineIndex <= #record.Timeline do
 			local event = record.Timeline[timelineIndex]
@@ -299,9 +293,17 @@ local function VRCharacterReplay(props: Props): VRCharacterReplay
 		visibleTimelineIndex = 1
 		chalkTimelineIndex = 1
 		self.UpdatePlayhead(playhead)
-		if maybeSoundReplay then
-			maybeSoundReplay.RewindTo(playhead)
-		end
+		voiceReplay.RewindTo(playhead)
+	end
+
+	function self.ExtendRecord(nextRecord: VRCharacterRecorder.VRCharacterRecord)
+		table.move(nextRecord.Timeline, 1, #nextRecord.Timeline, #props.Record.Timeline + 1, props.Record.Timeline)
+		table.move(nextRecord.VisibleTimeline, 1, #nextRecord.VisibleTimeline, #props.Record.VisibleTimeline + 1, props.Record.VisibleTimeline)
+		table.move(nextRecord.ChalkTimeline, 1, #nextRecord.ChalkTimeline, #props.Record.ChalkTimeline + 1, props.Record.ChalkTimeline)
+	end
+
+	function self.ExtendVoice(soundRecord: SoundReplay.SoundRecord): ()
+		voiceReplay.ExtendRecord(soundRecord)
 	end
 
 	return self

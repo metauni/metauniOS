@@ -29,16 +29,19 @@ local checkProps = t.strictInterface {
 	SoundParent = t.Instance,
 	SoundInstanceProps = t.table,
 }
+
+export type SoundRecord = {
+	RecordType: "SoundRecord",
+	Clips: {{
+		AssetId: string,
+		StartTimestamp: number,
+		StartOffset: number,
+		EndOffset: number,
+	}},
+}
+
 export type Props = {
-	Record: {
-		RecordType: "SoundRecord",
-		Clips: {{
-			AssetId: string,
-			StartTimestamp: number,
-			StartOffset: number,
-			EndOffset: number,
-		}},
-	},
+	Record: SoundRecord,
 	SoundParent: Instance,
 	SoundInstanceProps: {},
 }
@@ -60,17 +63,24 @@ local function SoundReplay(props: Props): SoundReplay
 
 	local sounds: {Sound} = {}
 
-	for i, clip in record.Clips do
-		
-		local sound = maid:Add(Instance.new("Sound"))
-		sound.SoundId = clip.AssetId
-		sound.Name = `ReplaySound-{i}`
+	local function mountClips()
+		for i, clip in record.Clips do
+			if sounds[i] then
+				continue
+			end
 
-		sound.Parent = props.SoundParent
-		maid:GiveTask(Blend.mount(sound, props.SoundInstanceProps))
-
-		table.insert(sounds, sound)
+			local sound = maid:Add(Instance.new("Sound"))
+			sound.SoundId = clip.AssetId
+			sound.Name = `ReplaySound-{i}`
+	
+			sound.Parent = props.SoundParent
+			maid:GiveTask(Blend.mount(sound, props.SoundInstanceProps))
+	
+			sounds[i] = sound
+		end
 	end
+
+	mountClips()
 
 	maid:GiveTask(Active:Observe():Subscribe(function(active)
 		if not active then
@@ -124,6 +134,11 @@ local function SoundReplay(props: Props): SoundReplay
 	
 	function self.Pause()
 		self.SetActive(false)
+	end
+
+	function self.ExtendRecord(nextRecord: SoundRecord)
+		table.move(nextRecord.Clips, 1, #nextRecord.Clips, #props.Record.Clips + 1, props.Record.Clips)
+		mountClips()
 	end
 
 	return self

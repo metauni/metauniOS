@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Serialiser = require(script.Parent.Serialiser)
 local t = require(ReplicatedStorage.Packages.t)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local Rx = require(ReplicatedStorage.Util.Rx)
@@ -169,6 +170,10 @@ local function VRCharacterRecorder(props: VRCharacterRecorderProps): VRCharacter
 
 	function self.Stop()
 		maid._recording = nil
+	end
+
+	function self.EstimateBytes(): number
+		return Serialiser.estimateVRCharacterRecordBytes(Timeline.Value, VisibleTimeline.Value, ChalkTimeline.Value)
 	end
 
 	return self

@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Serialiser = require(script.Parent.Serialiser)
 local t = require(ReplicatedStorage.Packages.t)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local Rx = require(ReplicatedStorage.Util.Rx)
@@ -166,6 +167,10 @@ local function CharacterRecorder(props: CharacterRecorderProps): CharacterRecord
 
 	function self.Stop()
 		maid._recording = nil
+	end
+
+	function self.EstimateBytes(): number
+		return Serialiser.estimateCharacterRecordBytes(Timeline.Value, VisibleTimeline.Value)
 	end
 
 	return self

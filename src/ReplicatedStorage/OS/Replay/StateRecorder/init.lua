@@ -1,3 +1,4 @@
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local t = require(ReplicatedStorage.Packages.t)
@@ -77,10 +78,24 @@ local function StateRecorder(props: {
 			assert(checkJSONable(state))
 			table.insert(Timeline.Value, {now, state})
 		end)
+
+		maid._measure = Rx.timer(0, 10):Subscribe(function()
+			self._byteMeasurement = #HttpService:JSONEncode({
+				RecordType = "StateRecord",
+				StateType = props.StateType,
+				StateInfo = props.StateInfo,
+				Timeline = Timeline.Value,
+			})
+		end)
 	end
 
 	function self.Stop()
 		maid._recording = nil
+		maid._measure = nil
+	end
+
+	function self.EstimateBytes(): number
+		return self._byteMeasurement or 0
 	end
 
 	return self

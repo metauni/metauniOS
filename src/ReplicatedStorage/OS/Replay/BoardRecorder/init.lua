@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
+local Serialiser = require(script.Parent.Serialiser)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local t = require(ReplicatedStorage.Packages.t)
 local Maid = require(ReplicatedStorage.Util.Maid)
@@ -58,6 +59,20 @@ local function extractStrippedBoardContainer(boardServer: metaboard.BoardServer)
 	return container
 end
 
+export type BoardRecord = {
+	RecordType: "BoardRecord",
+	Timeline: {any},
+	BoardId: string,
+	AspectRatio: number,
+
+	InitialBoardState: metaboard.BoardState?,
+	BoardInstanceRbx: {
+		SurfaceCFrame: CFrame,
+		SurfaceSize: Vector2,
+		BoardInstanceContainer: BasePart | Model,
+	},
+}
+
 export type BoardRecorderProps = {
 	Origin: CFrame,
 	BoardId: string,
@@ -95,13 +110,15 @@ local function BoardRecorder(props: BoardRecorderProps): BoardRecorder
 		-- but not ideal.
 		InitialBoardState.Value = table.clone(props.Board.State)
 		maid._listening = listen(props.Board, Timeline, startTime)
+
+		self._cachedInitBoardStateBytes = Serialiser.slowCalculateBoardStateBytes(InitialBoardState.Value)
 	end
 
 	function self.Stop()
 		maid._listening = nil
 	end
 
-	function self.FlushToRecord()
+	function self.FlushToRecord(): BoardRecord
 		local record = {
 			RecordType = "BoardRecord",
 			BoardId = props.BoardId,
@@ -114,6 +131,10 @@ local function BoardRecorder(props: BoardRecorderProps): BoardRecorder
 		Timeline.Value = {}
 		InitialBoardState.Value = nil
 		return record
+	end
+
+	function self.EstimateBytes()
+		return (self._cachedInitBoardStateBytes or 0) + Serialiser.estimateBoardRecordBytesMinusInitialState(Timeline.Value)
 	end
 
 	return self

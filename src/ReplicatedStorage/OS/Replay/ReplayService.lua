@@ -7,8 +7,10 @@ local RecordUtils = require(script.Parent.RecordUtils)
 local OrbService = require(ServerScriptService.OS.OrbService)
 local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local Sift = require(ReplicatedStorage.Packages.Sift)
+local ToolQueue = require(ReplicatedStorage.Packages.metaboard.ToolQueue)
 local t = require(ReplicatedStorage.Packages.t)
 local Maid = require(ReplicatedStorage.Util.Maid)
+local Promise = require(ReplicatedStorage.Util.Promise)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
@@ -28,12 +30,24 @@ local TESTING = game.PlaceId == 10325447437
 local ReplayService = {}
 
 function ReplayService:Init()
+	self = ReplayService
 	self.OrbToStudio = ValueObject.new({})
 	self.OrbToStage = ValueObject.new({})
 	self._stageMaid = Maid.new()
+
+	self.OrbCatalog = {} :: {[number]: {
+		{
+			ReplayId: string,
+			ReplayName: string,
+			NumSegments: number?,
+			UTCDate: typeof(os.date("!*t")),
+		}
+	}}
+
 end
 
 function ReplayService:Start()
+	self = ReplayService
 
 	if TESTING then
 		warn("Using ReplayTest datastore")
@@ -101,9 +115,7 @@ function ReplayService:Start()
 		return true, recordingId
 	end
 
-	-- In theory this can be called multiple times to reattempt save...
-	-- Don't spam it though
-	Remotes.StopRecording.OnServerInvoke = function(player: Player, orbPart: Part)
+	local function stopAndSave(orbPart)
 		local studio = self.OrbToStudio.Value[orbPart]
 
 		if not studio then
@@ -113,42 +125,23 @@ function ReplayService:Start()
 		if studio.PhaseIsBefore("Recorded") then
 			studio.StopRecording()
 		end
-
-		local orbServer = OrbService.Orbs[orbPart]
-		if not orbServer then
-			warn("No orb found")
-			return false, "No orb found"
-		end
-		local orbId = orbServer.GetOrbId()
-		assert(orbId, "Bad orbId")
-
-		studio.Store()
-
-		do
-			local ok, msg = pcall(function()
-				self.ReplayDataStore:UpdateAsync(`OrbReplays/{orbId}`, function(data, _keyInfo: DataStoreKeyInfo)
-					if data == nil then
-						data = {}
-					end
-					table.insert(data, {
-						ReplayId = studio.props.RecordingId,
-						ReplayName = studio.props.RecordingName,
-						UTCDate = os.date("!*t"),
-					})
-					print(`[ReplayService] Stored replay id {studio.props.RecordingId} in OrbReplay/{orbId} catalog`)
-					return data
-				end)
-			end)
-
-			if not ok then
-				return false, msg
+		
+		local ok, msg = self:PromiseSaveRecording(orbPart, studio):Then(function()
+			if self.OrbToStudio.Value[orbPart] then
+				self.OrbToStudio.Value[orbPart].Destroy()
+				self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, nil)
 			end
-		end
+		end):Yeild()
 
-		studio.Destroy()
-		self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, nil)
+		return ok, msg
+	end
 
-		return true
+	Remotes.StopRecording.OnServerInvoke = function(_player: Player, orbPart: Part)
+		return stopAndSave(orbPart)
+	end
+
+	Remotes.AttemptSave.OnServerInvoke = function(_player: Player, orbPart: Part)
+		return stopAndSave(orbPart)
 	end
 
 	self.OrbToStudio:Observe():Pipe {
@@ -179,7 +172,6 @@ function ReplayService:Start()
 	end)
 
 	Remotes.GetReplays.OnServerInvoke = function(_player: Player, orbPart: Part)
-
 		local orbServer = OrbService.Orbs[orbPart]
 		if not orbServer then
 			return nil, "Orb not found"
@@ -190,17 +182,8 @@ function ReplayService:Start()
 			return nil, "Bad OrbId"
 		end
 
-		local replays do
-			local ok, msg = pcall(function()
-				replays = self.ReplayDataStore:GetAsync(`OrbReplays/{orbId}`) or {}
-			end)
-			if not ok then
-				warn(msg)
-				return nil, msg
-			end
-		end
-
-		return replays
+		local ok, result = self:PromiseReplayCatalog(orbId):Yield()
+		return ok, result
 	end
 
 	Remotes.InitReplay.OnServerEvent:Connect(function(_player: Player, orbPart, replayId: string, replayName: string)
@@ -284,6 +267,47 @@ function ReplayService:Start()
 	end
 end
 
+
+
+function ReplayService:PromiseSaveRecording(orbPart: Part, studio: Studio.Studio)
+
+	return studio.PromiseAllSaved():Finally(function(_results)
+
+		local orbServer = OrbService.Orbs[orbPart]
+		if not orbServer then
+			return Promise.rejected("No OrbServer found")
+		end
+		local orbId = orbServer.GetOrbId()
+		if not orbId then
+			return Promise.rejected("Bad OrbId")
+		end
+
+		local numSegments = studio.GetNumSegments()
+
+		local ok, msg = pcall(function()
+			self.ReplayDataStore:UpdateAsync(`OrbReplays/{orbId}`, function(data, _keyInfo: DataStoreKeyInfo)
+				if data == nil then
+					data = {}
+				end
+				table.insert(data, {
+					ReplayId = studio.props.RecordingId,
+					ReplayName = studio.props.RecordingName,
+					NumSegments = numSegments,
+					UTCDate = os.date("!*t"),
+				})
+				print(`[ReplayService] Stored replay id {studio.props.RecordingId} in OrbReplay/{orbId} catalog`)
+				return data
+			end)
+		end)
+
+		if ok then
+			return Promise.resolved()
+		else
+			return Promise.rejected(msg)
+		end
+	end)
+end
+
 function ReplayService:_observePlayerToOrb()
 	return Rx.of(Players):Pipe {
 		Rxi.children(),
@@ -338,22 +362,53 @@ function ReplayService:NewOrbStudio(orbServer: OrbServer.OrbServer, recordingNam
 	return studio
 end
 
+function ReplayService:PromiseReplayCatalog(orbId: number)
+	self = ReplayService
+	if self.OrbCatalog[orbId] then
+		return Promise.resolved(self.OrbCatalog[orbId])
+	end
+
+	return Promise.spawn(function(resolve, reject)
+		local replays
+		local ok, msg = pcall(function()
+			replays = self.ReplayDataStore:GetAsync(`OrbReplays/{orbId}`) or {}
+		end)
+		if ok then
+			self.OrbCatalog[orbId] = replays
+			resolve(replays)
+		else
+			reject(msg)
+		end
+	end)
+end
+
 function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 	local stage = self.OrbToStage.Value[orbPart]
-	local orbServer: OrbServer.OrbServer = OrbService.Orbs[orbPart]
-	if not orbServer then
-		warn("No orb found")
-		return
-	end
+	local orbServer = OrbService.Orbs[orbPart]
+	assert(orbServer, "No OrbServer found")
+	local orbId = orbServer.GetOrbId()
+	assert(orbId, "Bad OrbId")
 
 	if stage then
 		stage.Destroy()
 	end
 
+	local catalog = ReplayService:PromiseReplayCatalog(orbId):Wait()
+
+	local replayEntry = Sift.Array.filter(catalog, function(entry)
+		return entry.ReplayId == replayId
+	end)[1]
+
+	assert(replayEntry, `No replayEntry found in catalog for ID {replayId}`)
+
+	local numSegments = catalog.NumSegments or 1
+
 	stage = Stage {
 		DataStore = self.ReplayDataStore,
 		Origin = orbServer.GetReplayOrigin(),
 		ReplayId = replayId,
+		NumSegments = numSegments,
+		ReplayName = replayName,
 		BoardGroup = orbServer.GetBoardGroup(),
 		OrbServer = orbServer,
 	}
@@ -392,7 +447,7 @@ function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 	-- Immediately play?
 	stage.Play()
 
-    return stage.GetFinishedSignal()
+	return stage.GetFinishedSignal()
 end
 
 function ReplayService:Play(orbPart)

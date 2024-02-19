@@ -1,6 +1,7 @@
 --[[
 	For managing the recording, and editing of a replay recording.
 ]]
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -10,6 +11,7 @@ local BoardRecorder = require(script.Parent.BoardRecorder)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Maid = require(ReplicatedStorage.Util.Maid)
+local Promise = require(ReplicatedStorage.Util.Promise)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
 local CharacterRecorder = require(script.Parent.CharacterRecorder)
@@ -17,8 +19,12 @@ local Serialiser = require(script.Parent.Serialiser)
 local StateRecorder = require(script.Parent.StateRecorder)
 local VRCharacterRecorder = require(script.Parent.VRCharacterRecorder)
 
-export type Phase = "Uninitialised" | "Initialised" | "Recording" | "Recorded" | "Saved"
-local PHASE_ORDER: {Phase} = {"Uninitialised", "Initialised", "Recording", "Recorded", "Saved"}
+-- Leaves a buffer of 4_194_304 - 3_900_000 = 294_304 bytes
+local MAX_SEGMENT_BYTES = 3_900_000
+local DEBUG = false
+
+export type Phase = "Uninitialised" | "Initialised" | "Recording" | "Recorded" | "SaveFailed" | "Saved"
+local PHASE_ORDER: {Phase} = {"Uninitialised", "Initialised", "Recording", "Recorded", "SaveFailed", "Saved"}
 
 export type StudioProps = {
 	RecordingName: string,
@@ -27,11 +33,20 @@ export type StudioProps = {
 	DataStore: DataStore,
 }
 
+type Recorder = 
+	VRCharacterRecorder.VRCharacterRecorder |
+	CharacterRecorder.CharacterRecorder |
+	BoardRecorder.BoardRecorder |
+	StateRecorder.StateRecorder
+
 local function Studio(props: StudioProps): Studio
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap(), props = props }
 	
-	local recorders = {}
+	local recorders: {Recorder} = {}
+	local savePromises = {}
+	local segments = {}
+	local estimateBytes: {number?} = {}
 	local orb: OrbServer.OrbServer = nil
 	local startTime = nil
 
@@ -145,57 +160,149 @@ local function Studio(props: StudioProps): Studio
 		RecordingPhase.Value = "Initialised"
 	end
 
-	function self.StartRecording()
-		assert(self.PhaseIsBefore("Recording"), `[Replay Studio] Tried to start recording during phase {RecordingPhase.Value}`)
-		
-		for _, recorder in recorders do
-			recorder.Start(startTime)
-		end
-		RecordingPhase.Value = "Recording"
+	local function promiseSave(segmentOfRecords, segmentIndex: number)
+		return Promise.spawn(function(resolve, reject)
+
+			local data
+			do
+				local ok, msg = pcall(function()
+					data = Serialiser.serialiseSegmentOfRecords(segmentOfRecords, segmentIndex)
+				end)
+				if not ok then
+					reject(tostring(msg))
+					return
+				end
+			end
+
+			if DEBUG then
+				local dataBytes = #HttpService:JSONEncode(data)
+				print(`[DEBUG] Segment {segmentIndex} is {dataBytes} bytes. Estimated {estimateBytes[segmentIndex] or "?"} bytes.`)
+			end
+
+			for i=1, 5 do
+				local ok, msg = pcall(function()
+					props.DataStore:SetAsync(`Replay/{props.RecordingId}/{segmentIndex}`, data)
+				end)
+				if ok then
+					print(`[Replay Studio] SegmentOfRecords {segmentIndex} stored (Id: {props.RecordingId})`)
+					resolve()
+					return
+				end
+
+				if i==5 then
+					reject(tostring(msg))
+					return
+				else
+					warn(msg)
+					task.wait(10)
+				end
+			end
+		end)
 	end
 
-	function self.StopRecording()
-		assert(self.PhaseIsBefore("Recorded"), `[Replay Studio] Tried to stop recording during phase {RecordingPhase.Value}`)
+	local function flushAndSaveCurrentSegment()
 
 		local segmentOfRecords = {
 			Origin = props.Origin,
 			Records = {},
 			EndTimestamp = nil -- set after stopping
 		}
-		
+
+		table.insert(segments, segmentOfRecords)
+		local segmentIndex = #segments
+
 		for _, recorder in recorders do
-			recorder.Stop()
+			estimateBytes[segmentIndex] += recorder.EstimateBytes()
 			table.insert(segmentOfRecords.Records, recorder.FlushToRecord())
 		end
 		segmentOfRecords.EndTimestamp = os.clock() - startTime
+		
+		savePromises[segmentIndex] = promiseSave(segmentOfRecords, segmentIndex)
+	end
+
+	function self.StartRecording()
+		assert(self.PhaseIsBefore("Recording"), `[Replay Studio] Tried to start recording during phase {RecordingPhase.Value}`)
+		
+		for _, recorder in recorders do
+			recorder.Start(startTime)
+		end
+
+		maid._estimator = Rx.timer(0, 10):Subscribe(function()
+			local totalBytes = 0
+			for _, recorder in recorders do
+				totalBytes += recorder.EstimateBytes()
+			end
+			if totalBytes >= MAX_SEGMENT_BYTES then
+				flushAndSaveCurrentSegment()
+			end
+		end)
+
+		RecordingPhase.Value = "Recording"
+	end
+
+	function self.StopRecording()
+		assert(self.PhaseIsBefore("Recorded"), `[Replay Studio] Tried to stop recording during phase {RecordingPhase.Value}`)
+
+		maid._estimator = nil
+
+		for _, recorder in recorders do
+			recorder.Stop()
+		end
+		
+		-- Start save of the last segment (possibly the only segment)
+		flushAndSaveCurrentSegment()
+
+		self.PromiseAllSaved():Then(function(results)
+			print(`[ReplayStudio] Saved {#results}/{#results} segments for recording (ID: {props.RecordingId})`)
+		end):Catch(function(results)
+			local successful = Sift.Array.count(results, function(okOrMsg)
+				return okOrMsg == true
+			end)
+			warn(`[ReplayStudio] Saved {successful}/{#results} segments for recording (ID: {props.RecordingId})`)
+			for segmentIndex, okOrMsg in results do
+				if okOrMsg ~= true then
+					warn(`[ReplayStudio] Failed to save segment {segmentIndex}:`)
+					warn(okOrMsg)
+				end
+			end
+		end)
 
 		RecordingPhase.Value = "Recorded"
-
-		self.SegmentOfRecords = segmentOfRecords
 	end
-	
-	-- TODO: worry about this being called multiple times
-	function self.Store()
-		assert(self.SegmentOfRecords, "No segment ready to store")
-		local data = Serialiser.serialiseSegmentOfRecords(self.SegmentOfRecords, 1)
 
-		task.spawn(function()
-			while true do
-				local ok, msg = pcall(function()
-					props.DataStore:SetAsync(`Replay/{props.RecordingId}/{1}`, data)
-				end)
-				if not ok then
-					warn(msg)
-					task.wait(10)
-					continue
+	-- Resolves with table mapping segmentIndices to true
+	-- Rejects with table mapping segmentIndices to true for success or a string for failure
+	function self.PromiseAllSaved()
+		assert(not self.PhaseIsBefore("Recorded"), "[ReplayStudio] Cannot initiate save before recording finished")
+		
+		if not Sift.Array.findWhere(savePromises, function(promise) return promise:IsPending() end) then
+			savePromises = Sift.Array.map(savePromises, function(promise, segmentIndex)
+				if promise:IsFulfilled() then
+					return promise
 				end
-				break
-			end
+				return promiseSave(segments[segmentIndex], segmentIndex)
+			end)
+		end
 
-			RecordingPhase.Value = "Saved"
-	
-			print(`[Replay Studio] SegmentOfRecords 1 stored (Id: {props.RecordingId})`)
-		end)
+		local promiseAllSaved = Promise.combine(savePromises)
+		promiseAllSaved
+			:Then(function()
+				RecordingPhase.Value = "Saved"
+			end)
+			:Catch(function()
+				-- Don't revert a previous success
+				if self.PhaseIsBefore("Saved") then
+					RecordingPhase.Value = "Saved"
+				end
+			end)
+
+		return promiseAllSaved
+	end
+
+	function self.GetNumSegments(): number
+		assert(not self.PhaseIsBefore("Recorded"), `[Replay Studio] Cannot report number of segments before recording ended.`)
+
+		return #segments
 	end
 
 	return self

@@ -73,6 +73,10 @@ local function StateReplay(props: {
 		end
 	end
 
+	function self.ExtendRecord(nextRecord: StateRecorder.StateRecord)
+		table.move(nextRecord.Timeline, 1, #nextRecord.Timeline, #props.Record.Timeline + 1, props.Record.Timeline)
+	end
+
 	return self
 end
 

@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local CharacterRecorder = require(script.Parent)
 local SoundReplay = require(ReplicatedStorage.OS.Replay.SoundReplay)
 local t = require(ReplicatedStorage.Packages.t)
 local Blend = require(ReplicatedStorage.Util.Blend)
@@ -25,29 +26,18 @@ local checkRecord = t.interface {
 }
 
 export type Props = {
-	Record: {
-		RecordType: "CharacterRecord",
-		HumanoidDescription: HumanoidDescription,
-		HumanoidRigType: Enum.HumanoidRigType,
-		Timeline: {any},
-		VisibleTimeline: {any},
-		CharacterId: string,
-		CharacterName: string,
-	},
+	Record: CharacterRecorder.CharacterRecord,
 	Origin: CFrame,
-	VoiceRecord: any?,
 }
 local checkProps = t.strictInterface {
 	Record = checkRecord,
 	Origin = t.CFrame,
-	VoiceRecord = t.optional(t.table),
 }
 
 local function CharacterReplay(props: Props)
 	assert(checkProps(props))
 	local	record = props.Record
 	local origin = props.Origin
-	local voiceRecord = props.VoiceRecord
 
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap(), props = props, ReplayType = "CharacterReplay"  }
@@ -58,28 +48,26 @@ local function CharacterReplay(props: Props)
 	local Active = maid:Add(Blend.State(false, "boolean"))
 	local RootCFrame = maid:Add(Blend.State(nil))
 	local CharacterParent = maid:Add(Blend.State(nil))
+	
+	local voiceReplay: SoundReplay.SoundReplay = maid:Add(SoundReplay({
+		Record = {
+			RecordType = "SoundRecord",
+			Clips = {},
+		},
+		SoundParent = character.Head,
+		SoundInstanceProps = {
+			RollOffMinDistance = 10,
+			RollOffMaxDistance = 40,
+		},
+	}))
 
-	local maybeSoundReplay: SoundReplay.SoundReplay? do
-		if voiceRecord then
-			local soundReplay = SoundReplay({
-				Record = voiceRecord,
-				SoundParent = character.Head,
-				SoundInstanceProps = {
-					RollOffMinDistance = 10,
-					RollOffMaxDistance = 40,
-				},
-			})
-			maid:GiveTask(Blend.Computed(CharacterParent, Active, function(parent: Instance?, active: boolean)
-				if not active then
-					soundReplay.Pause()
-				elseif parent then
-					soundReplay.Preload()
-				end
-			end):Subscribe())
-
-			maybeSoundReplay = soundReplay
+	maid:GiveTask(Blend.Computed(CharacterParent, Active, function(parent: Instance?, active: boolean)
+		if not active then
+			voiceReplay.Pause()
+		elseif parent then
+			voiceReplay.Preload()
 		end
-	end
+	end):Subscribe())
 	
 	local timelineIndex = 1
 	local visibleTimelineIndex = 1
@@ -92,9 +80,7 @@ local function CharacterReplay(props: Props)
 
 	function self.SetActive(value)
 		Active.Value = value
-		if maybeSoundReplay then
-			maybeSoundReplay.SetActive(value)
-		end
+		voiceReplay.SetActive(value)
 	end
 
 	function self.GetCharacter()
@@ -186,9 +172,7 @@ local function CharacterReplay(props: Props)
 
 	function self.UpdatePlayhead(playhead: number)
 
-		if maybeSoundReplay then
-			maybeSoundReplay.UpdatePlayhead(playhead)
-		end
+		voiceReplay.UpdatePlayhead(playhead)
 
 		while timelineIndex <= #record.Timeline do
 
@@ -221,9 +205,16 @@ local function CharacterReplay(props: Props)
 		timelineIndex = 1
 		visibleTimelineIndex = 1
 		self.UpdatePlayhead(playhead)
-		if maybeSoundReplay then
-			maybeSoundReplay.RewindTo(playhead)
-		end
+		voiceReplay.RewindTo(playhead)
+	end
+
+	function self.ExtendRecord(nextRecord: CharacterRecorder.CharacterRecord): ()
+		table.move(nextRecord.Timeline, 1, #nextRecord.Timeline, #props.Record.Timeline + 1, props.Record.Timeline)
+		table.move(nextRecord.VisibleTimeline, 1, #nextRecord.VisibleTimeline, #props.Record.VisibleTimeline + 1, props.Record.VisibleTimeline)
+	end
+
+	function self.ExtendVoice(soundRecord: SoundReplay.SoundRecord): ()
+		voiceReplay.ExtendRecord(soundRecord)
 	end
 
 	return self

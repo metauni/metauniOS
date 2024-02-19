@@ -16,20 +16,17 @@ local Rx = require(ReplicatedStorage.Util.Rx)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local Serialiser = require(script.Parent.Serialiser)
 local BoardReplay = require(script.Parent.BoardRecorder.BoardReplay)
+local CharacterRecorder = require(script.Parent.CharacterRecorder)
 local CharacterReplay = require(script.Parent.CharacterRecorder.CharacterReplay)
+local RecordUtils = require(script.Parent.RecordUtils)
 local VRCharacterReplay = require(script.Parent.VRCharacterRecorder.VRCharacterReplay)
 
 local ENDTIMESTAMP_BUFFER = 0.5
 
-export type AnyReplay = CharacterReplay.CharacterReplay | VRCharacterReplay.VRCharacterReplay | BoardReplay.BoardReplay | StateReplay.StateReplay
-
-export type SegmentOfReplays = {
-	Replays: {AnyReplay},
-	EndTimestamp: number,
-}
-
 export type StageProps = {
 	ReplayId: string,
+	ReplayName: string,
+	NumSegments: number,
 	Origin: CFrame, -- We ignore the stored origin, and play the replay relative to this one
 	DataStore: DataStore,
 	BoardGroup: Instance,
@@ -37,27 +34,31 @@ export type StageProps = {
 }
 
 local function Stage(props: StageProps)
+	assert(typeof(props.NumSegments) == "number" and props.NumSegments >= 1, "Bad NumSegments")
+
 	local maid = Maid.new()
 	local self = { Destroy = maid:Wrap(), props = props }
 
 	local Playing = maid:Add(ValueObject.new(false))
-	local SegmentIndex = maid:Add(ValueObject.new(1, "number"))
 	local Pausehead = maid:Add(ValueObject.new(0))
 	local initialised = false
 	local finishedSignal = maid:Add(GoodSignal.new())
 	local TimestampSeconds = maid:Add(ValueObject.new(0))
+	local segmentofRecordsList = {}
 
-	local segments = {}
+	local Replays: ValueObject.ValueObject<{RecordUtils.AnyReplay}> = maid:Add(ValueObject.new(nil))
+	local endTimestamp: number = nil
 	maid:GiveTask(function()
-		for _, segment in segments do
-			for _, replay in segment.Replays do
+		local replays = Replays.Value
+		if replays then
+			for _, replay in replays do
 				replay.Destroy()
 			end
 		end
 	end)
 
-	local function getCharacters(segment: SegmentOfReplays): {[string]: Model?}
-		local characterReplays = Sift.Array.filter(segment.Replays, function(replay: AnyReplay)
+	local function getCharacters(): {[string]: Model?}
+		local characterReplays = Sift.Array.filter(Replays.Value, function(replay: RecordUtils.AnyReplay)
 			return replay.ReplayType == "CharacterReplay" or replay.ReplayType == "VRCharacterReplay"
 		end)
 
@@ -66,93 +67,168 @@ local function Stage(props: StageProps)
 		end)
 	end
 
-	local function fetchSegment(): SegmentOfReplays
-
-		local data = props.DataStore:GetAsync(`Replay/{props.ReplayId}/{1}`)
-		local segmentOfRecords = Serialiser.deserialiseSegmentOfRecords(data)
-		
-		local segment = {
-			Replays = {},
-			EndTimestamp = segmentOfRecords.EndTimestamp,
-		}
-
-		local soundRecords = Sift.Array.filter(segmentOfRecords.Records, function(record)
-			return record.RecordType == "SoundRecord"
+	local function fetchMissingRecords(): boolean
+		local ok, msg = pcall(function()
+			for i=1, props.NumSegments do
+				if segmentofRecordsList[i] then
+					continue
+				end
+	
+				local data = props.DataStore:GetAsync(`Replay/{props.ReplayId}/{i}`)
+				local segmentOfRecords = Serialiser.deserialiseSegmentOfRecords(data)
+				segmentofRecordsList[i] = segmentOfRecords
+	
+				if not endTimestamp or segmentOfRecords.EndTimestamp > endTimestamp then
+					endTimestamp = segmentOfRecords.EndTimestamp
+				end
+			end
 		end)
 
-		local function getVoiceRecord(characterId: string): any?
-			assert(characterId, "Bad characterId")
-			for _, soundRecord in soundRecords do
-				if soundRecord.CharacterId == characterId then
-					return soundRecord
-				end
-			end
-			return nil
-		end
-
-		for _, record in segmentOfRecords.Records do
-			local replay
-			if record.RecordType == "CharacterRecord" then
-				replay = CharacterReplay({
-					Record = record,
-					Origin = props.Origin,
-					VoiceRecord = getVoiceRecord(record.CharacterId),
-				})
-			elseif record.RecordType == "VRCharacterRecord" then
-				replay = VRCharacterReplay({
-					Record = record,
-					Origin = props.Origin,
-					VoiceRecord = getVoiceRecord(record.CharacterId),
-				})
-			elseif record.RecordType == "BoardRecord" then
-				replay = BoardReplay({
-					Origin = props.Origin,
-					Record = record,
-					BoardParent = props.BoardGroup,
-				})
-			elseif record.RecordType == "StateRecord" and record.StateType == "Orb" then
-				if not props.OrbServer then
-					error("No orb given")
-				end
-
-				replay = StateReplay({
-					Record = record,
-					Handler = function(state)
-						local characters = getCharacters(segment)
-						local character = characters[state.SpeakerId]
-						if false then
-							-- TODO: enable this functionality without allowing speakerAttachment to be destroyed on cleanup
-							props.OrbServer.SetSpeakerCharacter(character)
-						end
-						props.OrbServer.SetViewMode(state.ViewMode)
-						props.OrbServer.SetWaypointOnly(state.WaypointOnly)
-						props.OrbServer.SetShowAudience(state.ShowAudience)
-					end,
-				})
-
-			elseif record.RecordType == "SoundRecord" then
-				-- Handled by character replays
-				continue
-			else
-				error(`Record type {record.RecordType} not handled`)
-			end
-			table.insert(segment.Replays, replay)
-		end
-
-		segments[1] = segment
-
-		return segment
+		return ok, msg
 	end
 
-	local function getSegment(): SegmentOfReplays
-		local segment = segments[SegmentIndex.Value]
-		if not segment then
-			segment = fetchSegment()
+	local function initReplays()
+
+		for i=1, props.NumSegments do
+			if not segmentofRecordsList[i] then
+				error(`SegmentOfRecords {i} not downloaded`)
+			end
 		end
-		return segment
+		
+		local replays = {}
+
+		local ok, msg = pcall(function()
+			local allRecords = Sift.Array.concat(Sift.Array.map(segmentofRecordsList, function(segmentOfRecords)
+				return segmentOfRecords.Records
+			end))
+	
+			local badRecords = Sift.Array.filter(allRecords, function(record)
+				if table.find({
+					"CharacterRecord",
+					"VRCharacterRecord",
+					"BoardRecord",
+					"SoundRecord",
+				}, record.RecordType) then
+					return false
+				end
+	
+				if record.RecordType == "StateRecord" then
+					return false
+				end
+	
+				return true
+			end)
+	
+			if #badRecords > 0 then
+				for _, record in badRecords do
+					warn(`Unrecognised record, RecordType={record.RecordType}`)
+				end
+				error("[ReplayStage] Initialisation failed. Unrecognised records found.")
+			end
+	
+			for _, record in RecordUtils.FilterRecords(allRecords, "CharacterRecord") do
+				local replay = RecordUtils.GetCharacterReplay(replays, record.CharacterId)
+				if replay then
+					replay.ExtendRecord(record)
+				else
+					table.insert(replays, CharacterReplay({
+						Record = record,
+						Origin = props.Origin,
+					}))
+				end
+			end
+	
+			for _, record in RecordUtils.FilterRecords(allRecords, "VRCharacterRecord") do
+				local existing = RecordUtils.GetCharacterReplay(replays, record.CharacterId)
+				if existing then
+					existing.ExtendRecord(record)
+				else
+					table.insert(replays, VRCharacterReplay({
+						Record = record,
+						Origin = props.Origin,
+					}))
+				end
+			end
+	
+			for _, record in RecordUtils.FilterRecords(allRecords, "BoardRecord") do
+				local existing = RecordUtils.GetBoardReplay(replays, record.BoardId)
+				if existing then
+					existing.ExtendRecord(record)
+				else
+					table.insert(replays, BoardReplay({
+						Origin = props.Origin,
+						Record = record,
+						BoardParent = props.BoardGroup,
+					}))
+				end
+			end
+	
+			for _, record in allRecords do
+				if record.RecordType == "StateRecord" and record.StateType == "Orb" then
+					if not props.OrbServer then
+						error("No orb given")
+					end
+	
+					local existing = Sift.Array.filter(replays, function(replay)
+						return replay.ReplayType == "StateReplay" and replay.props.Record.StateType == "Orb"
+					end)[1]
+	
+					if existing then
+						existing.ExtendRecord(record)
+					else
+						table.insert(replays, StateReplay({
+							Record = record,
+							Handler = function(state)
+								local characters = getCharacters()
+								local character = characters[state.SpeakerId]
+								if false then
+									-- TODO: enable this functionality without allowing speakerAttachment to be destroyed on cleanup
+									props.OrbServer.SetSpeakerCharacter(character)
+								end
+								props.OrbServer.SetViewMode(state.ViewMode)
+								props.OrbServer.SetWaypointOnly(state.WaypointOnly)
+								props.OrbServer.SetShowAudience(state.ShowAudience)
+							end,
+						}))
+					end
+				end
+			end
+	
+			for _, record in RecordUtils.FilterRecords(allRecords, "SoundRecord") do
+				local existing = RecordUtils.GetCharacterReplay(replays, record.CharacterId)
+				if existing then
+					existing.ExtendVoice(record)
+				end
+			end
+	
+			for _, replay in Replays.Value do
+				replay.Init()
+			end
+		end)
+
+		if not ok then
+			for _, replay in Replays do
+				replay.Destroy()
+			end
+			return false, msg
+		end
+
+		Replays.Value = replays
+		
+		for _, segmentOfRecords in segmentofRecordsList do
+			if endTimestamp then
+				endTimestamp = math.max(endTimestamp, segmentOfRecords.EndTimestamp)
+			else
+				endTimestamp = segmentOfRecords.EndTimestamp
+			end
+		end
+
+		return true
 	end
 
 	function self.Init()
+		-- Can do this after placing Replay boards, but need to add tag
+		-- like "ReplayBoard" to replay boards so this code doesn't hide them too
 		for board in metaboard.Server.BoardServerBinder:GetAllSet() do
 			local boardContainer = board:GetContainer()
 			local originalParent = boardContainer.Parent
@@ -164,9 +240,20 @@ local function Stage(props: StageProps)
 			end
 		end
 
-		local segment = getSegment()
-		for _, replay in segment.Replays do
-			replay.Init()
+		do
+			local ok, msg = fetchMissingRecords()
+			if not ok then
+				warn(msg)
+				return
+			end
+		end
+
+		do
+			local ok, msg = initReplays()
+			if not ok then
+				warn(msg)
+				return
+			end
 		end
 
 		initialised = true
@@ -177,18 +264,41 @@ local function Stage(props: StageProps)
 	end
 
 	-- Remember could be nil
-	local timeAtResume
+	local timeAtResume: number?
+
+	local function updateTimestamp()
+		if timeAtResume then
+			local timestamp = Pausehead.Value + (os.clock() - timeAtResume)
+			TimestampSeconds.Value = math.round(timestamp)
+		end
+	end
 
 	function self.Play()
 		if not initialised then
-			error("Not initialised. Call stage.Init()")
+			do
+				local ok, msg = fetchMissingRecords()
+				if not ok then
+					warn(msg)
+					return
+				end
+			end
+	
+			do
+				local ok, msg = initReplays()
+				if not ok then
+					warn(msg)
+					return
+				end
+			end
+	
+			initialised = true
 		end
+		
 		if Playing.Value then
 			return
 		end
-		local segment = getSegment()
 
-		for _, replay in segment.Replays do
+		for _, replay in Replays.Value do
 			if typeof(replay.SetActive) == "function" then
 				replay.SetActive(true)
 			end
@@ -197,22 +307,21 @@ local function Stage(props: StageProps)
 		timeAtResume = os.clock()
 
 		maid._playing = RunService.Heartbeat:Connect(function()
-			local timestamp = Pausehead.Value + (os.clock() - timeAtResume)
-			TimestampSeconds.Value = math.round(timestamp)
-			for _, replay in segment.Replays do
+			updateTimestamp()
+			local timestamp = Pausehead.Value + (os.clock() - (timeAtResume :: number))
+			for _, replay in Replays.Value do
 				replay.UpdatePlayhead(timestamp)
 			end
-			if timestamp >= segment.EndTimestamp + ENDTIMESTAMP_BUFFER then
-				print("Finished playing!")
+			if timestamp >= endTimestamp + ENDTIMESTAMP_BUFFER then
+				print(`[ReplayStage] Replay {props.ReplayName} (ID: {props.ReplayId}) ended.`)
 				maid._playing = nil
 				Playing.Value = false
-				for _, replay in segment.Replays do
+				for _, replay in Replays.Value do
 					if typeof(replay.SetActive) == "function" then
 						replay.SetActive(false)
 					end
 				end
 				
-				print("finished!")
 				finishedSignal:Fire()
 			end
 		end)
@@ -222,8 +331,8 @@ local function Stage(props: StageProps)
 
 	function self.Pause()
 		maid._playing = nil
-		local segment = getSegment()
-		for _, replay in segment.Replays do
+
+		for _, replay in Replays.Value do
 			if typeof(replay.SetActive) == "function" then
 				replay.SetActive(false)
 			end
@@ -239,6 +348,8 @@ local function Stage(props: StageProps)
 	function self.SkipAhead(seconds: number)
 		assert(t.numberPositive(seconds), "Bad seconds")
 		Pausehead.Value += seconds
+
+		updateTimestamp()
 	end
 
 	function self.SkipBack(seconds: number)
@@ -247,8 +358,7 @@ local function Stage(props: StageProps)
 		local wasPlaying = Playing.Value
 		self.Pause()
 		local newPausehead = math.max(0, Pausehead.Value - seconds)
-		local segment = getSegment()
-		for _, replay in segment.Replays do
+		for _, replay in Replays.Value do
 			if typeof(replay.RewindTo) == "function" then
 				replay.RewindTo(newPausehead)
 			end
@@ -256,6 +366,8 @@ local function Stage(props: StageProps)
 		Pausehead.Value = newPausehead
 		if wasPlaying then
 			self.Play()
+		else
+			updateTimestamp()
 		end
 	end
 
@@ -263,8 +375,7 @@ local function Stage(props: StageProps)
 		
 		local wasPlaying = Playing.Value
 		self.Pause()
-		local segment = getSegment()
-		for _, replay in segment.Replays do
+		for _, replay in Replays.Value do
 			if typeof(replay.RewindTo) == "function" then
 				replay.RewindTo(0)
 			end
@@ -272,6 +383,8 @@ local function Stage(props: StageProps)
 		Pausehead.Value = 0
 		if wasPlaying then
 			self.Play()
+		else
+			updateTimestamp()
 		end
 	end
 
@@ -287,9 +400,8 @@ local function Stage(props: StageProps)
 		return TimestampSeconds:Observe()
 	end
 
-	function self.GetDuration()
-		local segment = getSegment()
-		return segment.EndTimestamp
+	function self.GetDuration(): number?
+		return endTimestamp
 	end
 
 	return self
