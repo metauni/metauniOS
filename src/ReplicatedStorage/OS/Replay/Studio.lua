@@ -46,7 +46,6 @@ local function Studio(props: StudioProps): Studio
 	local recorders: {Recorder} = {}
 	local savePromises = {}
 	local segments = {}
-	local estimateBytes: {number?} = {}
 	local orb: OrbServer.OrbServer = nil
 	local startTime = nil
 
@@ -176,7 +175,7 @@ local function Studio(props: StudioProps): Studio
 
 			if DEBUG then
 				local dataBytes = #HttpService:JSONEncode(data)
-				print(`[DEBUG] Segment {segmentIndex} is {dataBytes} bytes. Estimated {estimateBytes[segmentIndex] or "?"} bytes.`)
+				print(`[DEBUG] Segment {segmentIndex} is {dataBytes} bytes.`)
 			end
 
 			for i=1, 5 do
@@ -212,7 +211,6 @@ local function Studio(props: StudioProps): Studio
 		local segmentIndex = #segments
 
 		for _, recorder in recorders do
-			estimateBytes[segmentIndex] += recorder.EstimateBytes()
 			table.insert(segmentOfRecords.Records, recorder.FlushToRecord())
 		end
 		segmentOfRecords.EndTimestamp = os.clock() - startTime
@@ -231,6 +229,9 @@ local function Studio(props: StudioProps): Studio
 			local totalBytes = 0
 			for _, recorder in recorders do
 				totalBytes += recorder.EstimateBytes()
+			end
+			if DEBUG then
+				print(`[DEBUG] Recording estimate at {totalBytes} bytes`)
 			end
 			if totalBytes >= MAX_SEGMENT_BYTES then
 				flushAndSaveCurrentSegment()
@@ -252,6 +253,8 @@ local function Studio(props: StudioProps): Studio
 		-- Start save of the last segment (possibly the only segment)
 		flushAndSaveCurrentSegment()
 
+		RecordingPhase.Value = "Recorded"
+
 		self.PromiseAllSaved():Then(function(results)
 			print(`[ReplayStudio] Saved {#results}/{#results} segments for recording (ID: {props.RecordingId})`)
 		end):Catch(function(results)
@@ -266,8 +269,6 @@ local function Studio(props: StudioProps): Studio
 				end
 			end
 		end)
-
-		RecordingPhase.Value = "Recorded"
 	end
 
 	-- Resolves with table mapping segmentIndices to true

@@ -885,7 +885,12 @@ function OrbController:Start()
 
 	self._showReplayMenu.Changed:Connect(function()
 		if self._showReplayMenu.Value then
-			menu.SetReplayList(ReplayRemotes.GetReplays:InvokeServer(AttachedOrb:get()))
+			local ok, result = ReplayRemotes.GetReplays:InvokeServer(AttachedOrb:get())
+			if ok then
+				menu.SetReplayList(result)
+			else
+				warn(result)
+			end
 		end
 	end)
 

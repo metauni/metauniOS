@@ -98,9 +98,9 @@ local function Stage(props: StageProps)
 		local replays = {}
 
 		local ok, msg = pcall(function()
-			local allRecords = Sift.Array.concat(Sift.Array.map(segmentofRecordsList, function(segmentOfRecords)
+			local allRecords = Sift.Array.flatten(Sift.Array.map(segmentofRecordsList, function(segmentOfRecords)
 				return segmentOfRecords.Records
-			end))
+			end), 1)
 	
 			local badRecords = Sift.Array.filter(allRecords, function(record)
 				if table.find({
@@ -122,6 +122,7 @@ local function Stage(props: StageProps)
 			if #badRecords > 0 then
 				for _, record in badRecords do
 					warn(`Unrecognised record, RecordType={record.RecordType}`)
+					print(record)
 				end
 				error("[ReplayStage] Initialisation failed. Unrecognised records found.")
 			end
@@ -201,13 +202,13 @@ local function Stage(props: StageProps)
 				end
 			end
 	
-			for _, replay in Replays.Value do
+			for _, replay in replays do
 				replay.Init()
 			end
 		end)
 
 		if not ok then
-			for _, replay in Replays do
+			for _, replay in replays do
 				replay.Destroy()
 			end
 			return false, msg

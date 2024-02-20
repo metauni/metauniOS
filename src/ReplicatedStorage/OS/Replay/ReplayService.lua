@@ -131,7 +131,7 @@ function ReplayService:Start()
 				self.OrbToStudio.Value[orbPart].Destroy()
 				self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, nil)
 			end
-		end):Yeild()
+		end):Yield()
 
 		return ok, msg
 	end
