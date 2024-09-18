@@ -6,6 +6,15 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 18/09/24
+- Added utility libraries `Util/Stream.luau` `Util/U.luau`, `Util/Value.luau`, `Util/Map.luau`
+	- Stream is a dead-simple version of Rx/Observables.
+	- U is a top-level utility library for creating instances, with straightforward syntactic sugar
+		for common ways of stitching state and streams with instance properties.
+		- Similar to Fusion but we just attach cleanup to `Instance.Destroying` instead of using scopes
+		- Can just "assign" a stream or piece of state to property to bind it to the latest value
+- Added types to GoodSignal.
+
 ## 12/2/24
 - Improved board clicking method
 	- Board clicking is now raycast based (instead of invisible "BoardButton" with SurfaceGui+TextButton). The raycast filters only metaboards.
