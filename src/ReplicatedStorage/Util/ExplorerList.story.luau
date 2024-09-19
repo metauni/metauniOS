@@ -1,4 +1,4 @@
-local U = require(script.Parent)
+local U = require(script.Parent.U)
 local Stream = require(script.Parent.Stream)
 
 local function mapTidyEach<K,V>(lifeStream: U.LifeStream<K>, fn: (K) -> (V & U.CleanupTask)): U.Stream<V>
