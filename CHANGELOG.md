@@ -6,6 +6,9 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 19/09/24
+- Improved board hover to not highlight behind gui elements or when a board is opened
+
 ## 18/09/24
 - Added utility libraries `Util/Stream.luau` `Util/U.luau`, `Util/Value.luau`, `Util/Map.luau`
 	- Stream is a dead-simple version of Rx/Observables.
