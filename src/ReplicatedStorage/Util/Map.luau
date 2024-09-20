@@ -11,7 +11,7 @@ export type Map<K,V> = {
 	-- Updates self.Map[key], fires a change if it's different
 	Set: (self: Map<K,V>, key: K, value: V?) -> (),
 	Changed: Signal<K,V?>,
-	StreamKeyValues: (self: Map<K,V>) -> Stream<K,V?>,
+	StreamPairs: (self: Map<K,V>) -> Stream<K,V?>,
 }
 
 local Map = {}
@@ -31,18 +31,18 @@ function Map.Set<K,V>(self: Map<K,V>, key: K, value: V?)
 	self.Changed:Fire(key, value)
 end
 
-function Map.SetTidy<K,V>(self: Map<K,V>, key: K, value: V?)
-	local oldValue = self.Map[key]
-	if value == oldValue then
-		return
-	end
-	Stream.clean(oldValue)
-	self.Map[key] = value :: any
-	self.Changed:Fire(key, value)
+function Map.StreamPairs<K,V>(self: Map<K,V>): Stream<K,V?>
+	return (self :: any)._stream
 end
 
-function Map.StreamKeyValues<K,V>(self: Map<K,V>): Stream<K,V?>
-	return (self :: any)._stream
+function Map.ListenTidyPairs<K,V>(self: Map<K,V>, tidyListender: (K,V) -> Stream.CleanupTask): Stream.CleanupTask
+	return Stream.listenTidyPairs((self :: any)._stream, tidyListender)
+end
+
+function Map.Destroy<K,V>(self: Map<K,V>)
+	self.Changed:Destroy()
+	table.clear(self)
+	setmetatable(self, nil)
 end
 
 table.freeze(Map)

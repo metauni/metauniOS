@@ -936,16 +936,6 @@ local function eachChildOf(instance: Instance): LifeStream<Instance>
 end
 
 --[[
-	`toEachChild(stream)` turns a `Stream<Instance?>` into a `LifeStream<Instance>`
-	of the children of the latest emitted instance (see `eachChildOf`).
-	- The output stream does not emit anything while the latest emitted instance from `stream` is nil.
-]]
-local toEachChild: (Stream<Instance?>) -> LifeStream<Instance> =
-	switchMap(function(instance: Instance?)
-		return if instance then eachChildOf(instance) else never
-	end)
-
---[[
 	A `LifeStream<Instance>` of the children of an instance with `.Name == name`.
 	- Emits `(child: Instance, isNamedAndParented: boolean)` pairs
 	- Use `listenTidyEach(eachChildNamedOf(instance, name), tidyListener)` to bind something to the lifetime of each child,
@@ -959,17 +949,6 @@ local function eachChildNamedOf(instance: Instance, name: string): LifeStream<In
 			end)
 		end)
 	end
-end
-
---[[
-	`toEachChildNamed(name)(stream)` turns a `Stream<Instance?>` into a `LifeStream<Instance>`
-	of the children of the latest emitted instance with `.Name == name` (see `eachChildNamedOf`)
-	- The output stream does not emit anything while the latest emitted instance from `stream` is nil.
-]]
-local function toEachChildNamed(name: string): (Stream<Instance?>) -> LifeStream<Instance>
-	return switchMap(function(instance: Instance?)
-		return if instance then eachChildNamedOf(instance, name) else never
-	end)
 end
 
 --[[
@@ -1080,9 +1059,9 @@ local function _callMeMaybe(myNumber: number): Stream<number>
 	end
 end
 
-local function listenTidyKeyValues<K,V>(keyValueStream: Stream<K,V?>, tidyListener: (K,V) -> CleanupTask): CleanupTask
+local function listenTidyPairs<K,V>(pairStream: Stream<K,V?>, tidyListener: (K,V) -> CleanupTask): CleanupTask
 	local keyCleanups = {}
-	return keyValueStream(function(key: K, value: V?)
+	return pairStream(function(key: K, value: V?)
 		clean(keyCleanups[key])
 		keyCleanups[key] = nil
 		if value ~= nil then
@@ -1147,4 +1126,5 @@ return {
 	toFirstChild = toFirstChild,
 	eachTagged = eachTagged,
 	tidy = tidy,
+	listenTidyPairs = listenTidyPairs,
 }
