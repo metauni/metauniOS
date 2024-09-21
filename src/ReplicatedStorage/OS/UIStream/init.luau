@@ -128,7 +128,6 @@ function UI.Backplate(props: {
 			LineJoinMode = "Miter",
 		},
 		
-		props.Children,
 		U.new "Frame" {
 			
 			Size = UDim2.new(1, -thickness * 2, 1, -thickness * 2),
@@ -233,7 +232,7 @@ function UI.TitledWindow(props: {
 
 	local titleLabel = U.new "TextLabel" {
 		Size = UDim2.new(1, 0, 0, titleHeight),
-		Text = Title,
+		Text = U.forever(Title),
 		Font = Enum.Font.Merriweather,
 		RichText = true,
 		TextScaled = true,
