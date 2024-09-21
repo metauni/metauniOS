@@ -68,21 +68,35 @@ end
 	- Converts objects with .Observe() or :Observe() method into stream of emitted values
 	- Otherwise wraps the input `state` in a stream that emits the `state` once
 ]]
-function U.toStream<T>(state: Has<T>): Stream<T>
-	if typeof(state) == "function" then
-		return state
-	elseif typeof(state) == "Instance" and state:IsA("ValueBase") then
-		return Stream.fromValueBase(state :: any) :: any
-	elseif typeof(state) == "RBXScriptSignal" then
-		return Stream.fromSignal(state)
-	elseif typeof(state) == "table" and typeof((state :: any).Stream) == "function" then
-		return (state :: any):Stream() -- works also if 0-arg, like state.Stream()
-	elseif typeof(state) == "table" and typeof((state :: any).Observe) == "function" then
+function U.toStream<T>(has: Has<T>): Stream<T>
+	if typeof(has) == "function" then
+		return has
+	elseif typeof(has) == "Instance" and has:IsA("ValueBase") then
+		return Stream.fromValueBase(has) :: any
+	elseif typeof(has) == "RBXScriptSignal" then
+		return Stream.fromSignal(has)
+	elseif typeof(has) == "table" and typeof(has.Stream) == "function" then
+		return has:Stream() -- works also if 0-arg, like state.Stream()
+	elseif typeof(has) == "table" and typeof(has.Observe) == "function" then
 		return function(listener)
-			return (state :: any):Observe():Subscribe(listener)
+			return has:Observe():Subscribe(listener)
 		end
 	else
-		return Stream.of((state :: any) :: T)
+		return Stream.of((has :: any) :: T)
+	end
+end
+
+--[[
+	Sometimes there's no-need to track the cleanup where a stream is listened to,
+	because the source of the stream will be destroyed at the same time as the
+	listener is cleaned up. `U.forever` does `U.toStream` and then transforms
+	it into a stream that doesn't return a cleanup when listened to.
+]]
+function U.forever<T>(has: Has<T>): Stream<T>
+	local stream = U.toStream(has)
+	return function(listener)
+		local _ignored = stream(listener)
+		return nil
 	end
 end
 
