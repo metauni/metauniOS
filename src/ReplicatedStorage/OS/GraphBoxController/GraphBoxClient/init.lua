@@ -152,7 +152,11 @@ function GraphBoxClient:_renderGrid()
 end
 
 function GraphBoxClient:_observeBoard()
-	return BoardController.BoardClientBinder:Observe(self._boardPart)
+	return Rx.observable(function(sub)
+		return BoardController.Boards:StreamKey(self._boardPart)(function(board)
+			sub:Fire(board)
+		end)
+	end)
 end
 
 return GraphBoxClient
