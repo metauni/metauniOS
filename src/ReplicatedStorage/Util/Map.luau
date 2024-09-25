@@ -15,7 +15,7 @@ export type Map<K,V> = {
 	StreamPairs: (self: Map<K,V>) -> Stream<K,V?>,
 	StreamKey: (self: Map<K,V>, key: K) -> Stream<V?>,
 	Wait: (self: Map<K,V>, key: K) -> V,
-	ListenTidyPairs: (self: Map<K,V>, tidyListender: (K,V) -> Stream.CleanupTask) -> Stream.CleanupTask,
+	ListenTidyPairs: (self: Map<K,V>, tidyListender: (K,V?) -> Stream.CleanupTask) -> Stream.CleanupTask,
 	Destroy: (self: Map<K,V>) -> (),
 }
 
@@ -67,7 +67,7 @@ function Map.Wait<K,V>(self: Map<K,V>, key: K): V
 	end
 end
 
-function Map.ListenTidyPairs<K,V>(self: Map<K,V>, tidyListender: (K,V) -> Stream.CleanupTask): Stream.CleanupTask
+function Map.ListenTidyPairs<K,V>(self: Map<K,V>, tidyListender: (K,V?) -> Stream.CleanupTask): Stream.CleanupTask
 	return Stream.listenTidyPairs((self :: any)._stream, tidyListender)
 end
 

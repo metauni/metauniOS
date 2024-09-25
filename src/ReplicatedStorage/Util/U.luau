@@ -681,4 +681,15 @@ function U.compute4<A,B,C,D,Z>(a : Has<A>, b : Has<B>, c : Has<C>, d : Has<D>, f
 	return Stream.combine4(U.toStream(a), U.toStream(b), U.toStream(c), U.toStream(d), fn)
 end
 
+function U.mountAttributes(instance: Instance, attributes: {[string]: Has<any>})
+	local cleanup = {}
+	for attribute, value in attributes do
+		table.insert(cleanup, U.toStream(value)(function(newValue)
+			instance:SetAttribute(attribute, newValue)
+		end))
+	end
+
+	return cleanup
+end
+
 return U

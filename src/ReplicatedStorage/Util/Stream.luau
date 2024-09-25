@@ -1059,15 +1059,27 @@ local function _callMeMaybe(myNumber: number): Stream<number>
 	end
 end
 
-local function listenTidyPairs<K,V>(pairStream: Stream<K,V?>, tidyListener: (K,V) -> CleanupTask): CleanupTask
-	local keyCleanups = {}
-	return pairStream(function(key: K, value: V?)
+local function listenTidyPairs<K,V>(pairStream: Stream<K,V>, tidyListener: (K,V) -> CleanupTask): CleanupTask
+	local keyCleanups = {} :: {[K]: CleanupTask}
+	local cleanupStream = pairStream(function(key: K, value: V)
 		clean(keyCleanups[key])
 		keyCleanups[key] = nil
-		if value ~= nil then
-			keyCleanups[key] = tidyListener(key, value)
-		end
+		keyCleanups[key] = tidyListener(key, value)
 	end)
+
+	return function()
+		-- We worry that one of these cleanups will trigger the stream to fire again, potentionally adding more
+		-- so we just keep cleaning until they're all gone.
+		local key, cleanup = next(keyCleanups)
+		while cleanup ~= nil do
+			clean(cleanup)
+			keyCleanups[key :: any] = nil
+			key, cleanup = next(keyCleanups)
+		end
+		table.freeze(keyCleanups)
+		clean(cleanupStream)
+		cleanupStream = nil
+	end
 end
 
 return {

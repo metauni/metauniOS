@@ -7,13 +7,15 @@ local RecordUtils = require(script.Parent.RecordUtils)
 local OrbService = require(ServerScriptService.OS.OrbService)
 local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local Sift = require(ReplicatedStorage.Packages.Sift)
-local ToolQueue = require(ReplicatedStorage.Packages.metaboard.ToolQueue)
 local t = require(ReplicatedStorage.Packages.t)
 local Maid = require(ReplicatedStorage.Util.Maid)
+local Map = require(ReplicatedStorage.Util.Map)
 local Promise = require(ReplicatedStorage.Util.Promise)
 local Stage = require(script.Parent.Stage)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
+local Stream = require(ReplicatedStorage.Util.Stream)
+local U = require(ReplicatedStorage.Util.U)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local Studio = require(script.Parent.Studio)
 local PermissionsService = require(ServerScriptService.OS.PermissionsService)
@@ -27,24 +29,20 @@ local TESTING = game.PlaceId == 10325447437
 --[[
 	Manages replay recording and selection for playback
 ]]
-local ReplayService = {}
+local ReplayService = {
 
-function ReplayService:Init()
-	self = ReplayService
-	self.OrbToStudio = ValueObject.new({})
-	self.OrbToStage = ValueObject.new({})
-	self._stageMaid = Maid.new()
-
-	self.OrbCatalog = {} :: {[number]: {
+	OrbToStage = Map({} :: {[Part]: Stage.Stage}),
+	OrbToStudio = Map({} :: {[Part]: Studio.Studio}),
+	OrbCatalog = {} :: {[number]: {
 		{
 			ReplayId: string,
 			ReplayName: string,
 			NumSegments: number?,
 			UTCDate: typeof(os.date("!*t")),
 		}
-	}}
-
-end
+	}},
+	ReplayDataStore = nil :: DataStore?
+}
 
 function ReplayService:Start()
 	self = ReplayService
@@ -80,7 +78,7 @@ function ReplayService:Start()
 		local orbId = orbServer.GetOrbId()
 		assert(orbId, "Bad orbId")
 
-		if self.OrbToStudio.Value[orbPart] then
+		if self.OrbToStudio:Get(orbPart) then
 			warn("Studio already exists")
 			return false
 		end
@@ -107,7 +105,7 @@ function ReplayService:Start()
 			end
 		end
 
-		self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, studio)
+		self.OrbToStudio:Set(orbPart, studio)
 
 		studio.InitRecording()
 		studio.StartRecording()
@@ -116,7 +114,7 @@ function ReplayService:Start()
 	end
 
 	local function stopAndSave(orbPart)
-		local studio = self.OrbToStudio.Value[orbPart]
+		local studio = self.OrbToStudio:Get(orbPart)
 
 		if not studio then
 			return false, `No active studio recording for orbPart {orbPart:GetFullName()}`
@@ -127,9 +125,10 @@ function ReplayService:Start()
 		end
 		
 		local ok, msg = self:PromiseSaveRecording(orbPart, studio):Then(function()
-			if self.OrbToStudio.Value[orbPart] then
-				self.OrbToStudio.Value[orbPart].Destroy()
-				self.OrbToStudio.Value = Sift.Dictionary.set(self.OrbToStudio.Value, orbPart, nil)
+			-- Make sure it's still there, since we're async
+			if studio == self.OrbToStudio:Get(orbPart) then
+				self.OrbToStudio:Set(orbPart, nil)
+				studio.Destroy()
 			end
 		end):Yield()
 
@@ -144,32 +143,40 @@ function ReplayService:Start()
 		return stopAndSave(orbPart)
 	end
 
-	self.OrbToStudio:Observe():Pipe {
-		Rx.switchMap(function()
-			return Rx.of(Players):Pipe {
-				Rxi.children(),
-				Rx.switchMap(function(players: {Players})
-					local playerToOrb = {}
-					for _, player in players do
-						playerToOrb[player] = Rx.of(PlayerToOrb):Pipe {
-							Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
-							Rxi.property("Value"),
-						}
-					end
-					return Rx.combineLatest(playerToOrb)
-				end),
-			}
-		end)
-	}:Subscribe(function(playerToOrb: {[Player]: Part})
-		for player, orb in playerToOrb do
-			local studio = self.OrbToStudio.Value[orb]
+	Stream.listenTidyEach(Stream.eachChildOf(PlayerToOrb), function(orbValue: Instance)
+		if typeof(orbValue) ~= "Instance" or not orbValue:IsA("ObjectValue") then
+			return
+		end
+		local player = Players:GetPlayerByUserId(orbValue.Name)
+		if not player then
+			return
+		end
+
+		return Stream.fromValueBase(orbValue :: ObjectValue)(function(orbPart: Instance?)
+			if not orbPart then
+				return
+			end
+			local studio = self.OrbToStudio:Get(orbPart)
 			if studio and studio.PhaseIsBefore("Recorded") then
 				studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
 			end
-		end
-
-		-- TODO: Currently no way to stop tracking players
+		end)
 	end)
+
+	self.OrbToStudio:StreamPairs()(function()
+		for orbPart, studio in self.OrbToStudio.Map do
+			if studio.PhaseIsBefore("Recorded") then
+				for _, orbValue in PlayerToOrb:GetChildren() do
+					local player = Players:GetPlayerByUserId(orbValue.Name)
+					if player and orbValue.Value == orbPart then
+						studio.TrackPlayerCharacter(tostring(player.UserId), player.DisplayName, player)
+					end
+				end
+			end
+		end
+	end)
+
+	-- TODO: Currently no way to stop tracking players
 
 	Remotes.GetReplays.OnServerInvoke = function(_player: Player, orbPart: Part)
 		local orbServer = OrbService.Orbs[orbPart]
@@ -265,9 +272,30 @@ function ReplayService:Start()
 
 		return true
 	end
+
+	self.OrbToStage:ListenTidyPairs(function(orbPart: Part, stage: Stage.Stage?)
+		if stage then
+			return U.mountAttributes(orbPart, {
+				ReplayActive = true,
+				ReplayId = stage.ReplayId,
+				ReplayName = stage.ReplayName,
+				ReplayDuration = stage.GetDuration(),
+				ReplayPlayState = stage.ObservePlayState():Pipe{Rx.map(function(playState)
+					return playState or ""
+				end)},
+				ReplayTimestamp = stage.ObserveTimestampSeconds(),
+			})
+		else
+			return U.mountAttributes(orbPart, {
+				ReplayActive = false,
+				ReplayId = "",
+				ReplayName = "",
+				ReplayDuration = 0,
+				ReplayPlayState = "",
+			})
+		end
+	end)
 end
-
-
 
 function ReplayService:PromiseSaveRecording(orbPart: Part, studio: Studio.Studio)
 
@@ -383,7 +411,7 @@ function ReplayService:PromiseReplayCatalog(orbId: number)
 end
 
 function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
-	local stage = self.OrbToStage.Value[orbPart]
+	local stage = self.OrbToStage:Get(orbPart)
 	local orbServer = OrbService.Orbs[orbPart]
 	assert(orbServer, "No OrbServer found")
 	local orbId = orbServer.GetOrbId()
@@ -413,39 +441,16 @@ function ReplayService:InitReplay(orbPart, replayId: string, replayName: string)
 		OrbServer = orbServer,
 	}
 
-	self.OrbToStage.Value = Sift.Dictionary.set(self.OrbToStage.Value, orbPart, stage)
-
-	local cleanup = {}
-	self._stageMaid[orbPart] = cleanup
-
-	table.insert(cleanup, stage)
-	table.insert(cleanup, function()
-		orbPart:SetAttribute("ReplayActive", false)
-		orbPart:SetAttribute("ReplayId", "")
-		orbPart:SetAttribute("ReplayName", "")
-		orbPart:SetAttribute("ReplayDuration", 0)
-		orbPart:SetAttribute("ReplayPlayState", "")
-		self.OrbToStage.Value = Sift.Dictionary.removeKey(self.OrbToStage.Value, orbPart)
-	end)
-
-	orbPart:SetAttribute("ReplayActive", true)
-	orbPart:SetAttribute("ReplayId", replayId)
-	orbPart:SetAttribute("ReplayName", replayName)
-	orbPart:SetAttribute("ReplayDuration", stage.GetDuration())
-	table.insert(cleanup, stage.ObservePlayState():Subscribe(function(playState)
-		orbPart:SetAttribute("ReplayPlayState", playState or "")
-	end))
-	table.insert(cleanup, stage.ObserveTimestampSeconds():Subscribe(function(timestamp)
-		orbPart:SetAttribute("ReplayTimestamp", timestamp)
-	end))
-
-	stage.GetFinishedSignal():Once(function()
-		self._stageMaid[orbPart] = nil
-	end)
+	self.OrbToStage:Set(orbPart, stage)
 
 	stage.Init()
 	-- Immediately play?
 	stage.Play()
+
+	stage.GetFinishedSignal():Once(function()
+		self.OrbToStage:Set(orbPart, nil)
+		stage.Destroy()
+	end)
 
 	return stage.GetFinishedSignal()
 end
