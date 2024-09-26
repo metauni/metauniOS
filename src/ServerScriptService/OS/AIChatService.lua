@@ -104,7 +104,7 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
         if CollectionService:HasTag(poi, "metaboard") then
             if string.match(questionSubText, "board") then
                 
-                local board = BoardService.Boards[poi]
+                local board = BoardService:GetBoard(poi)
                 if board == nil then
                     print("[AIChatService] Failed to fetch board data from BoardService")
                 else
@@ -200,7 +200,7 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
 
                     if string.match(questionSubText, "leftboard") then
 
-                        local board = BoardService.Boards[leftBoardInstance]
+                        local board = BoardService:GetBoard(leftBoardInstance)
 
                         if board == nil then
 
@@ -218,7 +218,7 @@ function AIChatService.HandleQuestion(plr, orb, questionText, chatpoint)
 
                     if string.match(questionSubText, "rightboard") then
                         
-                        local board = BoardService.Boards[rightBoardInstance]
+                        local board = BoardService:GetBoard(rightBoardInstance)
 
                         if board == nil then
 

@@ -1748,7 +1748,7 @@ function NPCService.CheckBoardOCR()
 
             if distToNPC > npc:GetPersonality("GetsDetailedObservationsRadius") then continue end
 
-            local board = BoardService.Boards[boardInstance]
+            local board = BoardService:GetBoard(boardInstance)
             if not board then
                 print("[NPCService] Could not access board")
                 continue

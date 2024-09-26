@@ -496,13 +496,13 @@ function OrbServer.new(orbPart: Part)
 				end
 			end
 
-			local poiBoardsSet = Sift.Set.filter(BoardService.BoardServerBinder:GetAllSet(), function(board)
+			local poiBoards = Sift.Dictionary.filter(BoardService.Boards.Map, function(board)
 				return not board:GetPart():HasTag("metaboard_personal_board") and not board:GetPart():HasTag("orbcam_ignore") and (board:GetPart() :: Instance):IsDescendantOf(workspace)
 			end)
 
 			local firstBoard, firstPart do
 				local minSoFar = math.huge
-				for board in poiBoardsSet do
+				for _, board in poiBoards do
 					local distance = (board:GetSurfaceCFrame().Position - speakerPosition).Magnitude
 					if distance < minSoFar then
 						firstBoard = board
@@ -528,7 +528,7 @@ function OrbServer.new(orbPart: Part)
 			local secondBoard, secondPart
 			if viewMode == "double" then
 				local minSoFar = math.huge
-				for board in poiBoardsSet do
+				for _, board in poiBoards do
 					local distance = (board:GetSurfaceCFrame().Position - speakerPosition).Magnitude
 					local goodAngle = firstBoard:GetSurfaceCFrame().LookVector:Dot(board:GetSurfaceCFrame().LookVector) > 0
 					

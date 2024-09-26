@@ -4,7 +4,6 @@ local BoardRecorder = require(script.Parent)
 local metaboard = require(ReplicatedStorage.Packages.metaboard)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local t = require(ReplicatedStorage.Packages.t)
-local Blend = require(ReplicatedStorage.Util.Blend)
 
 local checkProps = t.strictInterface({
 	BoardParent = t.Instance,
@@ -62,10 +61,8 @@ local function initBoardInstance(boardContainer: BasePart | Model, parent: Insta
 
 	;(boardContainer :: any).Parent = parent
 	boardPart:AddTag("metaboard")
-	metaboard.Server.BoardServerBinder:Bind(boardPart)
-	local boardServer = metaboard.Server.BoardServerBinder:Promise(boardPart):Wait()
-
-	return boardServer
+	local board = metaboard.Server:MakeBoardServer(boardPart)
+	return board
 end
 
 local function BoardReplay(props: BoardReplayProps): BoardReplay

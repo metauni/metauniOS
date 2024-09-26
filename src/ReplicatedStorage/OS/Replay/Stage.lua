@@ -230,7 +230,7 @@ local function Stage(props: StageProps)
 	function self.Init()
 		-- Can do this after placing Replay boards, but need to add tag
 		-- like "ReplayBoard" to replay boards so this code doesn't hide them too
-		for board in metaboard.Server.BoardServerBinder:GetAllSet() do
+		for _, board in metaboard.Server.Boards.Map do
 			local boardContainer = board:GetContainer()
 			local originalParent = boardContainer.Parent
 			if boardContainer:IsDescendantOf(props.BoardGroup) then
