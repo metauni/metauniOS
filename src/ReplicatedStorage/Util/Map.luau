@@ -84,10 +84,6 @@ function Map.StreamKey<K,V>(self: Map<K,V>, key: K): Stream<V?>
 	end
 end
 
-function Map.AddCleanup<K,V>(self: Map<K,V>, key: K, cleanup: CleanupTask): ()
-	
-end
-
 function Map.Wait<K,V>(self: Map<K,V>, key: K): V
 	if self.Map[key] ~= nil then
 		return self.Map[key]

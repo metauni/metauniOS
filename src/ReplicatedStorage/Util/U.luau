@@ -76,7 +76,7 @@ function U.toStream<T>(has: Has<T>): Stream<T>
 	elseif typeof(has) == "RBXScriptSignal" then
 		return Stream.fromSignal(has)
 	elseif typeof(has) == "table" and typeof(has.Stream) == "function" then
-		return has:Stream() -- works also if 0-arg, like state.Stream()
+		return has:Stream() -- works also if 0-arg, like has.Stream()
 	elseif typeof(has) == "table" and typeof(has.Observe) == "function" then
 		return function(listener)
 			return has:Observe():Subscribe(listener)
@@ -116,6 +116,42 @@ local function mergeOverwrites(mountProps: {[any]: any}, merged: {[any]: any})
 		end
 		mergeOverwrites(mountProps.overwrite, merged)
 	end
+end
+
+function U.mountToProp(instance: Instance, prop: string, has: Has<any>): CleanupTask
+	if typeof(has) == "function" then
+		return (has :: any)(function(value)
+			(instance :: any)[prop] = value
+		end)
+	elseif typeof(has) == "Instance" and has:IsA("ValueBase") then
+		-- This is the only ValueBase object that we don't unwrap, because we can't tell what
+		-- is intended, the ObjectValue instance or the value it contains?
+		-- If you want it to be unwrapped, do it yourself explicitly with Stream.fromValueBase(objectValue)
+		-- or U.toStream(objectValue)
+		if has:IsA("ObjectValue") then
+			(instance :: any)[prop] = has
+		else
+			return has:GetPropertyChangedSignal(prop):Connect(function(value)
+				(instance :: any)[prop] = value
+			end)
+		end
+	elseif typeof(has) == "RBXScriptSignal" then
+		return has:Connect(function(value)
+			(instance :: any)[prop] = value
+		end)
+	elseif typeof(has) == "table" and typeof(has.Stream) == "function" then
+		-- works also if 0-arg (not a method), like has.Stream()
+		return has:Stream()(function(value)
+			(instance :: any)[prop] = value
+		end)
+	elseif typeof(has) == "table" and typeof(has.Observe) == "function" then
+		return has:Observe():Subscribe(function(value)
+			(instance :: any)[prop] = value
+		end)
+	else -- The most likely case, but we rule out everything else first
+		(instance :: any)[prop] = has
+	end
+	return nil
 end
 
 --[[
@@ -207,21 +243,7 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 				else
 					-- `value` should encapsulate some (possibly) stateful property,
 					-- either a stream, ValueBase, or just a plain value
-					
-					if typeof(value) == "function" then
-						-- assume it's a stream
-						local stream: Stream<any> = U.toStream(value)
-						table.insert(cleanup, stream(function(x: any)
-							(instance :: any)[key] = x
-						end))
-					elseif typeof(value) == "Instance" and value:IsA("ValueBase") then
-						(instance :: any)[key] = (value :: any).Value
-						table.insert(cleanup, (value :: any).Changed:Connect(function(newValue)
-							(instance :: any)[key] = newValue
-						end))
-					else
-						(instance :: any)[key] = value
-					end
+					table.insert(cleanup, U.mountToProp(instance, key, value))
 				end
 			end
 
@@ -230,7 +252,7 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 		elseif typeof(key) == "number" then
 
 			if typeof(value) == "function" then
-				-- assume it's a (possibly nested) stream of instances (or instances wrapped in state)
+				-- assume it's a stream of instances
 				table.insert(cleanup, value(function(child: Instance?)
 					if child then
 						child.Parent = instance
@@ -243,7 +265,6 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 				value.Parent = instance
 
 			elseif typeof(value) == "table" then
-
 				-- Assume it's more props just dumped into the table
 				if getmetatable(value) ~= nil then
 					error(`[U.mount] sub-mountProps table entry has a metatable, cannot mount. Table: {value}`)
@@ -254,7 +275,7 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 				error(`Bad child {value} of type {value}`)
 			end
 
-		-- Case: It's a stream
+		-- Case: key is a stream
 		elseif typeof(key) == "function" then
 			local handler = toHandler(value)
 			if handler == nil then
@@ -287,13 +308,7 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 		if typeof(parent) == "Instance" then
 			instance.Parent = parent
 		else
-			table.insert(cleanup, U.toStream(parent)(function(newParent)
-				if typeof(newParent) == "Instance" or newParent == nil then
-					instance.Parent = newParent
-				else
-					error(`[U.mount] Expected newParent to be an Instance or nil, got a {typeof(newParent)} ({newParent})`)
-				end
-			end))
+			table.insert(cleanup, U.mountToProp(instance, "Parent", parent))
 		end
 	end
 
@@ -679,17 +694,6 @@ end
 ]]
 function U.compute4<A,B,C,D,Z>(a : Has<A>, b : Has<B>, c : Has<C>, d : Has<D>, fn : (A,B,C,D) -> Z): Stream<Z>
 	return Stream.combine4(U.toStream(a), U.toStream(b), U.toStream(c), U.toStream(d), fn)
-end
-
-function U.mountAttributes(instance: Instance, attributes: {[string]: Has<any>})
-	local cleanup = {}
-	for attribute, value in attributes do
-		table.insert(cleanup, U.toStream(value)(function(newValue)
-			instance:SetAttribute(attribute, newValue)
-		end))
-	end
-
-	return cleanup
 end
 
 return U
