@@ -6,6 +6,10 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 25/10/24
+- Improved U.mount with U.mountToProp, which can also used by itself
+- Added occlusion to board hover highlight and made it more transparent
+
 ## 19/09/24
 - Improved board hover to not highlight behind gui elements or when a board is opened
 
