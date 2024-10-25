@@ -2,7 +2,7 @@
 	<Meta name="ExplicitAutoJoints">true</Meta>
 	<External>null</External>
 	<External>nil</External>
-	<Item class="Frame" referent="RBX21F8E79933684E109155BAAF22A2580E">
+	<Item class="Frame" referent="RBX019edba64ce9410296eb03a778f9f01f">
 		<Properties>
 			<bool name="Active">false</bool>
 			<Vector2 name="AnchorPoint">
@@ -25,8 +25,11 @@
 			</Color3>
 			<token name="BorderMode">0</token>
 			<int name="BorderSizePixel">0</int>
+			<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
 			<bool name="ClipsDescendants">false</bool>
+			<bool name="DefinesCapabilities">false</bool>
 			<bool name="Draggable">false</bool>
+			<bool name="Interactable">true</bool>
 			<int name="LayoutOrder">0</int>
 			<string name="Name">Frame</string>
 			<Ref name="NextSelectionDown">null</Ref>

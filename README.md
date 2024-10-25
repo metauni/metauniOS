@@ -28,7 +28,7 @@ If you `git pull` changes to the repository someone else may have updated the wa
 There is a script at [lune/sync.luau](./lune/sync.luau) which ensures the integrity of your local repository before
 starting the rojo server. It will also add types to the wally packages.
 ```bash
-lune sync
+lune run sync
 ```
 
 ## Updating metaboard
@@ -51,7 +51,7 @@ git commit metaboard
 git push
 ```
 
-These changes will be consumed by other collaborators when they run `git submodule update --remote` (or they run `lune sync`)
+These changes will be consumed by other collaborators when they run `git submodule update --remote` (or they run `lune run sync`)
 
 ## Publishing
 metauniOS is versioned via the current commit hash and branch - these are printed
@@ -63,13 +63,13 @@ We publish using the [lune luau runtime](https://lune-org.github.io/docs)
 (previously used remodel, which is now deprecated).
 ```bash
 # Publish to every place in lune/metauni.lua
-lune publish all
+lune run publish all
 
 # Publish to specific places
-lune publish TheRisingSea MoonlightForest
+lune run publish TheRisingSea MoonlightForest
 
 # Publish to PlaceId
-lune publish 12345678
+lune run publish 12345678
 ```
 
 ## Purpose

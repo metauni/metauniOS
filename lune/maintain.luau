@@ -13,8 +13,8 @@ if #process.args == 0 then
 	
 	print("No arguments provided. Specify \"all\" or list place names.")
 	print("Usage:")
-	print("  lune maintain all")
-	print("  lune maintain <place_name> ...")
+	print("  lune run maintain all")
+	print("  lune run maintain <place_name> ...")
 	return
 end
 

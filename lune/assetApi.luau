@@ -10,6 +10,8 @@ local assetApi = {}
 local function downloadAssetId(assetId: number)
 	-- 1. Try to find the auth cookie for the current user
 	local cookie = roblox.getAuthCookie()
+	
+	assert(cookie ~= nil, "Failed to get roblox auth cookie")
  
 	-- 2. Send a request to the asset delivery API,
 	--    which will respond with cdn download link(s)

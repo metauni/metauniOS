@@ -2,7 +2,7 @@
 	<Meta name="ExplicitAutoJoints">true</Meta>
 	<External>null</External>
 	<External>nil</External>
-	<Item class="Frame" referent="RBX133BCB03E4D943A1A6977133839A2EB0">
+	<Item class="Frame" referent="RBX8bb7c34ddf5948508ca9df4520664472">
 		<Properties>
 			<bool name="Active">false</bool>
 			<Vector2 name="AnchorPoint">
@@ -25,8 +25,11 @@
 			</Color3>
 			<token name="BorderMode">0</token>
 			<int name="BorderSizePixel">1</int>
+			<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
 			<bool name="ClipsDescendants">false</bool>
+			<bool name="DefinesCapabilities">false</bool>
 			<bool name="Draggable">false</bool>
+			<bool name="Interactable">true</bool>
 			<int name="LayoutOrder">0</int>
 			<string name="Name">ButtonFrame</string>
 			<Ref name="NextSelectionDown">null</Ref>
@@ -62,19 +65,21 @@
 			<bool name="Visible">true</bool>
 			<int name="ZIndex">0</int>
 		</Properties>
-		<Item class="UICorner" referent="RBXE7C11F6CB757453886F8CA0EBA7308F1">
+		<Item class="UICorner" referent="RBX450591087c934c12918f6661478117c6">
 			<Properties>
 				<BinaryString name="AttributesSerialize"></BinaryString>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
 				<UDim name="CornerRadius">
 					<S>0</S>
 					<O>8</O>
 				</UDim>
+				<bool name="DefinesCapabilities">false</bool>
 				<string name="Name">UICorner</string>
 				<int64 name="SourceAssetId">-1</int64>
 				<BinaryString name="Tags"></BinaryString>
 			</Properties>
 		</Item>
-		<Item class="TextButton" referent="RBX81A7B7A2B79D4442859A755BA69DE8A3">
+		<Item class="TextButton" referent="RBXaf90ccc2e041465a8ba439e9627475d5">
 			<Properties>
 				<bool name="Active">true</bool>
 				<Vector2 name="AnchorPoint">
@@ -98,17 +103,21 @@
 				</Color3>
 				<token name="BorderMode">0</token>
 				<int name="BorderSizePixel">1</int>
+				<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
 				<bool name="ClipsDescendants">false</bool>
+				<bool name="DefinesCapabilities">false</bool>
 				<bool name="Draggable">false</bool>
-				<token name="Font">3</token>
 				<Font name="FontFace">
 					<Family><url>rbxasset://fonts/families/SourceSansPro.json</url></Family>
 					<Weight>400</Weight>
 					<Style>Normal</Style>
 					<CachedFaceId><url>rbxasset://fonts/SourceSansPro-Regular.ttf</url></CachedFaceId>
 				</Font>
+				<bool name="Interactable">true</bool>
 				<int name="LayoutOrder">0</int>
 				<float name="LineHeight">1</float>
+				<string name="LocalizationMatchIdentifier"></string>
+				<string name="LocalizationMatchedSourceText"></string>
 				<int name="MaxVisibleGraphemes">-1</int>
 				<bool name="Modal">false</bool>
 				<string name="Name">CancelButton</string>
@@ -116,6 +125,7 @@
 				<Ref name="NextSelectionLeft">null</Ref>
 				<Ref name="NextSelectionRight">null</Ref>
 				<Ref name="NextSelectionUp">null</Ref>
+				<string name="OpenTypeFeatures"></string>
 				<UDim2 name="Position">
 					<XS>0.5</XS>
 					<XO>-100</XO>
@@ -150,6 +160,7 @@
 					<G>1</G>
 					<B>1</B>
 				</Color3>
+				<token name="TextDirection">0</token>
 				<bool name="TextScaled">false</bool>
 				<float name="TextSize">30</float>
 				<Color3 name="TextStrokeColor3">
@@ -166,13 +177,15 @@
 				<bool name="Visible">true</bool>
 				<int name="ZIndex">1</int>
 			</Properties>
-			<Item class="UICorner" referent="RBX770055DDDB284F2285E41FA3B013E6E7">
+			<Item class="UICorner" referent="RBXdc4a343580b1428f9dbf35bb361ca0ab">
 				<Properties>
 					<BinaryString name="AttributesSerialize"></BinaryString>
+					<SecurityCapabilities name="Capabilities">0</SecurityCapabilities>
 					<UDim name="CornerRadius">
 						<S>0</S>
 						<O>8</O>
 					</UDim>
+					<bool name="DefinesCapabilities">false</bool>
 					<string name="Name">UICorner</string>
 					<int64 name="SourceAssetId">-1</int64>
 					<BinaryString name="Tags"></BinaryString>

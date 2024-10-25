@@ -9,6 +9,11 @@ See #metauni-commits in the metauni discord to find commits by date
 ## 25/10/24
 - Improved U.mount with U.mountToProp, which can also used by itself
 - Added occlusion to board hover highlight and made it more transparent
+- Upgraded lune to 0.8.9 (necessary fix "Failed to read document from buffer - Failed to deserialize Lighting.
+AttributesSerialize because invalid value type: 4")
+- Run `aftman install` to upgrade lune to 0.8.9
+- NOTE: lune commands now need `run` subcommand to run scripts. So `lune sync` -> `lune run sync`, `lune publish all` -> `lune run publish all`
+- Fixed Legacy Guis not having Interactable=True on frames.
 
 ## 19/09/24
 - Improved board hover to not highlight behind gui elements or when a board is opened

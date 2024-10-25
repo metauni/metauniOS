@@ -12,9 +12,9 @@ local placeIdsToUpdate = {}
 
 if #process.args == 0 then
 	print("No arguments provided. Specify \"all\" or list place names.")
-	print("Usage: lune publish.luau all")
-	print("  lune publish.luau all")
-	print("  lune publish.luau <place_name> ...")
+	print("Usage: lune run publish all")
+	print("  lune run publish all")
+	print("  lune run publish <place_name> ...")
 	return
 end
 
