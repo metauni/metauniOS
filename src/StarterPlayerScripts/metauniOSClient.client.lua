@@ -4,8 +4,8 @@ local ScriptContext = game:GetService("ScriptContext")
 local Players = game:GetService("Players")
 local VRService = game:GetService("VRService")
 
-local Icon = require(ReplicatedStorage.Packages.Icon)
-local Themes =  require(ReplicatedStorage.Packages.Icon.Themes)
+local Icon = require(ReplicatedStorage.Packages.Icon :: any)
+local Themes =  require(ReplicatedStorage.Packages.Icon.Themes :: any)
 
 local Pocket = ReplicatedStorage.OS.Pocket
 local PocketMenu = require(Pocket.UI.PocketMenu)
@@ -50,7 +50,7 @@ end
 
 -- Knot menu
 local icon = Icon.new()
-require(ReplicatedStorage.Packages.Icon.IconController).voiceChatEnabled = true
+require(ReplicatedStorage.Packages.Icon.IconController :: any).voiceChatEnabled = true
 icon:setImage("rbxassetid://11783868001")
 icon:setOrder(-1)
 icon:setLabel("metauni")
@@ -72,16 +72,77 @@ if not RunService:IsStudio() then
 	end)
 end
 
--- Initialise & Start Controllers
+--[[
+	Do multiple jobs (functions) asynchronously, with timeout and error handling.
+	Yields until all jobs are finished or timed-out.
+]]
+local function doJobsAsync<K,V>(
+	props: {
+		source: {[K]: V},
+		makeJob: (K,V) -> (() -> ())?,
+		jobTimeout: number,
+		onTimeOut: (K,V) -> (),
+		onFailure: (K,V,string) -> (),
+	}
+)
+	local startTimes = {}
+	local threads = {}
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
-local Sift = require(ReplicatedStorage.Packages.Sift)
+	for key, value in props.source do
+		local job = props.makeJob(key, value)
+		if not job then
+			continue
+		end
+		threads[key] = coroutine.create(function()
+			xpcall(function()
+				startTimes[key] = os.clock()
+				job()
+			end, function(err)
+				props.onFailure(key, value, debug.traceback(err))
+			end)
+		end)
+	end
 
-print("[metauniOS] Importing controllers")
+	for _, thread in threads do
+		coroutine.resume(thread)
+	end
 
-local controllerPromises = {}
+	local watcher = task.defer(function()
+		while true do
+			local notDead = {}
+			for key, thread in threads do
+				if coroutine.status(thread) ~= "dead" then
+					table.insert(notDead, tostring(key))
+				end
+			end
+			warn(`[metauniOS (client)] Waiting for {table.concat(notDead, ',')}`)
+			task.wait(1)
+		end
+	end)
 
--- Find an import any descendent of ReplicatedStorage ending with "Controller"
+	while true do
+		for key, thread in threads do
+			if coroutine.status(thread) == "dead" then
+				threads[key] = nil
+			elseif props.jobTimeout < os.clock() - startTimes[key] then
+				props.onTimeOut(key, props.source[key])
+				coroutine.close(threads[key])
+				threads[key] = nil
+			end
+		end
+		if next(threads) == nil then
+			break
+		end
+		task.wait()
+	end
+
+	coroutine.close(watcher)
+end
+
+
+local moduleScripts = {} :: {[ModuleScript]: true}
+
+-- Find any descendent of ReplicatedStorage (but not Packages) ending with "Controller"
 
 for _, instance in ReplicatedStorage:GetDescendants() do
 
@@ -90,71 +151,92 @@ for _, instance in ReplicatedStorage:GetDescendants() do
 	end
 	
 	if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Controller$") then
-
-		controllerPromises[instance] = Promise.new(function(resolve, reject)
-			local success, result = xpcall(require, function()
-				reject("[metauniOS] Failed to import "..instance.Name)
-			end, instance)
-
-			if success then
-				resolve(result)
-			end
-		end):catch(warn)
+		moduleScripts[instance] = true
 	end
 end
 
--- Yield until every promise has resolved or rejected
-local function awaitAll(promises)
-	for _, promise in promises do
-		promise:await()
+print("[metauniOS (client)] Importing controllers")
+
+local IMPORT_TIMEOUT = 4.5
+local controllers = {} :: {[ModuleScript]: any}
+
+doJobsAsync({
+	source = moduleScripts,
+	makeJob = function(instance)
+		return function()
+			controllers[instance] = require(instance)
+		end
+	end,
+	jobTimeout = IMPORT_TIMEOUT,
+	onTimeOut = function(instance)
+		warn(`[metauniOS (client)] Controller {instance:GetFullName()} took too long to import (>{IMPORT_TIMEOUT}s)`)
+	end,
+	onFailure = function(instance, _, err)
+		local msg = `[metauniOS (client)] Controller {instance:GetFullName()} failed to import`
+		warn(msg)
+		warn(err)
+		if not RunService:IsStudio() then
+			ReplicatedStorage.OS.RavenErrorLog:FireServer(msg..'\n'..err)
+		end
 	end
-end
+})
 
--- Yield for imports to finish
-awaitAll(controllerPromises)
+print("[metauniOS (client)] Initialising controllers")
 
-print("[metauniOS] Initialising controllers")
-
-controllerPromises = Sift.Dictionary.map(controllerPromises, function(promise, instance)
-	
-	return promise
-		:tap(function(controller)
-			if typeof(controller) == "table" and typeof(controller.Init) == "function" then
+local INIT_TIMEOUT = 4.5
+doJobsAsync({
+	source = controllers,
+	makeJob = function(_instance, controller)
+		if typeof(controller) == "table" and typeof(controller.Init) == "function" then
+			return function()
 				controller:Init()
 			end
-		end)
-		:catch(function(...)
-			
-			warn("[metauniOS] "..instance.Name..".Init failed")
-			warn(...)
-			if not RunService:IsStudio() then
-				ReplicatedStorage.OS.RavenErrorLog:FireServer(instance.Name..".Init failed", ...)
-			end
-		end)
-end)
+		end
+		return nil
+	end,
+	jobTimeout = INIT_TIMEOUT,
+	onTimeOut = function(instance, _controller)
+		controllers[instance] = nil
+		warn(`[metauniOS (client)] Controller {instance:GetFullName()} took too long to finish :Init() (>{INIT_TIMEOUT}s)})`)
+	end,
+	onFailure = function(instance, _controller, err)
+		controllers[instance] = nil
+		local msg = `[metauniOS (client)] Controller {instance:GetFullName()} failed to :Init()`
+		warn(msg)
+		warn(err)
+		if not RunService:IsStudio() then
+			ReplicatedStorage.OS.RavenErrorLog:FireServer(msg..'\n'..err)
+		end
+	end
+})
 
--- Yield for Inits to finish
-awaitAll(controllerPromises)
+print("[metauniOS (client)] Starting controllers")
 
-print("[metauniOS] Starting controllers")
-controllerPromises = Sift.Dictionary.map(controllerPromises, function(promise, instance)
-	
-	return promise
-		:tap(function(controller)
-			if typeof(controller) == "table" and typeof(controller.Start) == "function" then
+local START_TIMEOUT = 4.5
+doJobsAsync {
+	source = controllers,
+	makeJob = function(_instance, controller)
+		if typeof(controller) == "table" and typeof(controller.Start) == "function" then
+			return function()
 				controller:Start()
 			end
-		end)
-		:catch(function(...)
-			
-			warn("[metauniOS] "..instance.Name..".Start failed")
-			warn(...)
-			if not RunService:IsStudio() then
-				ReplicatedStorage.OS.RavenErrorLog:FireServer(instance.Name..".Start failed", ...)
-			end
-		end)
-end)
+		end
+		return nil
+	end,
+	jobTimeout = START_TIMEOUT,
+	onTimeOut = function(instance, _controller)
+		controllers[instance] = nil
+		warn(`[metauniOS (client)] Controller {instance:GetFullName()} took too long to finish :Start() (>{START_TIMEOUT}s)`)
+	end,
+	onFailure = function(instance, _controller, err)
+		controllers[instance] = nil
+		local msg = `[metauniOS (client)] Controller {instance:GetFullName()} failed to :Start()`
+		warn(msg)
+		warn(err)
+		if not RunService:IsStudio() then
+			ReplicatedStorage.OS.RavenErrorLog:FireServer(msg..'\n'..err)
+		end
+	end
+}
 
-awaitAll(controllerPromises)
-
-print("[metauniOS] Startup complete")
+print("[metauniOS (client)] Startup complete")

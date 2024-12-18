@@ -3,7 +3,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
-local Promise = require(ReplicatedStorage.Packages.Promise)
 local New = Fusion.New
 local Hydrate = Fusion.Hydrate
 local Value = Fusion.Value
@@ -320,19 +319,23 @@ return function(player: Player)
 		end)
 	)
 
-	local fadePromise
+	local fadeJob
 	destructor:Add(function()
-		if fadePromise then
-			fadePromise:cancel()
-			fadePromise = nil
+		if fadeJob then
+			if fadeJob ~= coroutine.running() then
+				coroutine.close(fadeJob)
+			end
+			fadeJob = nil
 		end
 	end)
 
 	destructor:Add(
 		Fusion.Observer(Mode):onChange(function()
-			if fadePromise and Mode:get() ~= "fading" then
-				fadePromise:cancel()
-				fadePromise = nil
+			if fadeJob and Mode:get() ~= "fading" then
+				if fadeJob ~= coroutine.running() then
+					coroutine.close(fadeJob)
+				end
+				fadeJob = nil
 			end
 		end)
 	)
@@ -436,11 +439,9 @@ return function(player: Player)
 			then
 				if mode ~= "fading" and mode ~= "hidden" then
 					Mode:set("fading")
-					fadePromise = 
-						Promise.delay(2)
-							:andThen(function()
-								Mode:set("hidden")
-							end)
+					fadeJob = task.delay(2, function()
+						Mode:set("hidden")
+					end)
 				end
 				return
 			end
