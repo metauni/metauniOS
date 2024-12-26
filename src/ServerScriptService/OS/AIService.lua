@@ -14,8 +14,8 @@ local Figure = metaboard.Figure
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local Dictionary = Sift.Dictionary
 
---local PINECONE_UPSERT_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/vectors/upsert"
---local PINECONE_QUERY_URL = "https://metauni-d08c033.svc.us-west1-gcp.pinecone.io/query"
+local PINECONE_UPSERT_URL = "https://metauni-4f377f0.svc.aped-4627-b74a.pinecone.io/vectors/upsert"
+local PINECONE_QUERY_URL = "https://metauni-4f377f0.svc.aped-4627-b74a.pinecone.io/query"
 --local OCR_API_URL = "https://www.metauniservice.com/ocr"
 --local REFERENCE_LIST_URL = "https://www.metauniservice.com/reference_list"
 --local OBJECTLOC_API_URL = "https://www.metauniservice.com/objloc"
@@ -173,7 +173,8 @@ function AIService.Embedding(text, plr)
         return
     end
 
-    local request = { ["model"] = "text-embedding-ada-002",
+    -- was text-embedding-ada-002
+    local request = { ["model"] = "text-embedding-3-small",
 		["input"] = text}
 	
 	if plr ~= nil then

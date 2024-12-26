@@ -250,7 +250,7 @@ function NPC.DefaultPersonalityProfiles()
         ModelTemperature = 0.9, -- was 0.85
 	    ModelFrequencyPenalty = 1.8, -- was 1.6
 	    ModelPresencePenalty = 1.6,
-        ModelName = "gpt-3.5-turbo",
+        ModelName = "gpt-4o",
         HearingRadius = 40,
         GetsDetailedObservationsRadius = 60,
         SecondsWithoutInteractionBeforeSleep = 2 * 60,
@@ -406,15 +406,14 @@ function NPC:Timestep(forceSearch)
         end
     end
 
-    --if forceSearch or math.random() < self:GetPersonality("SearchLongTermMemoryProbability") then
-    --    local relevanceCutoff = if forceSearch then 0.5 else self:GetPersonality("MemoryRelevanceScoreCutoff")
+    if forceSearch or math.random() < self:GetPersonality("SearchLongTermMemoryProbability") then
+        local relevanceCutoff = if forceSearch then 0.5 else self:GetPersonality("MemoryRelevanceScoreCutoff")
 
-        -- TODO: Long term memory currently disabled
-        --local memory = self:LongTermMemory(relevanceCutoff)
-        --if memory ~= nil then
-        --    self:AddThought(memory, "memory")
-        --end
-    --end
+        local memory = self:LongTermMemory(relevanceCutoff)
+        if memory ~= nil then
+            self:AddThought(memory, "memory")
+        end
+    end
 
     -- Search references
     --if forceSearch or math.random() < self:GetPersonality("SearchReferencesProbability") then
@@ -751,7 +750,7 @@ function NPC:Prompt()
     end
 
     -- Look for boards tagged to be visible
-    if model == "gpt-4-vision-preview" and #NPCService.BoardsToRead > 0 then
+    if model == "gpt-4o" and #NPCService.BoardsToRead > 0 then
         local contentArray = {}
         table.insert(contentArray, {["type"] = "text", ["text"] = "The contents of nearby boards"})
 
