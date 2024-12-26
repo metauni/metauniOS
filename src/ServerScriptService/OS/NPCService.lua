@@ -259,7 +259,7 @@ function NPC.DefaultPersonalityProfiles()
         PersonalityLines = {}, -- configured per NPC
         Seminars = {}, -- configured per NPC
         References = {}, -- configured per NPC
-        AllowWalk = false,
+        AllowWalk = true,
         AllowBuilderTools = false,
         BoardsToRead = {}, -- array of board keys to be passed as images
         ImageURLs = {}, -- array of URLs passed as images
@@ -455,7 +455,7 @@ function NPC:Timestep(forceSearch)
     self.LastTimestep = tick()
 
     self.StepCount += 1
-    if self.stepCount == self:GetPersonality("IntervalBetweenSummaries") then
+    if self.StepCount == self:GetPersonality("IntervalBetweenSummaries") then
         local summary = self:GenerateSummary("memory")
         if summary ~= nil then
             self:AddThought(summary, "summary")
@@ -525,7 +525,7 @@ function NPC:AddSummary(text, type)
             ["type"] = summaryDict.Type
         }
         local vectorId = HttpService:GenerateGUID(false)
-        --AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
+        AIService.StoreEmbedding(vectorId, embedding, metadata, "npc")
     end
 end
 
@@ -1004,7 +1004,7 @@ end
 function NPC:GenerateSummary(type)
     type = type or "normal"
     local name = self.Instance.Name
-    local model = "gpt-3.5-turbo"
+    local model = "gpt-4o"
 
     -- If we are forming a memory, then do not include messages
     -- from players that have declined permission for this NPC

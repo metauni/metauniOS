@@ -198,7 +198,7 @@ function AIService.Embedding(text, plr)
     return responseVector
 end
 
---[[function AIService.StoreEmbedding(vectorId, vector, metadata, namespace)
+function AIService.StoreEmbedding(vectorId, vector, metadata, namespace)
     assert(vector ~= nil, "[AIService] nil vector")
     assert(metadata ~= nil, "[AIService] nil metadata")
     assert(namespace ~= nil, "[AIService] nil namespace")
@@ -239,7 +239,7 @@ function AIService.QueryEmbeddings(vector, filter, topk, namespace)
 
     local matches = responseData["matches"]
     return matches
-end--]]
+end
 
 function AIService.GPTPrompt(prompt, maxTokens, plr, temperature, freqPenalty, presPenalty, model)
     temperature = temperature or 0
