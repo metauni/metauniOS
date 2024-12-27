@@ -42,7 +42,6 @@ export type PocketData = {
 }
 
 function PocketMenu:_startBoardSelectMode(onBoardSelected, displayType)
-
 	local promise, maid = metaboard.Client:PromiseBoardSelection()
 	-- cleans up the last maid if there was one
 	self._maid._selectBoard = maid
