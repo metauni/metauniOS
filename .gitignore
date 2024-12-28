@@ -8,3 +8,5 @@ Packages
 dev-local.project.json
 sourcemap.json
 lune/local/*
+
+.zed

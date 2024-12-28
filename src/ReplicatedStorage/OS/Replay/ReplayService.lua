@@ -8,7 +8,6 @@ local OrbService = require(ServerScriptService.OS.OrbService)
 local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local t = require(ReplicatedStorage.Packages.t)
-local Maid = require(ReplicatedStorage.Util.Maid)
 local Map = require(ReplicatedStorage.Util.Map)
 local Promise = require(ReplicatedStorage.Util.Promise)
 local Stage = require(script.Parent.Stage)
@@ -16,7 +15,6 @@ local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 local Stream = require(ReplicatedStorage.Util.Stream)
 local U = require(ReplicatedStorage.Util.U)
-local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local Studio = require(script.Parent.Studio)
 local PermissionsService = require(ServerScriptService.OS.PermissionsService)
 local PocketService = require(ServerScriptService.OS.PocketService)
@@ -56,19 +54,20 @@ function ReplayService:Start()
 	else
 		self.ReplayDataStore = DataStoreService:GetDataStore("Replay-TRS")
 	end
-	
+
 	Remotes.StartRecording.OnServerInvoke = function(player: Player, orbPart: Part, recordingName: string)
-		do
-			local ok, level = PermissionsService:promisePermissionLevel(player.UserId):catch(warn):await()
-			if not ok then
-				return false
-			end
-	
-			if level < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
-				warn("Non-admin tried to make Studio recording")
-				return false
-			end
+	do
+		local result = PermissionsService:getPermissionLevelById(player.UserId)
+		if not result.success then
+			warn(result.reason)
+			return false
 		end
+
+		if result.data.perm < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
+			warn("Non-admin tried to make Studio recording")
+			return false
+		end
+	end
 
 		local orbServer = OrbService.Orbs[orbPart]
 		if not orbServer then
@@ -82,7 +81,7 @@ function ReplayService:Start()
 			warn("Studio already exists")
 			return false
 		end
-		
+
 		local studio: Studio.Studio
 		local recordingId do
 			local ok, msg = pcall(function()
@@ -94,7 +93,7 @@ function ReplayService:Start()
 				return false, msg
 			end
 		end
-		
+
 		do
 			local ok, msg = pcall(function()
 				studio = self:NewOrbStudio(orbServer, recordingName, recordingId)
@@ -123,7 +122,7 @@ function ReplayService:Start()
 		if studio.PhaseIsBefore("Recorded") then
 			studio.StopRecording()
 		end
-		
+
 		local ok, msg = self:PromiseSaveRecording(orbPart, studio):Then(function()
 			-- Make sure it's still there, since we're async
 			if studio == self.OrbToStudio:Get(orbPart) then
@@ -257,9 +256,9 @@ function ReplayService:Start()
 				if not data then
 					error("No replay record to update")
 				end
-	
+
 				assert(t.interface { Records = t.table, } (data))
-	
+
 				RecordUtils.EditSoundRecordsInPlace(data, characterVoices)
 				return data
 			end)
@@ -471,7 +470,7 @@ function ReplayService:Pause(orbPart)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.Pause()
 end
 
@@ -481,7 +480,7 @@ function ReplayService:SkipAhead(orbPart, seconds: number)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.SkipAhead(seconds)
 end
 
@@ -491,7 +490,7 @@ function ReplayService:SkipBack(orbPart, seconds: number)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.SkipBack(seconds)
 end
 
@@ -501,7 +500,7 @@ function ReplayService:Restart(orbPart)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.Restart()
 end
 
@@ -511,7 +510,7 @@ function ReplayService:Stop(orbPart)
 		warn("No active stage found")
 		return
 	end
-	
+
 	self._stageMaid[orbPart] = nil
 end
 
