@@ -29,17 +29,19 @@ local TESTING = game.PlaceId == 10325447437
 ]]
 local ReplayService = {
 
-	OrbToStage = Map({} :: {[Part]: Stage.Stage}),
-	OrbToStudio = Map({} :: {[Part]: Studio.Studio}),
-	OrbCatalog = {} :: {[number]: {
-		{
-			ReplayId: string,
-			ReplayName: string,
-			NumSegments: number?,
-			UTCDate: typeof(os.date("!*t")),
-		}
-	}},
-	ReplayDataStore = nil :: DataStore?
+	OrbToStage = Map({} :: { [Part]: Stage.Stage }),
+	OrbToStudio = Map({} :: { [Part]: Studio.Studio }),
+	OrbCatalog = {} :: {
+		[number]: {
+			{
+				ReplayId: string,
+				ReplayName: string,
+				NumSegments: number?,
+				UTCDate: typeof(os.date("!*t")),
+			}
+		},
+	},
+	ReplayDataStore = nil :: DataStore?,
 }
 
 function ReplayService:Start()
@@ -56,18 +58,18 @@ function ReplayService:Start()
 	end
 
 	Remotes.StartRecording.OnServerInvoke = function(player: Player, orbPart: Part, recordingName: string)
-	do
-		local result = PermissionsService:getPermissionLevelById(player.UserId)
-		if not result.success then
-			warn(result.reason)
-			return false
-		end
+		do
+			local result = PermissionsService.GetPermissionLevelByIdAsync(player.UserId)
+			if not result.success then
+				warn(result.reason)
+				return false
+			end
 
-		if result.data.perm < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
-			warn("Non-admin tried to make Studio recording")
-			return false
+			if result.data.perm < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
+				warn("Non-admin tried to make Studio recording")
+				return false
+			end
 		end
-	end
 
 		local orbServer = OrbService.Orbs[orbPart]
 		if not orbServer then
@@ -83,10 +85,11 @@ function ReplayService:Start()
 		end
 
 		local studio: Studio.Studio
-		local recordingId do
+		local recordingId
+		do
 			local ok, msg = pcall(function()
 				local counter, _keyInfo = self.ReplayDataStore:IncrementAsync(`OrbReplays/{orbId}/Counter`, 1)
-				recordingId = orbId .. "-".. counter
+				recordingId = orbId .. "-" .. counter
 			end)
 			if not ok then
 				warn(msg)
@@ -123,13 +126,15 @@ function ReplayService:Start()
 			studio.StopRecording()
 		end
 
-		local ok, msg = self:PromiseSaveRecording(orbPart, studio):Then(function()
-			-- Make sure it's still there, since we're async
-			if studio == self.OrbToStudio:Get(orbPart) then
-				self.OrbToStudio:Set(orbPart, nil)
-				studio.Destroy()
-			end
-		end):Yield()
+		local ok, msg = self:PromiseSaveRecording(orbPart, studio)
+			:Then(function()
+				-- Make sure it's still there, since we're async
+				if studio == self.OrbToStudio:Get(orbPart) then
+					self.OrbToStudio:Set(orbPart, nil)
+					studio.Destroy()
+				end
+			end)
+			:Yield()
 
 		return ok, msg
 	end
@@ -233,15 +238,18 @@ function ReplayService:Start()
 		return RecordUtils.ToCharacterVoices(replaySegment)
 	end
 
-	local checkCharacterVoices = t.map(t.string, t.strictInterface {
-		CharacterName = t.string,
-		Clips = t.array (t.strictInterface {
-			AssetId = t.string,
-			StartTimestamp = t.number,
-			StartOffset = t.number,
-			EndOffset = t.number,
-		})
-	})
+	local checkCharacterVoices = t.map(
+		t.string,
+		t.strictInterface {
+			CharacterName = t.string,
+			Clips = t.array(t.strictInterface {
+				AssetId = t.string,
+				StartTimestamp = t.number,
+				StartOffset = t.number,
+				EndOffset = t.number,
+			}),
+		}
+	)
 
 	Remotes.SaveCharacterVoices.OnServerInvoke = function(player: Player, replayId: string, characterVoices: any)
 		local ok, msg = pcall(function()
@@ -257,7 +265,7 @@ function ReplayService:Start()
 					error("No replay record to update")
 				end
 
-				assert(t.interface { Records = t.table, } (data))
+				assert(t.interface { Records = t.table }(data))
 
 				RecordUtils.EditSoundRecordsInPlace(data, characterVoices)
 				return data
@@ -279,9 +287,11 @@ function ReplayService:Start()
 				ReplayId = stage.ReplayId,
 				ReplayName = stage.ReplayName,
 				ReplayDuration = stage.GetDuration(),
-				ReplayPlayState = stage.ObservePlayState():Pipe{Rx.map(function(playState)
-					return playState or ""
-				end)},
+				ReplayPlayState = stage.ObservePlayState():Pipe {
+					Rx.map(function(playState)
+						return playState or ""
+					end),
+				},
 				ReplayTimestamp = stage.ObserveTimestampSeconds(),
 			})
 		else
@@ -297,9 +307,7 @@ function ReplayService:Start()
 end
 
 function ReplayService:PromiseSaveRecording(orbPart: Part, studio: Studio.Studio)
-
 	return studio.PromiseAllSaved():Finally(function(_results)
-
 		local orbServer = OrbService.Orbs[orbPart]
 		if not orbServer then
 			return Promise.rejected("No OrbServer found")
@@ -338,7 +346,7 @@ end
 function ReplayService:_observePlayerToOrb()
 	return Rx.of(Players):Pipe {
 		Rxi.children(),
-		Rx.switchMap(function(players: {Players})
+		Rx.switchMap(function(players: { Players })
 			local playerToOrb = {}
 			for _, player in players do
 				playerToOrb[player] = Rx.of(PlayerToOrb):Pipe {
@@ -513,6 +521,5 @@ function ReplayService:Stop(orbPart)
 
 	self._stageMaid[orbPart] = nil
 end
-
 
 return ReplayService

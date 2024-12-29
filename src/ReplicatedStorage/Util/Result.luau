@@ -47,7 +47,7 @@
 	end
 
 	-- Safe pcall wrapper
-	local result = Result.call(function()
+	local result = Result.pcall(function()
 		error("boom")
 	end)                                         -- Returns Err instead of throwing
 
@@ -61,7 +61,7 @@
 	API:
 	Result.ok(value: T) -> Ok<T>
 	Result.err(reason: string) -> Err<string>
-	Result.call(fn, ...args) -> Result
+	Result.pcall(fn, ...args) -> Result
 	Result.unwrap(result) -> T
 	Result.unwrapOr(result, default) -> T
 	Result.unwrapErr(result) -> string
@@ -101,11 +101,11 @@ function Result.err(reason: string): Err
 end
 
 -- Wraps pcall output in a Result
-function Result.call<T, U...>(fn: (U...) -> T, ...: U...): Result<T>
+function Result.pcall<T, U...>(fn: (U...) -> T, ...: U...): Result<T>
 	local success, result: any = pcall(fn, ...)
 	if success then
 		return Result.ok(result)
-		else
+	else
 		return Result.err(tostring(result))
 	end
 end
@@ -113,7 +113,7 @@ end
 -- Unwrapping
 function Result.unwrap<T>(result: Result<T>): T
 	if not result.success then
-		error("Unwrapped error: " .. tostring(result.reason))
+		error(result.reason)
 	end
 	return result.data
 end
@@ -168,12 +168,12 @@ function Result.orElse<T>(result: Result<T>, fn: (string) -> Result<T>): Result<
 end
 
 -- Combining multiple results
-function Result.all<T>(results: {Result<T>}): Result<{T}>
+function Result.all<T>(results: { Result<T> }): Result<{ T }>
 	local values = {}
 	for i, result in results do
 		if result.success then
 			values[i] = result.data
-			else
+		else
 			return Result.err(result.reason)
 		end
 	end
@@ -181,13 +181,16 @@ function Result.all<T>(results: {Result<T>}): Result<{T}>
 end
 
 -- Match pattern
-function Result.match<T, U>(result: Result<T>, options: {
-	ok: (T) -> U,
-	err: (string) -> U,
-}): U
+function Result.match<T, U...>(
+	result: Result<T>,
+	options: {
+		ok: (T) -> U...,
+		err: (string) -> U...,
+	}
+): U...
 	if result.success then
 		return options.ok(result.data)
-		else
+	else
 		return options.err(result.reason)
 	end
 end
