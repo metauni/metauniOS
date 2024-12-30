@@ -80,6 +80,14 @@ function U.toStream<T>(has: Has<T>): Stream<T>
 	end
 end
 
+function U.isStaticHas<T>(has: Has<T>)
+	return typeof(has) ~= "function"
+		and not (typeof(has) == "Instance" and has:IsA("ValueBase"))
+		and typeof(has) ~= "RBXScriptSignal"
+		and not (typeof(has) == "table" and typeof(has.Stream) == "function")
+		and not (typeof(has) == "table" and typeof(has.Observe) == "function")
+end
+
 --[[
 	Sometimes there's no-need to track the cleanup where a stream is listened to,
 	because the source of the stream will be destroyed at the same time as the
@@ -521,8 +529,7 @@ end
 	convertible to a function of type `(value: any) -> ()` (see `toHandler`)
 	Example:
 	```lua
-	local cleanup = {}
-	local AbsoluteSize = U.Value(cleanup, Vector2.new(0,0))
+	local AbsoluteSize = U.Value(Vector2.new(0,0))
 	local button = U.new "TextLabel" {
 		Text = U.concat {"AbsoluteSize=", AbsoluteSize},
 		[U.property "AbsoluteSize"] = AbsoluteSize,
@@ -646,9 +653,10 @@ end
 	- Useful in `mount` and `new`
 	Example:
 	```lua
-	local IsHovering = U.Value(cleanup, false)
-	local IsPressed = U.Value(cleanup, false)
+	local IsHovering = U.Value(false)
+	local IsPressed = U.Value(false)
 	return new "TextButton" {
+		cleanup = {IsHovering, IsPressed},
 		Size = U.compute2(IsHovering, IsPressed, function(isHovering, isPressed)
 			if isHovering and not isPressed then
 				return UDim2.new(1,2,1,2)
@@ -669,7 +677,13 @@ end
 	```
 ]]
 function U.compute2<A, B, Z>(a: Has<A>, b: Has<B>, fn: (A, B) -> Z): Stream<Z>
-	return Stream.combine2(U.toStream(a), U.toStream(b), fn)
+	return function(listener: (Z) -> ())
+		return Stream.combineLatest({ U.toStream(a), U.toStream(b) } :: { Stream<any> }, true)(
+			function(values: { any }): ()
+				listener(fn(table.unpack(values)))
+			end
+		)
+	end
 end
 
 --[[
@@ -680,7 +694,13 @@ end
 	- See `U.compute2` for an example with two "Has" args.
 ]]
 function U.compute3<A, B, C, Z>(a: Has<A>, b: Has<B>, c: Has<C>, fn: (A, B, C) -> Z): Stream<Z>
-	return Stream.combine3(U.toStream(a), U.toStream(b), U.toStream(c), fn)
+	return function(listener: (Z) -> ())
+		return Stream.combineLatest({ U.toStream(a), U.toStream(b), U.toStream(c) } :: { Stream<any> }, true)(
+			function(values: { any }): ()
+				listener(fn(table.unpack(values)))
+			end
+		)
+	end
 end
 
 --[[
@@ -691,7 +711,14 @@ end
 	- See `U.compute2` for an example with two "Has" args.
 ]]
 function U.compute4<A, B, C, D, Z>(a: Has<A>, b: Has<B>, c: Has<C>, d: Has<D>, fn: (A, B, C, D) -> Z): Stream<Z>
-	return Stream.combine4(U.toStream(a), U.toStream(b), U.toStream(c), U.toStream(d), fn)
+	return function(listener: (Z) -> ())
+		return Stream.combineLatest(
+			{ U.toStream(a), U.toStream(b), U.toStream(c), U.toStream(d) } :: { Stream<any> },
+			true
+		)(function(values: { any }): ()
+			listener(fn(table.unpack(values)))
+		end)
+	end
 end
 
 return U

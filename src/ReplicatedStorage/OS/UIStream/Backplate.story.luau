@@ -2,21 +2,24 @@ local U = require(script.Parent.Parent.Parent.Util.U)
 local UI = require(script.Parent.Parent.UIStream)
 
 local function story(render: (controls: any) -> Instance)
-	return function (props: any)
-
+	return function(props: any)
 		local cleanup = {}
 		local controls = {}
 		for key, value in props.controls do
-			controls[key] = U.Value(cleanup, value)
+			controls[key] = U.Value(value)
+			table.insert(cleanup, controls[key])
 		end
 
-		table.insert(cleanup, props.subscribe(function(values, _infos)
-			for key, value in values do
-				if controls[key] then
-					controls[key].Value = value
+		table.insert(
+			cleanup,
+			props.subscribe(function(values, _infos)
+				for key, value in values do
+					if controls[key] then
+						controls[key].Value = value
+					end
 				end
-			end
-		end))
+			end)
+		)
 
 		local instance = render(controls)
 		instance.Parent = props.target
@@ -29,7 +32,7 @@ end
 
 return {
 	controls = {
-		Title = "metauni"
+		Title = "metauni",
 	},
 	render = story(function(controls)
 		return UI.TitledWindow {

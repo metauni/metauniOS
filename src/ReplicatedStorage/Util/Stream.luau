@@ -572,55 +572,33 @@ local function combineLatest<K, V>(
 end
 
 --[[
-	(Transformer)
-	Map the values in stream `a` with the function `fn`.
+	(Listener)
+	Listen to the latest values of two streams (doesn't call listener until both have emitted at least once)
 ]]
-local function combine1<A, Z>(a: Stream<A>, fn: (A) -> Z): Stream<Z>
-	-- Output stream is just `map(fn)(a)`, but we unfold it for less debugging whiplash
-	return function(listener: (Z) -> ()): CleanupTask
-		return a(function(value: A): ()
-			listener(fn(value))
-		end)
-	end
+local function listen2<A, B, Z>(a: Stream<A>, b: Stream<B>, listener: (A, B) -> ()): CleanupTask
+	return combineLatest({ a, b } :: { Stream<any> }, true)(function(values: { any }): ()
+		listener(table.unpack(values))
+	end)
 end
 
 --[[
-	(Transformer)
-	Combine the latest values of `a`, `b` with the function `fn`.
-	Useful for computing derived values from multiple streams.
+	(Listener)
+	Listen to the latest values of three streams (doesn't call listener until all have emitted at least once)
 ]]
-local function combine2<A, B, Z>(a: Stream<A>, b: Stream<B>, fn: (A, B) -> Z): Stream<Z>
-	return function(listener: (Z) -> ()): CleanupTask
-		return combineLatest({ a, b } :: { Stream<any> }, true)(function(values: { any }): ()
-			listener(fn(table.unpack(values)))
-		end)
-	end
+local function listen3<A, B, C, Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, listener: (A, B, C) -> ()): CleanupTask
+	return combineLatest({ a, b, c } :: { Stream<any> }, true)(function(values: { any }): ()
+		listener(table.unpack(values))
+	end)
 end
 
 --[[
-	(Transformer)
-	Combine the latest values of `a`, `b`, `c` with the function `fn`.
-	Useful for computing derived values from multiple streams.
+	(Listener)
+	Listen to the latest values of four streams (doesn't call listener until all have emitted at least once)
 ]]
-local function combine3<A, B, C, Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, fn: (A, B, C) -> Z): Stream<Z>
-	return function(listener: (Z) -> ()): CleanupTask
-		return combineLatest({ a, b, c } :: { Stream<any> }, true)(function(values: { any }): ()
-			listener(fn(table.unpack(values)))
-		end)
-	end
-end
-
---[[
-	(Transformer)
-	Combine the latest values of `a`, `b`, `c`, `d` with the function `fn`.
-	Useful for computing derived values from multiple streams.
-]]
-local function combine4<A, B, C, D, Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, d: Stream<D>, fn: (A, B, C, D) -> Z): Stream<Z>
-	return function(listener: (Z) -> ()): CleanupTask
-		return combineLatest({ a, b, c, d } :: { Stream<any> }, true)(function(values: { any }): ()
-			listener(fn(table.unpack(values)))
-		end)
-	end
+local function listen4<A, B, C, D, Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, d: Stream<D>, listener: (A, B, C, D) -> ()): CleanupTask
+	return combineLatest({ a, b, c, d } :: { Stream<any> }, true)(function(values: { any }): ()
+		listener(table.unpack(values))
+	end)
 end
 
 --[[
@@ -1113,10 +1091,9 @@ return {
 	firstOfAny = firstOfAny,
 	skipUnchanged = skipUnchanged,
 	combineLatest = combineLatest,
-	combine1 = combine1,
-	combine2 = combine2,
-	combine3 = combine3,
-	combine4 = combine4,
+	listen2 = listen2,
+	listen3 = listen3,
+	listen4 = listen4,
 	switchAll = switchAll,
 	switchMap = switchMap,
 	-- Roblox-instance-related stream constructors/transformers

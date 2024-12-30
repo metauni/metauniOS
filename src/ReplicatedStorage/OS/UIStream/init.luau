@@ -1,11 +1,15 @@
 --!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Stream = require(ReplicatedStorage.Util.Stream)
+local Spring = require(ReplicatedStorage.Util.Spring)
+local AccelTween = require(ReplicatedStorage.Util.AccelTween)
 local Value = require(ReplicatedStorage.Util.Value)
 local U = require(ReplicatedStorage.Util.U)
 
 export type Value<T> = Value.Value<T>
+export type Stream<T...> = Stream.Stream<T...>
 
 local UI = {}
 
@@ -46,6 +50,96 @@ end
 
 function UI.addUDim2(a: UDim2, b: UDim2)
 	return UDim2.new(UI.addUDim(a.X, b.X), UI.addUDim(a.Y, b.Y))
+end
+
+--[[
+	Create a stream that smoothly interpolate towards the latest target value
+	according to spring physics. Each emitted value becomes the new target of the spring.
+
+	Internally creates a RenderStepped connection when listened to, but only emits values
+	when the spring is actually animating.
+]]
+function UI.Spring<T>(target: Has<T>, speed: Has<number>?, damper: Has<number>?): Stream<T>
+	if U.isStaticHas(target) then
+		return Stream.of(target :: any)
+	end
+
+	local targetStream: Stream<T> = U.toStream(target)
+	local speedStream: Stream<number> = U.toStream(speed or 10)
+	local damperStream: Stream<number> = U.toStream(damper or 1)
+
+	return function(listener)
+		local spring = nil
+		local connection = RunService.RenderStepped:Connect(function()
+			if spring then
+				local animating, position = spring:Animating()
+				if animating then
+					listener(Spring.fromLinearIfNeeded(position))
+				end
+			end
+		end)
+
+		local cleanupStream = Stream.listen3(targetStream, speedStream, damperStream, function(value, s, d)
+			if spring == nil then
+				listener(value)
+				spring = Spring.new(Spring.toLinearIfNeeded(value))
+			end
+			spring.Speed = s
+			spring.Damper = d
+			spring.Target = Spring.toLinearIfNeeded(value)
+		end)
+
+		return function()
+			Stream.clean(connection)
+			connection = nil
+			Stream.clean(cleanupStream)
+			cleanupStream = nil
+		end
+	end
+end
+
+--[[
+	Create a stream that smoothly interpolate between emitted target values
+	using constant acceleration to reach each target in minimum time. Each emitted value
+	becomes the new target position.
+
+	Internally creates a RenderStepped connection when listened to, but only emits values
+	while the acceltween is running (.rtime > 0), and once when it stops.
+]]
+function UI.AccelTween<T>(target: Has<T>, acceleration: Has<number>?): Stream<T>
+	local targetStream: Stream<T> = U.toStream(target)
+	local accelerationStream: Stream<number> = U.toStream(acceleration or 1)
+
+	return function(listener)
+		local accelTween = nil
+		local active = false
+		local connection = RunService.RenderStepped:Connect(function()
+			if active then
+				listener(Spring.fromLinearIfNeeded(accelTween.p))
+				-- The active flags helps us update the listener one last time after .rtime becomes <= 0
+				active = accelTween.rtime > 0
+			end
+		end)
+
+		local cleanupStream = Stream.listen2(targetStream, accelerationStream, function(value, a)
+			if accelTween == nil then
+				listener(value)
+				accelTween = AccelTween.new(a)
+				accelTween.p = Spring.toLinearIfNeeded(value)
+				accelTween.v = 0
+			end
+			accelTween.a = a
+			accelTween.t = Spring.toLinearIfNeeded(value)
+			active = accelTween.rtime > 0
+		end)
+
+		return function()
+			Stream.clean(connection)
+			connection = nil
+			Stream.clean(cleanupStream)
+			cleanupStream = nil
+		end
+	end
 end
 
 function UI.listedChildren(layoutPropsAndChildren: { [string | number]: any })
@@ -155,19 +249,17 @@ function UI.CloseButton(props: {
 
 	OnClose: () -> (),
 })
-	local state = {
-		Hovered = U.Value(false),
-		Pressed = U.Value(false),
-	}
+	local Hovered = U.Value(false)
+	local Pressed = U.Value(false)
 
 	return U.new "TextButton" {
-		cleanup = state,
+		cleanup = { Hovered, Pressed },
 
 		AnchorPoint = props.AnchorPoint,
 		Position = props.Position,
 		Size = props.Size,
 		Text = "",
-		BackgroundTransparency = U.compute2(state.Hovered, state.Pressed, function(hover, pressed)
+		BackgroundTransparency = U.compute2(Hovered, Pressed, function(hover, pressed)
 			return (hover and 0.75 or 1) * (pressed and 0.75 or 1)
 		end),
 		BackgroundColor3 = Color3.new(1, 1, 1),
@@ -191,17 +283,17 @@ function UI.CloseButton(props: {
 
 		Activated = props.OnClose,
 		MouseButton1Down = function()
-			state.Pressed.Value = true
+			Pressed.Value = true
 		end,
 		MouseButton1Up = function()
-			state.Pressed.Value = false
+			Pressed.Value = false
 		end,
 		MouseEnter = function()
-			state.Hovered.Value = true
+			Hovered.Value = true
 		end,
 		MouseLeave = function()
-			state.Hovered.Value = false
-			state.Pressed.Value = false
+			Hovered.Value = false
+			Pressed.Value = false
 		end,
 	}
 end
