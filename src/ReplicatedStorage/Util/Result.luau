@@ -19,6 +19,18 @@
 		return Result.ok(a / b)
 	end
 
+	-- Function wrapping
+	-- Using Result.pcall to handle errors directly
+	local riskyFn = function(x: number)
+		if x < 0 then error("Must be positive") end
+		return x * 2
+	end
+	local result = Result.pcall(riskyFn, -1) -- Returns Err with error message
+
+	-- Using Result.wrap to create safe function
+	local safeFn = Result.wrap(riskyFn) -- Creates new function returning Result
+	local result = safeFn(-1) -- Same behavior but as reusable function
+
 	-- Chaining operations
 	local result = divide(10, 2)
 	result = Result.andThen(result, function(value)             -- Chain another Result operation
@@ -29,22 +41,15 @@
 	end)
 
 	-- Handling Results
-	-- Method 1: Pattern matching
+	-- Pattern matching
 	Result.match(result, {
 		ok = function(value) print(value) end,
 		err = function(reason) warn(reason) end,
 	})
 
-	-- Method 2: Unwrapping
+	-- Unwrapping
 	local value = Result.unwrapOr(result, 0)     -- Safe unwrap with default
 	local value = Result.unwrap(result)          -- Throws if error
-
-	-- Method 3: Conditional
-	if Result.isOk(result) then
-		print(result.data)
-	else
-		warn(result.reason)
-	end
 
 	-- Safe pcall wrapper
 	local result = Result.pcall(function()
@@ -62,11 +67,11 @@
 	Result.ok(value: T) -> Ok<T>
 	Result.err(reason: string) -> Err<string>
 	Result.pcall(fn, ...args) -> Result
+	Result.wrap(fn) -> (args...) -> Result
+	Result.retryAsync(options, fn, ...args) -> Result
 	Result.unwrap(result) -> T
 	Result.unwrapOr(result, default) -> T
 	Result.unwrapErr(result) -> string
-	Result.isOk(result) -> boolean
-	Result.isErr(result) -> boolean
 	Result.map(result, fn) -> Result
 	Result.mapErr(result, fn) -> Result
 	Result.andThen(result, fn) -> Result
@@ -100,7 +105,7 @@ function Result.err(reason: string): Err
 	return { success = false, reason = reason }
 end
 
--- Wraps pcall output in a Result
+-- Calls pcall with fn and args and wraps output in a Result
 function Result.pcall<T, U...>(fn: (U...) -> T, ...: U...): Result<T>
 	local success, result: any = pcall(fn, ...)
 	if success then
@@ -110,15 +115,59 @@ function Result.pcall<T, U...>(fn: (U...) -> T, ...: U...): Result<T>
 	end
 end
 
--- Unwrapping
-function Result.unwrap<T>(result: Result<T>): T
-	if not result.success then
-		error(result.reason)
+-- Turn a function that errors into a function that returns a Result
+function Result.wrap<T, U...>(fn: (U...) -> T): (U...) -> Result<T>
+	return function(...)
+		return Result.pcall(fn, ...)
 	end
-	return result.data
 end
 
-function Result.unwrapOrError<T>(result: Result<T>): T
+--[[
+	Retries a Result-returning operation with configurable attempts and delays.
+
+	Parameters:
+		options: Configuration table
+			maxAttempts (number?, default: 3) - Maximum number of retry attempts
+			delaySeconds (number?, default: 0) - Delay between retries in seconds
+		fn: Function that returns a Result<T>
+		...: Arguments passed to fn
+
+	Returns: Result<T>
+		Ok<T> on success
+		Err on max attempts exceeded with combined error info
+]]
+function Result.retryAsync<T, U...>(
+	options: { maxAttempts: number?, delaySeconds: number? },
+	fn: (U...) -> Result<T>,
+	...: U...
+): Result<T>
+	local maxAttempts = options.maxAttempts or 3
+	local delaySeconds = options.delaySeconds or 0
+
+	assert(maxAttempts > 0, "maxAttempts must be greater than 0")
+	assert(delaySeconds >= 0, "delaySeconds must be non-negative")
+
+	local lastError
+	for attempt = 1, maxAttempts do
+		local result = fn(...)
+
+		if result.success then
+			return result
+		end
+
+		lastError = result.reason
+
+		-- If this isn't the last attempt, wait before trying again
+		if attempt < maxAttempts and delaySeconds > 0 then
+			task.wait(delaySeconds)
+		end
+	end
+
+	return Result.err(`Failed after {maxAttempts} attempts. Last error: {lastError}`)
+end
+
+-- Unwrapping
+function Result.unwrap<T>(result: Result<T>): T
 	if not result.success then
 		error(result.reason)
 	end
