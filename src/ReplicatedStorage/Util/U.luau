@@ -93,7 +93,7 @@ end
 	- nil: `U.isStaticHas(nil) == true`
 
 	Non-static values:
-	- Stream: `U.isStaticHas(function() end) == false`
+	- Stream: `U.isStaticHas(Stream.eachPlayer) == false`
 	- ValueBase: `U.isStaticHas(Instance.new("StringValue")) == false`
 	- RBXScriptSignal: `U.isStaticHas(part:GetPropertyChangedSignal("Name")) == false`
 	- Object with Stream(): `U.isStaticHas(U.Value(1)) == false`
