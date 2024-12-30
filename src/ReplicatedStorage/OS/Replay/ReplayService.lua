@@ -8,7 +8,6 @@ local OrbService = require(ServerScriptService.OS.OrbService)
 local OrbServer = require(ServerScriptService.OS.OrbService.OrbServer)
 local Sift = require(ReplicatedStorage.Packages.Sift)
 local t = require(ReplicatedStorage.Packages.t)
-local Maid = require(ReplicatedStorage.Util.Maid)
 local Map = require(ReplicatedStorage.Util.Map)
 local Promise = require(ReplicatedStorage.Util.Promise)
 local Stage = require(script.Parent.Stage)
@@ -16,7 +15,6 @@ local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 local Stream = require(ReplicatedStorage.Util.Stream)
 local U = require(ReplicatedStorage.Util.U)
-local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local Studio = require(script.Parent.Studio)
 local PermissionsService = require(ServerScriptService.OS.PermissionsService)
 local PocketService = require(ServerScriptService.OS.PocketService)
@@ -31,17 +29,19 @@ local TESTING = game.PlaceId == 10325447437
 ]]
 local ReplayService = {
 
-	OrbToStage = Map({} :: {[Part]: Stage.Stage}),
-	OrbToStudio = Map({} :: {[Part]: Studio.Studio}),
-	OrbCatalog = {} :: {[number]: {
-		{
-			ReplayId: string,
-			ReplayName: string,
-			NumSegments: number?,
-			UTCDate: typeof(os.date("!*t")),
-		}
-	}},
-	ReplayDataStore = nil :: DataStore?
+	OrbToStage = Map({} :: { [Part]: Stage.Stage }),
+	OrbToStudio = Map({} :: { [Part]: Studio.Studio }),
+	OrbCatalog = {} :: {
+		[number]: {
+			{
+				ReplayId: string,
+				ReplayName: string,
+				NumSegments: number?,
+				UTCDate: typeof(os.date("!*t")),
+			}
+		},
+	},
+	ReplayDataStore = nil :: DataStore?,
 }
 
 function ReplayService:Start()
@@ -56,15 +56,16 @@ function ReplayService:Start()
 	else
 		self.ReplayDataStore = DataStoreService:GetDataStore("Replay-TRS")
 	end
-	
+
 	Remotes.StartRecording.OnServerInvoke = function(player: Player, orbPart: Part, recordingName: string)
 		do
-			local ok, level = PermissionsService:promisePermissionLevel(player.UserId):catch(warn):await()
-			if not ok then
+			local result = PermissionsService.GetPermissionLevelByIdAsync(player.UserId)
+			if not result.success then
+				warn(result.reason)
 				return false
 			end
-	
-			if level < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
+
+			if result.data.perm < 254 then -- ADMIN_PERM level (should be accessible from PermissionsService)
 				warn("Non-admin tried to make Studio recording")
 				return false
 			end
@@ -82,19 +83,20 @@ function ReplayService:Start()
 			warn("Studio already exists")
 			return false
 		end
-		
+
 		local studio: Studio.Studio
-		local recordingId do
+		local recordingId
+		do
 			local ok, msg = pcall(function()
 				local counter, _keyInfo = self.ReplayDataStore:IncrementAsync(`OrbReplays/{orbId}/Counter`, 1)
-				recordingId = orbId .. "-".. counter
+				recordingId = orbId .. "-" .. counter
 			end)
 			if not ok then
 				warn(msg)
 				return false, msg
 			end
 		end
-		
+
 		do
 			local ok, msg = pcall(function()
 				studio = self:NewOrbStudio(orbServer, recordingName, recordingId)
@@ -123,14 +125,16 @@ function ReplayService:Start()
 		if studio.PhaseIsBefore("Recorded") then
 			studio.StopRecording()
 		end
-		
-		local ok, msg = self:PromiseSaveRecording(orbPart, studio):Then(function()
-			-- Make sure it's still there, since we're async
-			if studio == self.OrbToStudio:Get(orbPart) then
-				self.OrbToStudio:Set(orbPart, nil)
-				studio.Destroy()
-			end
-		end):Yield()
+
+		local ok, msg = self:PromiseSaveRecording(orbPart, studio)
+			:Then(function()
+				-- Make sure it's still there, since we're async
+				if studio == self.OrbToStudio:Get(orbPart) then
+					self.OrbToStudio:Set(orbPart, nil)
+					studio.Destroy()
+				end
+			end)
+			:Yield()
 
 		return ok, msg
 	end
@@ -234,15 +238,18 @@ function ReplayService:Start()
 		return RecordUtils.ToCharacterVoices(replaySegment)
 	end
 
-	local checkCharacterVoices = t.map(t.string, t.strictInterface {
-		CharacterName = t.string,
-		Clips = t.array (t.strictInterface {
-			AssetId = t.string,
-			StartTimestamp = t.number,
-			StartOffset = t.number,
-			EndOffset = t.number,
-		})
-	})
+	local checkCharacterVoices = t.map(
+		t.string,
+		t.strictInterface {
+			CharacterName = t.string,
+			Clips = t.array(t.strictInterface {
+				AssetId = t.string,
+				StartTimestamp = t.number,
+				StartOffset = t.number,
+				EndOffset = t.number,
+			}),
+		}
+	)
 
 	Remotes.SaveCharacterVoices.OnServerInvoke = function(player: Player, replayId: string, characterVoices: any)
 		local ok, msg = pcall(function()
@@ -257,9 +264,9 @@ function ReplayService:Start()
 				if not data then
 					error("No replay record to update")
 				end
-	
-				assert(t.interface { Records = t.table, } (data))
-	
+
+				assert(t.interface { Records = t.table }(data))
+
 				RecordUtils.EditSoundRecordsInPlace(data, characterVoices)
 				return data
 			end)
@@ -280,9 +287,11 @@ function ReplayService:Start()
 				ReplayId = stage.ReplayId,
 				ReplayName = stage.ReplayName,
 				ReplayDuration = stage.GetDuration(),
-				ReplayPlayState = stage.ObservePlayState():Pipe{Rx.map(function(playState)
-					return playState or ""
-				end)},
+				ReplayPlayState = stage.ObservePlayState():Pipe {
+					Rx.map(function(playState)
+						return playState or ""
+					end),
+				},
 				ReplayTimestamp = stage.ObserveTimestampSeconds(),
 			})
 		else
@@ -298,9 +307,7 @@ function ReplayService:Start()
 end
 
 function ReplayService:PromiseSaveRecording(orbPart: Part, studio: Studio.Studio)
-
 	return studio.PromiseAllSaved():Finally(function(_results)
-
 		local orbServer = OrbService.Orbs[orbPart]
 		if not orbServer then
 			return Promise.rejected("No OrbServer found")
@@ -339,7 +346,7 @@ end
 function ReplayService:_observePlayerToOrb()
 	return Rx.of(Players):Pipe {
 		Rxi.children(),
-		Rx.switchMap(function(players: {Players})
+		Rx.switchMap(function(players: { Players })
 			local playerToOrb = {}
 			for _, player in players do
 				playerToOrb[player] = Rx.of(PlayerToOrb):Pipe {
@@ -471,7 +478,7 @@ function ReplayService:Pause(orbPart)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.Pause()
 end
 
@@ -481,7 +488,7 @@ function ReplayService:SkipAhead(orbPart, seconds: number)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.SkipAhead(seconds)
 end
 
@@ -491,7 +498,7 @@ function ReplayService:SkipBack(orbPart, seconds: number)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.SkipBack(seconds)
 end
 
@@ -501,7 +508,7 @@ function ReplayService:Restart(orbPart)
 		warn("No active stage found")
 		return
 	end
-	
+
 	stage.Restart()
 end
 
@@ -511,9 +518,8 @@ function ReplayService:Stop(orbPart)
 		warn("No active stage found")
 		return
 	end
-	
+
 	self._stageMaid[orbPart] = nil
 end
-
 
 return ReplayService

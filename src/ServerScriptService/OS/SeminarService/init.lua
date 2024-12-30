@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local yaml = require(ReplicatedStorage.Packages.yaml)
 local t = require(ReplicatedStorage.Packages.t)
-local Promise = require(ReplicatedStorage.Packages.Promise)
+local Result = require(ReplicatedStorage.Util.Result)
 local Remotes = ReplicatedStorage.OS.Remotes
 
 local SeminarService = {}
@@ -25,7 +25,7 @@ end
 
 function SeminarService:_fetchSchedule()
 	local url = "https://raw.githubusercontent.com/metauni/metauni.github.io/main/schedule/schedule.yml"
-	
+
 	local response
 	if DEBUG then
 		response = script.example_schedule.Value
@@ -33,26 +33,21 @@ function SeminarService:_fetchSchedule()
 		local TRIES = 3
 		local DELAY = 3
 
-		local promise = Promise.retryWithDelay(function()
-			return Promise.new(function(resolve, reject)
-				local success, msg = pcall(function()
-					response = HttpService:GetAsync(url)
-				end)
-	
-				if success then
-					resolve(response)
-				else
-					reject(msg)
-				end
+		local result = Result.retryAsync(
+			{ maxAttempts = TRIES, delaySeconds = DELAY },
+			Result.wrap(function()
+				return HttpService:GetAsync(url)
 			end)
-		end, TRIES, DELAY)
+		)
 
-		local success, result = promise:await()
-		if success then
-			response = result
-		else
-			error("Failed to fetch seminar schedule. "..result)
-		end
+		Result.match(result, {
+			ok = function(data)
+				response = data
+			end,
+			err = function(err)
+				error("Failed to fetch seminar schedule. " .. err)
+			end,
+		})
 	end
 
 	return yaml.eval(response)
@@ -62,17 +57,18 @@ end
 	data should be validated with SeminarService:_validateSchedule first
 --]]
 function SeminarService:_decodeTime(dateStr: string, utcOffsetStr: string, localTimeStr: string): DateTime
-	
-	local offsetMinutes do
+	local offsetMinutes
+	do
 		local sign, hours, minutes = utcOffsetStr:match("([%+%-])(%d+):(%d+)$")
 		offsetMinutes = tonumber(hours) :: number * 60 + tonumber(minutes) :: number
-	
+
 		if sign == "-" then
 			offsetMinutes = -offsetMinutes
 		end
 	end
 
-	local localMinutes do
+	local localMinutes
+	do
 		local hours, minutes = localTimeStr:match("(%d+):(%d+)")
 		localMinutes = tonumber(hours) :: number * 60 + tonumber(minutes) :: number
 	end
@@ -87,7 +83,7 @@ function SeminarService:_decodeTime(dateStr: string, utcOffsetStr: string, local
 	return DateTime.fromUniversalTime(year, month, day, 0, universalMinutes)
 end
 
-function SeminarService:_validateSchedule(schedule: {[any]: any}): (boolean, string?)
+function SeminarService:_validateSchedule(schedule: { [any]: any }): (boolean, string?)
 	-- Example schedule.toml
 	--[[
 		metauni day: "27/07/2023" # dd/mm/yyyy
@@ -112,7 +108,7 @@ function SeminarService:_validateSchedule(schedule: {[any]: any}): (boolean, str
 	local timeslotPattern = "^(%d%d):(%d%d)-(%d%d):(%d%d)$"
 
 	local seminarChecker = t.interface({
-		["time"] = t.match(timeslotPattern)
+		["time"] = t.match(timeslotPattern),
 		-- We use location for pocket name, but don't check it here
 		-- because we default to TRS (or discord) if no match
 	})
@@ -123,7 +119,7 @@ function SeminarService:_validateSchedule(schedule: {[any]: any}): (boolean, str
 			if not tableSuccess then
 				return false, tableErrMsg or "" -- pass error message for value not being a table
 			end
-			
+
 			local onlyKey, _ = next(value)
 			if not t.keys(t.literal(onlyKey))(value) then
 				return false, "Bad table: not a singleton map"
@@ -155,7 +151,6 @@ function SeminarService:GetCurrentSeminars()
 	local seminars = {}
 
 	for _, seminarSingleton in schedule["whats on"] do
-
 		local seminar = {}
 		local title, data = next(seminarSingleton)
 		seminar.Name = title

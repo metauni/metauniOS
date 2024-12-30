@@ -14,7 +14,6 @@ local IconController = require(ReplicatedStorage.Packages.Icon.IconController)
 local Themes = require(ReplicatedStorage.Packages.Icon.Themes)
 local Macro = require(ReplicatedStorage.Util.Macro)
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
 local UtilPromise = require(ReplicatedStorage.Util.Promise)
 local Fusion = require(ReplicatedStorage.Packages.Fusion)
 local New = Fusion.New
@@ -658,7 +657,7 @@ function OrbController:Start()
 					holdPromise = nil
 				end
 				holdPromise = 
-					Promise.delay(0.6)
+					UtilPromise.delayed(0.6)
 						:andThen(function()
 							Transparency:set(1)
 						end)

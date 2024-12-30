@@ -53,93 +53,171 @@ if not RunService:IsStudio() then
 	end)
 end
 
--- Initialise & Start Services
+--[[
+	Do multiple jobs (functions) asynchronously, with timeout and error handling.
+	Yields until all jobs are finished or timed-out.
+]]
+local function doJobsAsync<K,V>(
+	props: {
+		source: {[K]: V},
+		makeJob: (K,V) -> (() -> ())?,
+		jobTimeout: number,
+		onTimeOut: (K,V) -> (),
+		onFailure: (K,V,string) -> (),
+	}
+)
+	local startTimes = {}
+	local threads = {}
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
-local Sift = require(ReplicatedStorage.Packages.Sift)
+	for key, value in props.source do
+		local job = props.makeJob(key, value)
+		if not job then
+			continue
+		end
+		threads[key] = coroutine.create(function()
+			xpcall(function()
+				startTimes[key] = os.clock()
+				job()
+			end, function(err)
+				props.onFailure(key, value, debug.traceback(err))
+			end)
+		end)
+	end
 
-print("[metauniOS] Importing services")
+	for _, thread in threads do
+		coroutine.resume(thread)
+	end
 
-local servicePromises = {}
+	local watcher = task.defer(function()
+		while true do
+			local notDead = {}
+			for key, thread in threads do
+				if coroutine.status(thread) ~= "dead" then
+					table.insert(notDead, tostring(key))
+				end
+			end
+			warn(`[metauniOS] Waiting for {table.concat(notDead, ',')}`)
+			task.wait(1)
+		end
+	end)
+
+	while true do
+		for key, thread in threads do
+			if coroutine.status(thread) == "dead" then
+				threads[key] = nil
+			elseif props.jobTimeout < os.clock() - startTimes[key] then
+				props.onTimeOut(key, props.source[key])
+				coroutine.close(threads[key])
+				threads[key] = nil
+			end
+		end
+		if next(threads) == nil then
+			break
+		end
+		task.wait()
+	end
+
+	coroutine.close(watcher)
+end
+
+-- Initialise & Start Service
+
+local scripts = {} :: {[ModuleScript]: true}
 
 for _, container in {ServerScriptService, ReplicatedStorage} do
 	for _, instance in container:GetDescendants() do
-
 		if instance:IsDescendantOf(ReplicatedStorage.Packages) then
 			continue
 		end
 		
 		if instance.ClassName == "ModuleScript" and string.match(instance.Name, "Service$") then
-	
-			servicePromises[instance] = Promise.new(function(resolve, reject)
-				local success, result = xpcall(require, function()
-					reject("[metauniOS] Failed to import "..instance.Name)
-				end, instance)
-
-				if success then
-					resolve(result)
-				end
-			end):catch(warn)
+			scripts[instance] = true
 		end
 	end
 end
 
--- Yield until every promise has resolved or rejected
+print("[metauniOS] Importing services")
 
-local function awaitAll(promises)
-	for instance, promise in promises do
-		local timeoutMsg = `{instance:GetFullName()} took too long to import`
-		local success, result = promise:timeout(10, timeoutMsg):await()
-		if not success then
-			warn(result)
+local IMPORT_TIMEOUT = 4.5
+local services = {} :: {[ModuleScript]: any}
+
+doJobsAsync({
+	source = scripts,
+	makeJob = function(instance)
+		return function()
+			services[instance] = require(instance)
+		end
+	end,
+	jobTimeout = IMPORT_TIMEOUT,
+	onTimeOut = function(instance)
+		warn(`[metauniOS] Service {instance:GetFullName()} took too long to import (>{IMPORT_TIMEOUT}s)`)
+	end,
+	onFailure = function(instance, _, err)
+		local msg = `[metauniOS] Service {instance:GetFullName()} failed to import`
+		warn(msg)
+		warn(err)
+		if not RunService:IsStudio() then
+			ravenClient:SendException(Raven.ExceptionType.Server, msg..'\n'..err)
 		end
 	end
-end
-
-awaitAll(servicePromises)
+})
 
 print("[metauniOS] Initialising services")
 
-servicePromises = Sift.Dictionary.map(servicePromises, function(promise, instance)
-	
-	return promise
-		:tap(function(service)
-			if typeof(service) == "table" and typeof(service.Init) == "function" then
+local INIT_TIMEOUT = 4.5
+doJobsAsync({
+	source = services,
+	makeJob = function(_instance, service)
+		if typeof(service) == "table" and typeof(service.Init) == "function" then
+			return function()
 				service:Init()
 			end
-		end)
-		:catch(function(...)
-			
-			warn("[metauniOS] "..instance.Name..".Init failed")
-			warn(...)
-			if not RunService:IsStudio() then
-				ravenClient:SendException(Raven.ExceptionType.Server, instance.Name..".Init failed", ...)
-			end
-		end)
-end)
-
-awaitAll(servicePromises)
+		end
+		return nil
+	end,
+	jobTimeout = INIT_TIMEOUT,
+	onTimeOut = function(instance, _service)
+		services[instance] = nil
+		warn(`[metauniOS] Service {instance:GetFullName()} took too long to finish :Init() (>{INIT_TIMEOUT}s)})`)
+	end,
+	onFailure = function(instance, _service, err)
+		services[instance] = nil
+		local msg = `[metauniOS] Service {instance:GetFullName()} failed to :Init()`
+		warn(msg)
+		warn(err)
+		if not RunService:IsStudio() then
+			ravenClient:SendException(Raven.ExceptionType.Server, msg..'\n'..err)
+		end
+	end
+})
 
 print("[metauniOS] Starting services")
 
-servicePromises = Sift.Dictionary.map(servicePromises, function(promise, instance)
-	
-	return promise
-		:tap(function(service)
-			if typeof(service) == "table" and typeof(service.Start) == "function" then
+local START_TIMEOUT = 4.5
+doJobsAsync {
+	source = services,
+	makeJob = function(_instance, service)
+		if typeof(service) == "table" and typeof(service.Start) == "function" then
+			return function()
 				service:Start()
 			end
-		end)
-		:catch(function(...)
-			
-			warn("[metauniOS] Start failed for "..instance.Name)
-			warn(...)
-			if not RunService:IsStudio() then
-				ravenClient:SendException(Raven.ExceptionType.Server, instance.Name..".Start failed", ...)
-			end
-		end)
-end)
-
-awaitAll(servicePromises)
+		end
+		return nil
+	end,
+	jobTimeout = START_TIMEOUT,
+	onTimeOut = function(instance, _service)
+		services[instance] = nil
+		warn(`[metauniOS] Service {instance:GetFullName()} took too long to finish :Start() (>{START_TIMEOUT}s)`)
+	end,
+	onFailure = function(instance, _service, err)
+		services[instance] = nil
+		local msg = `[metauniOS] Service {instance:GetFullName()} failed to :Start()`
+		warn(msg)
+		warn(err)
+		if not RunService:IsStudio() then
+			ravenClient:SendException(Raven.ExceptionType.Server, msg..'\n'..err)
+		end
+	end
+}
 
 print("[metauniOS] Startup complete")
