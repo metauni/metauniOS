@@ -18,7 +18,7 @@ local palletes = {
 		Stroke = Color3.fromHex("#cdcdcd"),
 		-- Background = Color3.fromHex("#252c35"),
 		Background = Color3.fromHex("#2f2f2f"),
-	}
+	},
 }
 
 UI.Theme = Value("dark" :: any) :: Value<"light" | "dark">
@@ -48,8 +48,8 @@ function UI.addUDim2(a: UDim2, b: UDim2)
 	return UDim2.new(UI.addUDim(a.X, b.X), UI.addUDim(a.Y, b.Y))
 end
 
-function UI.listedChildren(layoutPropsAndChildren: {[string | number]: any})
-	local orderedChildren = {} :: {any}
+function UI.listedChildren(layoutPropsAndChildren: { [string | number]: any })
+	local orderedChildren = {} :: { any }
 	local layoutProps = {}
 	for key, value in layoutPropsAndChildren do
 		if typeof(key) == "number" then
@@ -57,10 +57,13 @@ function UI.listedChildren(layoutPropsAndChildren: {[string | number]: any})
 				(value :: any).LayoutOrder = key
 				table.insert(orderedChildren, value)
 			elseif typeof(value) == "function" then
-				table.insert(orderedChildren, Stream.tap(function(child)
-					assert(typeof(child) == "Instance", "Bad child")
-					;(child :: any).LayoutOrder = key
-				end)(value :: Stream.Stream<Instance>))
+				table.insert(
+					orderedChildren,
+					Stream.tap(function(child)
+						assert(typeof(child) == "Instance", "Bad child");
+						(child :: any).LayoutOrder = key
+					end)(value :: Stream.Stream<Instance>)
+				)
 			else
 				error(`[UI.listedChildren] Child {value} ({typeof(value)}) is not an Instance or Stream<Instance>`)
 			end
@@ -70,7 +73,7 @@ function UI.listedChildren(layoutPropsAndChildren: {[string | number]: any})
 	end
 
 	return {
-		U.new "UIListLayout" (layoutProps),
+		U.new "UIListLayout"(layoutProps),
 		orderedChildren :: any,
 	}
 end
@@ -80,7 +83,7 @@ function UI.horizontalChildren(mixedProps)
 	return UI.listedChildren(mixedProps)
 end
 
-function UI.verticalChildren(mixedProps: {[string | number]: any})
+function UI.verticalChildren(mixedProps: { [string | number]: any })
 	mixedProps.FillDirection = Enum.FillDirection.Vertical
 	return UI.listedChildren(mixedProps)
 end
@@ -94,9 +97,8 @@ function UI.Backplate(props: {
 	AnchorPoint: Has<Vector2>?,
 	Position: Has<UDim2>?,
 
-	Children: {any}?,
+	Children: { any }?,
 })
-
 	local thickness = 10
 
 	return U.new "Frame" {
@@ -105,11 +107,11 @@ function UI.Backplate(props: {
 		cleanup = task.spawn(function()
 			while true do
 				task.wait(2)
-				print('toggle')
+				print("toggle")
 				UI.toggleTheme()
 			end
 		end),
-		
+
 		Size = props.Size,
 		AnchorPoint = props.AnchorPoint,
 		Position = props.Position,
@@ -119,7 +121,7 @@ function UI.Backplate(props: {
 			Color = U.compute2(UI.Color.Stroke, UI.Color.Background, function(stroke, background)
 				return ColorSequence.new(stroke, background)
 			end),
-			Transparency = NumberSequence.new(0.08,0),
+			Transparency = NumberSequence.new(0.08, 0),
 		},
 
 		U.new "UIStroke" {
@@ -127,14 +129,14 @@ function UI.Backplate(props: {
 			Color = UI.Color.Stroke,
 			LineJoinMode = "Miter",
 		},
-		
+
 		U.new "Frame" {
-			
+
 			Size = UDim2.new(1, -thickness * 2, 1, -thickness * 2),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
 			BackgroundColor3 = UI.Color.Background,
-			
+
 			U.new "UIStroke" {
 				Thickness = thickness,
 				Color = UI.Color.Stroke,
@@ -153,22 +155,22 @@ function UI.CloseButton(props: {
 
 	OnClose: () -> (),
 })
-
-	local cleanup = {}
-	local Hovered = U.Value(cleanup, false)
-	local Pressed = U.Value(cleanup, false)
+	local state = {
+		Hovered = U.Value(false),
+		Pressed = U.Value(false),
+	}
 
 	return U.new "TextButton" {
-		cleanup = cleanup,
+		cleanup = state,
 
 		AnchorPoint = props.AnchorPoint,
 		Position = props.Position,
 		Size = props.Size,
 		Text = "",
-		BackgroundTransparency = U.compute2(Hovered, Pressed, function(hover, pressed)
+		BackgroundTransparency = U.compute2(state.Hovered, state.Pressed, function(hover, pressed)
 			return (hover and 0.75 or 1) * (pressed and 0.75 or 1)
 		end),
-		BackgroundColor3 = Color3.new(1,1,1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
 
 		-- Two frame rectangles forming an X
 		U.new "Frame" {
@@ -188,12 +190,18 @@ function UI.CloseButton(props: {
 		},
 
 		Activated = props.OnClose,
-		MouseButton1Down = function() Pressed.Value = true end,
-		MouseButton1Up = function() Pressed.Value = false end,
-		MouseEnter = function() Hovered.Value = true end,
+		MouseButton1Down = function()
+			state.Pressed.Value = true
+		end,
+		MouseButton1Up = function()
+			state.Pressed.Value = false
+		end,
+		MouseEnter = function()
+			state.Hovered.Value = true
+		end,
 		MouseLeave = function()
-			Hovered.Value = false
-			Pressed.Value = false
+			state.Hovered.Value = false
+			state.Pressed.Value = false
 		end,
 	}
 end
@@ -207,32 +215,26 @@ function UI.TitledWindow(props: {
 	Title: Has<string>,
 	OnClose: (() -> ())?,
 
-	Children: {any}?,
+	Children: { any }?,
 })
-
 	local titleHeight = props.Height or 30
 
-	local Title = U.compute1(props.Title, function(title: string?)
-		return `<b>{title}</b>`
-	end)
-
-	local maybeCloseButton =
-		if props.OnClose then
-			U.new "Frame" {
-				Size = UDim2.new(0, titleHeight, 0, titleHeight),
-				Position = UDim2.new(1,0,0,0),
-				AnchorPoint = Vector2.new(1,0),
-				BackgroundTransparency = 1,
-				-- BorderSizePixel = 2,
-				BorderColor3 = UI.Color.Stroke,
-				UI.CloseButton { OnClose = props.OnClose },
-				-- U.new "UIStroke" { Thickness = 4, LineJoinMode = "Miter", Color = UI.Color.Stroke },
-			}
+	local maybeCloseButton = if props.OnClose
+		then U.new "Frame" {
+			Size = UDim2.new(0, titleHeight, 0, titleHeight),
+			Position = UDim2.new(1, 0, 0, 0),
+			AnchorPoint = Vector2.new(1, 0),
+			BackgroundTransparency = 1,
+			-- BorderSizePixel = 2,
+			BorderColor3 = UI.Color.Stroke,
+			UI.CloseButton { OnClose = props.OnClose },
+			-- U.new "UIStroke" { Thickness = 4, LineJoinMode = "Miter", Color = UI.Color.Stroke },
+		}
 		else nil
 
 	local titleLabel = U.new "TextLabel" {
 		Size = UDim2.new(1, 0, 0, titleHeight),
-		Text = U.forever(Title),
+		Text = U.format("<b>%s<b/>", props.Title),
 		Font = Enum.Font.Merriweather,
 		RichText = true,
 		TextScaled = true,
@@ -264,11 +266,9 @@ function UI.TitledWindow(props: {
 				Size = UDim2.new(1, 0, 1, -(props.Height or 30)),
 
 				props.Children,
-			}
-		}
+			},
+		},
 	}
 end
 
 return UI
-
-

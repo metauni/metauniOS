@@ -48,7 +48,6 @@ ATTENTION: The clean function comes first but it's not so interesting.
 Skip ahead to `export type Stream<T>` to read about streams.
 ]]
 
-
 -- This is set to `any` instead of the commented out version because luau just unfolds it
 -- into a mess when you try and hover over any type involving CleanupTask.
 export type CleanupTask = any
@@ -82,7 +81,7 @@ export type CleanupTask = any
 		Thus you cannot reliably get the length with #, or make other array-iteration assumptions.
 	- Ignore the refs argument when using clean. It is used internally to avoid infinite recursion.
 ]]
-local function clean(cleanup: CleanupTask, refs: {[any]:true}?)
+local function clean(cleanup: CleanupTask, refs: { [any]: true }?)
 	if cleanup == nil then
 		return
 	elseif type(cleanup) == "function" then
@@ -106,16 +105,17 @@ local function clean(cleanup: CleanupTask, refs: {[any]:true}?)
 	elseif typeof(cleanup) == "Instance" then
 		cleanup:Destroy()
 	elseif typeof(cleanup) == "table" then
-
 		if (cleanup :: any).Destroy then
 			(cleanup :: any):Destroy()
-		elseif getmetatable((cleanup :: any)) == nil then
+		elseif getmetatable(cleanup :: any) == nil then
 			local max_index = 0
-			for key in (cleanup :: any) do
+			for key in cleanup :: any do
 				if typeof(key) == "number" then
 					max_index = math.max(max_index, key)
 				else
-					warn(`[clean] Cannot clean non-numeric task table - might be an already destroyed object\nTraceback:\n{debug.traceback()}`)
+					warn(
+						`[clean] Cannot clean non-numeric task table - might be an already destroyed object\nTraceback:\n{debug.traceback()}`
+					)
 					return
 				end
 			end
@@ -125,17 +125,19 @@ local function clean(cleanup: CleanupTask, refs: {[any]:true}?)
 				end
 				refs[cleanup] = true
 			else
-				refs = {[cleanup]=true :: true}
+				refs = { [cleanup] = true :: true }
 			end
 			-- Cleanup in reverse order of creation
-			for i=max_index, 1, -1 do
+			for i = max_index, 1, -1 do
 				clean((cleanup :: any)[i], refs)
 			end
 			if not table.isfrozen(cleanup) then
 				table.clear(cleanup)
 			end
 		else
-			error(`[clean] Cannot cleanup table with a metatable but no :Destroy() method.\nTable:{cleanup}\nTraceback:\n{debug.traceback()}`)
+			error(
+				`[clean] Cannot cleanup table with a metatable but no :Destroy() method.\nTable:{cleanup}\nTraceback:\n{debug.traceback()}`
+			)
 		end
 	end
 end
@@ -156,7 +158,7 @@ export type Stream<T...> = ((T...) -> ()) -> CleanupTask
 	- Literally: A function that takes a callback-function (we call it a listener),
 		which it calls with data whenever it pleases, until it is "cleaned up".
 	- Conceptually: a stream of data, whose datum is emitted synchronously or asynchronously
-	
+
 	Example:
 	```lua
 	local function myStream(listener: (number) -> ()): CleanupTask
@@ -197,7 +199,7 @@ export type Stream<T...> = ((T...) -> ()) -> CleanupTask
 ]]
 
 -- selene:allow(unused_variable)
-local function NO_OP<T...>(... : T...): () end
+local function NO_OP<T...>(...: T...): () end
 
 --[[
 	A stream that never emits anything
@@ -239,7 +241,7 @@ end
 --[[
 	A stream that emits each item in the array synchronously (not the array itself)
 ]]
-local function from<T>(array : {T}): Stream<T>
+local function from<T>(array: { T }): Stream<T>
 	return function(listener: (T) -> ()): CleanupTask
 		for _, value in array do
 			listener(value)
@@ -251,8 +253,8 @@ end
 --[[
 	A stream that emits each argument synchronously
 ]]
-local function of<T>(... : T): Stream<T>
-	local array = {...}
+local function of<T>(...: T): Stream<T>
+	local array = { ... }
 	return function(listener: (T) -> ()): CleanupTask
 		for _, value in array do
 			listener(value)
@@ -277,7 +279,7 @@ end
 	)
 	```
 ]]
-local function map<T...,U...>(fn: (T...) -> U...): (Stream<T...>) -> Stream<U...>
+local function map<T..., U...>(fn: (T...) -> U...): (Stream<T...>) -> Stream<U...>
 	return function(stream: Stream<T...>): Stream<U...>
 		-- The mapped stream
 		return function(listener: (U...) -> ()): CleanupTask
@@ -293,8 +295,8 @@ end
 	(Transformer)
 	`mapTo(x,y,z)(stream)` emits `(x,y,z)` (together) whenever `stream` emits anything.
 ]]
-local function mapTo<T...,U...>(...: U...): (Stream<T...>) -> Stream<U...>
-	local values: {any} = table.pack(...)
+local function mapTo<T..., U...>(...: U...): (Stream<T...>) -> Stream<U...>
+	local values: { any } = table.pack(...)
 	return function(stream: Stream<T...>): Stream<U...>
 		-- The mapped stream
 		return function(listener: (U...) -> ()): CleanupTask
@@ -333,7 +335,7 @@ end
 	Filter the stream using the provided predicate.
 	`filter(predicate)(stream)` emits `x` when `stream` emits `x` if `predicate(x) == true`.
 ]]
-local function filter<T...>(predicate: (T...) -> boolean) : (Stream<T...>) -> Stream<T...>
+local function filter<T...>(predicate: (T...) -> boolean): (Stream<T...>) -> Stream<T...>
 	return function(stream: Stream<T...>): Stream<T...>
 		-- The filtered stream
 		return function(listener: (T...) -> ()): CleanupTask
@@ -361,7 +363,7 @@ end
 ]]
 local function delayed<T...>(seconds: number): (Stream<T...>) -> Stream<T...>
 	return function(stream: Stream<T...>): Stream<T...>
-		return function(listener:(T...) -> ())
+		return function(listener: (T...) -> ())
 			return task.delay(seconds, stream, listener)
 		end
 	end
@@ -385,8 +387,8 @@ end
 	-- prints "a" (after 2 seconds)
 	```
 ]]
-local function merge<T...>(... : Stream<T...>): Stream<T...>
-	local streams = {...}
+local function merge<T...>(...: Stream<T...>): Stream<T...>
+	local streams = { ... }
 	-- The merged stream
 	return function(listener: (T...) -> ()): CleanupTask
 		local cleanups = {}
@@ -406,7 +408,7 @@ end
 	`pipe3` and `pipe4` versions if you want to preserve types.
 ]]
 local function pipe(stream: Stream<...any>, ...: (Stream<...any>) -> Stream<...any>): Stream<...any>
-	for _, transformer in {...} do
+	for _, transformer in { ... } do
 		stream = transformer(stream)
 	end
 	return stream
@@ -424,9 +426,7 @@ end
 	The pipe functions allow streams to be syntatically transformed in "chronological" order of transformation,
 	with transformations of the original stream occuring from left to right (or top to bottom).
 ]]
-local function pipe1<A...,Z...>(
-	stream: Stream<A...>,
-	t1: (Stream<A...>) -> Stream<Z...>) : Stream<Z...>
+local function pipe1<A..., Z...>(stream: Stream<A...>, t1: (Stream<A...>) -> Stream<Z...>): Stream<Z...>
 	return t1(stream)
 end
 
@@ -435,10 +435,11 @@ end
 	The pipe functions allow streams to be syntatically transformed in "chronological" order of transformation,
 	with transformations of the original stream occuring from left to right (or top to bottom).
 ]]
-local function pipe2<A...,B...,Z...>(
+local function pipe2<A..., B..., Z...>(
 	stream: Stream<A...>,
 	t1: (Stream<A...>) -> Stream<B...>,
-	t2: (Stream<B...>) -> Stream<Z...>) : Stream<Z...>
+	t2: (Stream<B...>) -> Stream<Z...>
+): Stream<Z...>
 	return t2(t1(stream))
 end
 
@@ -447,11 +448,12 @@ end
 	The pipe functions allow streams to be syntatically transformed in "chronological" order of transformation,
 	with transformations of the original stream occuring from left to right (or top to bottom).
 ]]
-local function pipe3<A...,B...,C...,Z...>(
+local function pipe3<A..., B..., C..., Z...>(
 	stream: Stream<A...>,
 	t1: (Stream<A...>) -> Stream<B...>,
 	t2: (Stream<B...>) -> Stream<C...>,
-	t3: (Stream<C...>) -> Stream<Z...>) : Stream<Z...>
+	t3: (Stream<C...>) -> Stream<Z...>
+): Stream<Z...>
 	return t3(t2(t1(stream)))
 end
 
@@ -460,12 +462,13 @@ end
 	The pipe functions allow streams to be syntatically transformed in "chronological" order of transformation, with transformations
 	of the original stream occuring from left to right (or top to bottom).
 ]]
-local function pipe4<A...,B...,C...,D...,Z...>(
+local function pipe4<A..., B..., C..., D..., Z...>(
 	stream: Stream<A...>,
 	t1: (Stream<A...>) -> Stream<B...>,
 	t2: (Stream<B...>) -> Stream<C...>,
 	t3: (Stream<C...>) -> Stream<D...>,
-	t4: (Stream<D...>) -> Stream<Z...>) : Stream<Z...>
+	t4: (Stream<D...>) -> Stream<Z...>
+): Stream<Z...>
 	return t4(t3(t2(t1(stream))))
 end
 
@@ -474,11 +477,11 @@ end
 	Emits the first value from any of the streams, and ignores the rest.
 ]]
 local function firstOfAny<T...>(...: Stream<T...>): Stream<T...>
-	local streams = {...}
+	local streams = { ... }
 	-- The output stream
 	return function(listener: (T...) -> ()): CleanupTask
 		local fired = false
-		local cleanup : CleanupTask = nil
+		local cleanup: CleanupTask = nil
 		cleanup = merge(table.unpack(streams))(function(...: T...): ()
 			if not fired then
 				fired = true
@@ -531,11 +534,14 @@ end
 	- You will not yield at any point before you are done accessing the table (it can be mutated by the stream)
 	- You will not store a reference to it or mutate it (it can be mutated by the stream)
 ]]
-local function combineLatest<K,V>(streams: {[K] : Stream<V>}, dontCloneTheEmittedTableIKnowWhatImDoing: boolean?): Stream<{[K] : V}>
+local function combineLatest<K, V>(
+	streams: { [K]: Stream<V> },
+	dontCloneTheEmittedTableIKnowWhatImDoing: boolean?
+): Stream<{ [K]: V }>
 	-- The combined stream
-	return function(listener: ({[K] : V}) -> ()): CleanupTask
+	return function(listener: ({ [K]: V }) -> ()): CleanupTask
 		-- Initialize values to UNSET (no emitting until all streams have emitted)
-		local values: {[K] : V | UNSET} = {}
+		local values: { [K]: V | UNSET } = {}
 		for key in streams do
 			values[key] = UNSET
 		end
@@ -543,22 +549,25 @@ local function combineLatest<K,V>(streams: {[K] : Stream<V>}, dontCloneTheEmitte
 		-- Listen to all streams
 		local cleanups = {}
 		for key, stream in streams do
-			table.insert(cleanups, stream(function(x: V): ()
-				values[key] = x
-				for _, value in values do
-					if value == UNSET then
-						return
+			table.insert(
+				cleanups,
+				stream(function(x: V): ()
+					values[key] = x
+					for _, value in values do
+						if value == UNSET then
+							return
+						end
 					end
-				end
-				if dontCloneTheEmittedTableIKnowWhatImDoing then
-					listener(values)
-				else
-					listener(table.clone(values))
-				end
-			end))
+					if dontCloneTheEmittedTableIKnowWhatImDoing then
+						listener(values)
+					else
+						listener(table.clone(values))
+					end
+				end)
+			)
 		end
 
-		return cleanups
+		return if #cleanups == 0 then nil elseif #cleanups == 1 then cleanups[1] else cleanups
 	end
 end
 
@@ -566,7 +575,7 @@ end
 	(Transformer)
 	Map the values in stream `a` with the function `fn`.
 ]]
-local function combine1<A,Z>(a: Stream<A>, fn: (A) -> Z): Stream<Z>
+local function combine1<A, Z>(a: Stream<A>, fn: (A) -> Z): Stream<Z>
 	-- Output stream is just `map(fn)(a)`, but we unfold it for less debugging whiplash
 	return function(listener: (Z) -> ()): CleanupTask
 		return a(function(value: A): ()
@@ -580,9 +589,9 @@ end
 	Combine the latest values of `a`, `b` with the function `fn`.
 	Useful for computing derived values from multiple streams.
 ]]
-local function combine2<A,B,Z>(a: Stream<A>, b: Stream<B>, fn: (A,B) -> Z): Stream<Z>
+local function combine2<A, B, Z>(a: Stream<A>, b: Stream<B>, fn: (A, B) -> Z): Stream<Z>
 	return function(listener: (Z) -> ()): CleanupTask
-		return combineLatest({a,b} :: {Stream<any>}, true)(function(values: {any}): ()
+		return combineLatest({ a, b } :: { Stream<any> }, true)(function(values: { any }): ()
 			listener(fn(table.unpack(values)))
 		end)
 	end
@@ -593,9 +602,9 @@ end
 	Combine the latest values of `a`, `b`, `c` with the function `fn`.
 	Useful for computing derived values from multiple streams.
 ]]
-local function combine3<A,B,C,Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, fn: (A,B,C) -> Z): Stream<Z>
+local function combine3<A, B, C, Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, fn: (A, B, C) -> Z): Stream<Z>
 	return function(listener: (Z) -> ()): CleanupTask
-		return combineLatest({a,b,c} :: {Stream<any>}, true)(function(values: {any}): ()
+		return combineLatest({ a, b, c } :: { Stream<any> }, true)(function(values: { any }): ()
 			listener(fn(table.unpack(values)))
 		end)
 	end
@@ -606,9 +615,9 @@ end
 	Combine the latest values of `a`, `b`, `c`, `d` with the function `fn`.
 	Useful for computing derived values from multiple streams.
 ]]
-local function combine4<A,B,C,D,Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, d: Stream<D>, fn: (A,B,C,D) -> Z): Stream<Z>
+local function combine4<A, B, C, D, Z>(a: Stream<A>, b: Stream<B>, c: Stream<C>, d: Stream<D>, fn: (A, B, C, D) -> Z): Stream<Z>
 	return function(listener: (Z) -> ()): CleanupTask
-		return combineLatest({a,b,c,d} :: {Stream<any>}, true)(function(values: {any}): ()
+		return combineLatest({ a, b, c, d } :: { Stream<any> }, true)(function(values: { any }): ()
 			listener(fn(table.unpack(values)))
 		end)
 	end
@@ -621,7 +630,7 @@ end
 ]]
 local function switchAll<T...>(stream: Stream<Stream<T...>>): Stream<T...>
 	return function(listener: (T...) -> ()): CleanupTask
-		local cleanupInner : CleanupTask? = nil
+		local cleanupInner: CleanupTask? = nil
 		local cleanupStream = stream(function(innerStream: Stream<T...>): ()
 			clean(cleanupInner)
 			cleanupInner = nil
@@ -672,7 +681,7 @@ end
 	)
 	```
 ]]
-local function switchMap<T...,U...>(fn: (T...) -> Stream<U...>): (Stream<T...>) -> Stream<U...>
+local function switchMap<T..., U...>(fn: (T...) -> Stream<U...>): (Stream<T...>) -> Stream<U...>
 	return function(source: Stream<T...>): Stream<U...>
 		-- Apply switchAll to a stream of streams
 		-- so that we get a stream that emits only from the latest stream
@@ -837,18 +846,11 @@ end
 	Turns a ValueBase object (IntValue, ObjectValue, etc) into a stream of it's current and
 	future values.
 ]]
-local fromValueBase : 
-	((IntValue) -> Stream<number>) &
-	((RayValue) -> Stream<Ray>) &
-	((BoolValue) -> Stream<boolean>) &
-	((CFrameValue) -> Stream<CFrame>) &
-	((Color3Value) -> Stream<Color3>) &
-	((NumberValue) -> Stream<number>) &
-	((ObjectValue) -> Stream<Instance?>) &
-	((StringValue) -> Stream<string>) &
-	((Vector3Value) -> Stream<Vector3>) &
-	((BrickColorValue) -> Stream<BrickColor>)
-= function(valueBase): Stream<any>
+local fromValueBase: ((IntValue) -> Stream<number>) & ((RayValue) -> Stream<Ray>) & ((BoolValue) -> Stream<boolean>) & ((CFrameValue) -> Stream<CFrame>) & ((Color3Value) -> Stream<Color3>) & ((NumberValue) -> Stream<number>) & ((ObjectValue) -> Stream<Instance?>) & ((StringValue) -> Stream<string>) & ((Vector3Value) -> Stream<Vector3>) & ((BrickColorValue) -> Stream<BrickColor>) = function(
+	valueBase
+): Stream<
+	any
+>
 	return function(listener: (any) -> ())
 		listener(valueBase.Value)
 		return (valueBase.Changed :: any):Connect(function(newValue)
@@ -862,11 +864,11 @@ end
 	indicating whether the value is "alive" (true) or "dead" (false).
 	Most useful when fed into `listenTidyEach`, which binds entities/behaviour
 	to the lifetime of a value.
-]] 
-export type LifeStream<T> = Stream<T,boolean>
+]]
+export type LifeStream<T> = Stream<T, boolean>
 
 local function listenTidyEach<T>(lifeStream: LifeStream<T>, tidyListener: (T) -> CleanupTask): CleanupTask
-	local valueCleanups: {[T]: CleanupTask} = {}
+	local valueCleanups: { [T]: CleanupTask } = {}
 	local cleanupStream = lifeStream(function(value: T, alive: boolean)
 		if valueCleanups[value] ~= nil then
 			clean(valueCleanups[value])
@@ -910,7 +912,7 @@ do
 		local removingConnection = Players.PlayerRemoving:Connect(function(player: Player)
 			listener(player, false)
 		end)
-		return {addedConnection, removingConnection}
+		return { addedConnection, removingConnection }
 	end
 end
 
@@ -931,7 +933,7 @@ local function eachChildOf(instance: Instance): LifeStream<Instance>
 		local removedConnection = instance.ChildRemoved:Connect(function(child: Instance)
 			listener(child, false)
 		end)
-		return {addedConnection, removedConnection}
+		return { addedConnection, removedConnection }
 	end
 end
 
@@ -967,7 +969,9 @@ local function firstChildOf(instance: Instance, name: string, classNameIsA: stri
 				local firstChild = instance:FindFirstChild(name)
 				if firstChild then
 					if classNameIsA and not firstChild:IsA(classNameIsA) then
-						error(`[Stream.firstChildOf] Expected {instance}:FindFirstChild({name}):IsA({classNameIsA}) == true, but it is a {firstChild.ClassName}`)
+						error(
+							`[Stream.firstChildOf] Expected {instance}:FindFirstChild({name}):IsA({classNameIsA}) == true, but it is a {firstChild.ClassName}`
+						)
 					end
 				end
 				listener(firstChild)
@@ -1015,15 +1019,15 @@ local function eachTagged(tag: string, ancestor: Instance?): LifeStream<Instance
 		local removedConnection = CollectionService:GetInstanceRemovedSignal(tag):Connect(function(instance)
 			listener(instance, false)
 		end)
-		return {addedConnection, removedConnection}
+		return { addedConnection, removedConnection }
 	end
 
 	if ancestor == nil then
 		return eachTaggedAnywhere
 	end
-	
+
 	return function(listener: (Instance, boolean) -> ()): CleanupTask
-		return listenTidyEach(eachTaggedAnywhere, function(instance: Instance) : CleanupTask
+		return listenTidyEach(eachTaggedAnywhere, function(instance: Instance): CleanupTask
 			local currentIsDescendant = instance:IsDescendantOf(ancestor)
 			if currentIsDescendant then
 				listener(instance, true)
@@ -1051,7 +1055,7 @@ local function tidy(stream: Stream<CleanupTask>): Stream<CleanupTask>
 end
 
 local function _callMeMaybe(myNumber: number): Stream<number>
-	return function(listener:(number) -> ())
+	return function(listener: (number) -> ())
 		if math.random() > 0.5 then
 			listener(myNumber)
 		end
@@ -1059,8 +1063,8 @@ local function _callMeMaybe(myNumber: number): Stream<number>
 	end
 end
 
-local function listenTidyPairs<K,V>(pairStream: Stream<K,V>, tidyListener: (K,V) -> CleanupTask): CleanupTask
-	local keyCleanups = {} :: {[K]: CleanupTask}
+local function listenTidyPairs<K, V>(pairStream: Stream<K, V>, tidyListener: (K, V) -> CleanupTask): CleanupTask
+	local keyCleanups = {} :: { [K]: CleanupTask }
 	local cleanupStream = pairStream(function(key: K, value: V)
 		clean(keyCleanups[key])
 		keyCleanups[key] = nil
@@ -1085,7 +1089,7 @@ end
 return {
 	-- Helper stuff
 	clean = clean,
- getCleanupFunc = getCleanupFunc,
+	getCleanupFunc = getCleanupFunc,
 	NO_OP = NO_OP,
 	never = never,
 	-- Listening

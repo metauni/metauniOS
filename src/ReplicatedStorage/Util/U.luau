@@ -11,11 +11,11 @@ export type CleanupTask = Stream.CleanupTask
 export type Stream<T...> = Stream.Stream<T...>
 export type LifeStream<T> = Stream.LifeStream<T>
 export type Value<T> = Value.Value<T>
-export type Map<K,V> = Map.Map<K,V>
+export type Map<K, V> = Map.Map<K, V>
 
-export type Has<T> = 
-	Stream<T> 
-	| RBXScriptSignal<T> 
+export type Has<T> =
+	Stream<T>
+	| RBXScriptSignal<T>
 	| { Stream: (self: any) -> Stream<T> }
 	| { Observe: (self: any) -> Stream<T> }
 	| T
@@ -23,23 +23,17 @@ export type Has<T> =
 U.clean = Stream.clean
 
 --[[
-	Create a `Value` object `Value(initial)`, add it to the cleanup table,
-	and return it
+	Create a Value object (use U.Local to make a local Value)
 ]]
-function U.Value<T>(cleanup: {Stream.CleanupTask}, initial: T): Value<T>
-	local valueObject = Value(initial)
-	table.insert(cleanup, valueObject)
-	return valueObject
+function U.Value<T>(initial: T)
+	return Value(initial)
 end
 
 --[[
-	Create a `Map` object `Map(initial)`, add it to the cleanup table,
-	and return it
+	Create a Map object
 ]]
-function U.Map<K,V>(cleanup: {CleanupTask}, initial: {[K]: V?})
-	local mapObject = Map(initial)
-	table.insert(cleanup, mapObject)
-	return mapObject
+function U.Map<K, V>(initial: { [K]: V? })
+	return Map(initial)
 end
 
 -- Helper function for `mount`
@@ -89,10 +83,14 @@ end
 --[[
 	Sometimes there's no-need to track the cleanup where a stream is listened to,
 	because the source of the stream will be destroyed at the same time as the
-	listener is cleaned up. `U.forever` does `U.toStream` and then transforms
+	listener is cleaned up. `U.eternal` does `U.toStream` and then transforms
 	it into a stream that doesn't return a cleanup when listened to.
+
+	Use `U.eternal` when passing a data-source to something which will listen
+	to it for the entire lifetime of the data-source (only the creator/owner of
+	the data-source can know this).
 ]]
-function U.forever<T>(has: Has<T>): Stream<T>
+function U.eternal<T>(has: Has<T>): Stream<T>
 	local stream = U.toStream(has)
 	return function(listener)
 		local _ignored = stream(listener)
@@ -100,7 +98,7 @@ function U.forever<T>(has: Has<T>): Stream<T>
 	end
 end
 
-local function mergeOverwrites(mountProps: {[any]: any}, merged: {[any]: any})
+local function mergeOverwrites(mountProps: { [any]: any }, merged: { [any]: any })
 	for key, value in mountProps do
 		if key ~= "overwrite" then
 			if typeof(key) == "number" then
@@ -112,7 +110,9 @@ local function mergeOverwrites(mountProps: {[any]: any}, merged: {[any]: any})
 	end
 	if mountProps.overwrite ~= nil then
 		if typeof(mountProps.overwrite) ~= "table" then
-			error(`[U.mount] Expected mountProps.overwrite to be a table, got a {typeof(mountProps.overwrite)} ({mountProps.overwrite})`)
+			error(
+				`[U.mount] Expected mountProps.overwrite to be a table, got a {typeof(mountProps.overwrite)} ({mountProps.overwrite})`
+			)
 		end
 		mergeOverwrites(mountProps.overwrite, merged)
 	end
@@ -187,7 +187,7 @@ end
 	- `[U.property "AbsoluteSize"] = state : Value<Vector2>
 		- Passes current and future values of instance.AbsoluteSize to state:SetValue(_)
 ]]
-function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
+function U.mount(instance: Instance, mountProps: { [any]: any }): CleanupTask?
 	assert(typeof(instance) == "Instance", "[U.mount] Bad instance")
 
 	local cleanup = {}
@@ -195,16 +195,17 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 
 	if mountProps.overwrite ~= nil then
 		if typeof(mountProps.overwrite) ~= "table" then
-			error(`[U.mount] Expected mountProps.overwrite to be a table, got a {typeof(mountProps.overwrite)} ({mountProps.overwrite})`)
+			error(
+				`[U.mount] Expected mountProps.overwrite to be a table, got a {typeof(mountProps.overwrite)} ({mountProps.overwrite})`
+			)
 		end
 		if next(mountProps.overwrite) ~= nil then
 			mergeOverwrites(mountProps.overwrite, mountProps)
 		end
 		mountProps.overwrite = nil
 	end
-	
+
 	for key: any, value in mountProps do
-		
 		if key == "Parent" then
 			-- Delay parenting
 			parent = value
@@ -213,7 +214,6 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 
 		-- Case: String key refers to a property or signal of `instance`
 		if typeof(key) == "string" then
-
 			-- Case: we are providing the instance to the users handler, possibly receiving a CleanupTask
 			if key == "instance" then
 				local handler = toHandler(value) :: ((...any) -> CleanupTask) | nil
@@ -226,7 +226,6 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 			-- Case: User is providing some cleanup
 			elseif key == "cleanup" then
 				table.insert(cleanup, value)
-
 			else
 				-- If the line below errors, then the key is not a valid property or signal of `instance`
 				local keyVal = (instance :: any)[key]
@@ -238,7 +237,7 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 						error(`[U.mount] Expected handler for {instance}.{key}, got a {typeof(value)} ({value})`)
 					end
 					table.insert(cleanup, keyVal:Connect(toHandler(value)))
-				
+
 				-- Case: we are mounting `value` to `instance[key]`.
 				else
 					-- `value` should encapsulate some (possibly) stateful property,
@@ -250,27 +249,26 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 		-- Case: Numeric key means value is/emits a child instance,
 		-- or is a table of more props
 		elseif typeof(key) == "number" then
-
 			if typeof(value) == "function" then
 				-- assume it's a stream of instances
-				table.insert(cleanup, value(function(child: Instance?)
-					if child then
-						child.Parent = instance
-					end
-				end))
-
+				table.insert(
+					cleanup,
+					value(function(child: Instance?)
+						if child then
+							child.Parent = instance
+						end
+					end)
+				)
 			elseif typeof(value) == "Instance" then
 				-- Children are cleaned up on destroy. This also triggers them to cleanup
 				-- whatever they have mounted.
 				value.Parent = instance
-
 			elseif typeof(value) == "table" then
 				-- Assume it's more props just dumped into the table
 				if getmetatable(value) ~= nil then
 					error(`[U.mount] sub-mountProps table entry has a metatable, cannot mount. Table: {value}`)
 				end
 				table.insert(cleanup, U.mount(instance, value))
-
 			else
 				error(`Bad child {value} of type {value}`)
 			end
@@ -284,8 +282,7 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 			table.insert(cleanup, key(handler))
 
 		-- Case: key is a signal, value is a handler
-		elseif typeof(key) == "RBXScriptSignal" 
-				or typeof(key) == "table" and typeof((key).Connect) == "function" then
+		elseif typeof(key) == "RBXScriptSignal" or typeof(key) == "table" and typeof((key).Connect) == "function" then
 			local handler = toHandler(value)
 			if handler == nil then
 				error(`[U.mount] Expected handler for signal {key}, got a {typeof(value)} ({value})`)
@@ -296,7 +293,9 @@ function U.mount(instance: Instance, mountProps: {[any]: any}): CleanupTask?
 		else
 			local handler = toHandler(value)
 			if handler == nil then
-				error(`[U.mount] {typeof(value)} value ({value}) could not be converted to a handler for {typeof(key)} key`)
+				error(
+					`[U.mount] {typeof(value)} value ({value}) could not be converted to a handler for {typeof(key)} key`
+				)
 			else
 				table.insert(cleanup, handler(key))
 			end
@@ -325,8 +324,7 @@ end
 --[[
 	Mount props to an instance for the lifetime of the instance.
 ]]
-function U.bind(instance: Instance, props: {[any]: any}): ()
-
+function U.bind(instance: Instance, props: { [any]: any }): ()
 	for key, value in props do
 		-- Connect instance signals without the uneccessary cleanup-logic that
 		-- mount would do
@@ -356,12 +354,12 @@ end
 local defaultProps = {
 	ScreenGui = {
 		ResetOnSpawn = false,
-		ZIndexBehavior = "Sibling"
+		ZIndexBehavior = "Sibling",
 	},
 
 	BillboardGui = {
 		ResetOnSpawn = false,
-		ZIndexBehavior = "Sibling"
+		ZIndexBehavior = "Sibling",
 	},
 
 	SurfaceGui = {
@@ -369,7 +367,7 @@ local defaultProps = {
 		ZIndexBehavior = "Sibling",
 
 		SizingMode = "PixelsPerStud",
-		PixelsPerStud = 50
+		PixelsPerStud = 50,
 	},
 
 	Frame = {
@@ -385,7 +383,7 @@ local defaultProps = {
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(1, 1),
 
-		ScrollBarImageColor3 = Color3.new(0, 0, 0)
+		ScrollBarImageColor3 = Color3.new(0, 0, 0),
 	},
 
 	TextLabel = {
@@ -397,7 +395,7 @@ local defaultProps = {
 		Font = "SourceSans",
 		Text = "",
 		TextColor3 = Color3.new(0, 0, 0),
-		TextSize = 14
+		TextSize = 14,
 	},
 
 	TextButton = {
@@ -411,7 +409,7 @@ local defaultProps = {
 		Font = "SourceSans",
 		Text = "",
 		TextColor3 = Color3.new(0, 0, 0),
-		TextSize = 14
+		TextSize = 14,
 	},
 
 	TextBox = {
@@ -425,7 +423,7 @@ local defaultProps = {
 		Font = "SourceSans",
 		Text = "",
 		TextColor3 = Color3.new(0, 0, 0),
-		TextSize = 14
+		TextSize = 14,
 	},
 
 	ImageLabel = {
@@ -441,7 +439,7 @@ local defaultProps = {
 		BorderSizePixel = 0,
 		Size = UDim2.fromScale(1, 1),
 
-		AutoButtonColor = false
+		AutoButtonColor = false,
 	},
 
 	ViewportFrame = {
@@ -459,7 +457,7 @@ local defaultProps = {
 	},
 
 	UIListLayout = {
-		SortOrder = Enum.SortOrder.LayoutOrder;
+		SortOrder = Enum.SortOrder.LayoutOrder,
 	},
 }
 
@@ -475,10 +473,10 @@ local defaultProps = {
 	The difference is that the props table is pre-processed before binding.
 	If `props[key] == value` and `key` is a function, then we set
 	`props[key] = nil` and `props[key(instance)] = value`. We call key(instance)
-	the "real key". This allows the caller of `U.new` to make prop-keys that 
+	the "real key". This allows the caller of `U.new` to make prop-keys that
 	depend on the instance, such as `instance:GetPropertyChangedSignal("Name")`.
 ]]
-function U.new(className: string): (props: {[any]: any}) -> Instance
+function U.new(className: string): (props: { [any]: any }) -> Instance
 	return function(props)
 		local instance = Instance.new(className)
 
@@ -519,7 +517,7 @@ end
 	U.property(name)(instance) is `Stream.propertyOf(name, instance)`, i.e.
 	as stream of the latest value of instance[name]
 	Use `[U.property "<name>"] = handler` in the props table of `U.new`, `U.bind`,
-	or `U.mount` to listen to a property of an instance, where `handler` is 
+	or `U.mount` to listen to a property of an instance, where `handler` is
 	convertible to a function of type `(value: any) -> ()` (see `toHandler`)
 	Example:
 	```lua
@@ -544,7 +542,7 @@ end
 	`U.attribute(name)(instance)` is `Stream.attributeOf(name, instance)`, i.e.
 	as stream of the latest value of instance[name]
 	Use `[U.property "<name>"] = handler` in the props table of `U.new`, `U.bind`,
-	or `U.mount` to listen to a property of an instance, where `handler` is 
+	or `U.mount` to listen to a property of an instance, where `handler` is
 	convertible to a function of type `(value: any) -> ()` (see `toHandler`)
 	Example:
 	```lua
@@ -568,7 +566,7 @@ end
 	2. Combines their latest values with `combineLatest` and passes them to `fn`.
 ]]
 function U.compute(...): Stream<any>
-	local args = {...}
+	local args = { ... }
 	local n = select("#", ...)
 	local fn = args[n]
 
@@ -577,7 +575,7 @@ function U.compute(...): Stream<any>
 	end
 
 	local streams = {}
-	for i=1, n-1 do
+	for i = 1, n - 1 do
 		table.insert(streams, U.toStream(args[i]))
 	end
 	if n == 1 then
@@ -598,11 +596,11 @@ end
 	latest emitted values of the input arguments.
 	Usage: `U.concat({a,b,c,...}, sep, i, j)` where `a,b,c,...` have type `Has<any>`.
 ]]
-function U.concat(t: {Has<any>}, sep: string?, i: number?, j: number?)
-	local args = table.create(#t+1)
+function U.concat(t: { Has<any> }, sep: string?, i: number?, j: number?)
+	local args = table.create(#t + 1)
 	table.move(t, 1, #t, 1, args)
 	table.insert(args, function(...)
-		return table.concat({...}, sep, i, j)
+		return table.concat({ ... }, sep, i, j)
 	end)
 	return U.compute(table.unpack(args))
 end
@@ -613,8 +611,8 @@ end
 	latest emitted values of the input arguments.
 	Usage: `U.format(fmt, a,b,c,...)` where `a,b,c,...` have type `Has<any>`.
 ]]
-function U.format(fmt: string, ... : Has<any>)
-	local args = {...}
+function U.format(fmt: string, ...: Has<any>)
+	local args = { ... }
 	table.insert(args, function(...)
 		return string.format(fmt, ...)
 	end)
@@ -637,7 +635,7 @@ end
 	}
 	```
 ]]
-function U.compute1<A,Z>(a : Has<A>, fn : (A) -> Z): Stream<Z>
+function U.compute1<A, Z>(a: Has<A>, fn: (A) -> Z): Stream<Z>
 	return Stream.map(fn)(U.toStream(a))
 end
 
@@ -670,7 +668,7 @@ end
 	}
 	```
 ]]
-function U.compute2<A,B,Z>(a : Has<A>, b : Has<B>, fn : (A,B) -> Z): Stream<Z>
+function U.compute2<A, B, Z>(a: Has<A>, b: Has<B>, fn: (A, B) -> Z): Stream<Z>
 	return Stream.combine2(U.toStream(a), U.toStream(b), fn)
 end
 
@@ -681,7 +679,7 @@ end
 	- Useful in `mount` and `new`
 	- See `U.compute2` for an example with two "Has" args.
 ]]
-function U.compute3<A,B,C,Z>(a : Has<A>, b : Has<B>, c : Has<C>, fn : (A,B,C) -> Z): Stream<Z>
+function U.compute3<A, B, C, Z>(a: Has<A>, b: Has<B>, c: Has<C>, fn: (A, B, C) -> Z): Stream<Z>
 	return Stream.combine3(U.toStream(a), U.toStream(b), U.toStream(c), fn)
 end
 
@@ -692,7 +690,7 @@ end
 	- Useful in `mount` and `new`
 	- See `U.compute2` for an example with two "Has" args.
 ]]
-function U.compute4<A,B,C,D,Z>(a : Has<A>, b : Has<B>, c : Has<C>, d : Has<D>, fn : (A,B,C,D) -> Z): Stream<Z>
+function U.compute4<A, B, C, D, Z>(a: Has<A>, b: Has<B>, c: Has<C>, d: Has<D>, fn: (A, B, C, D) -> Z): Stream<Z>
 	return Stream.combine4(U.toStream(a), U.toStream(b), U.toStream(c), U.toStream(d), fn)
 end
 

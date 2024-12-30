@@ -1,19 +1,9 @@
 local GoodSignal = require(script.Parent.GoodSignal)
 local Stream = require(script.Parent.Stream)
 
-export type Connection = {
-	Disconnect: (self: any) -> (),
-	Destroy: (self: any) -> (),
-}
-
-export type Signal<T...> = {
-	Connect: (self: any, (T...) -> ()) -> Connection,
-	Fire: (self: any, T...) -> (),
-}
-
 export type Value<T> = {
 	Value: T,
-	Changed: Signal<T>,
+	Changed: GoodSignal.Signal<T>,
 	Stream: (self: any) -> Stream.Stream<T>,
 	Destroy: (self: any) -> (),
 }
@@ -21,10 +11,7 @@ export type Value<T> = {
 local Value = { ClassName = "Value" }
 
 function Value.Stream<T>(self: Value<T>): Stream.Stream<T>
-	return function(listener: (T) -> ())
-		listener(rawget(self, "_value"))
-		return self.Changed:Connect(listener)
-	end
+	return (self :: any)._stream
 end
 
 function Value.Destroy<T>(self: Value<T>)
@@ -63,8 +50,16 @@ end
 table.freeze(Value)
 
 return function<T>(initial: T): Value<T>
-	return setmetatable({
+	local self = {
 		_value = initial,
 		Changed = GoodSignal.new(),
-	} :: any, Value)
+	}
+
+	-- Create this closure just once here
+	function self._stream(listener: (T) -> ())
+		listener(rawget(self, "_value"))
+		return self.Changed:Connect(listener)
+	end
+
+	return setmetatable(self :: any, Value)
 end
