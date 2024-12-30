@@ -5,7 +5,7 @@ local Humanoid = require(script.Humanoid)
 local Rx = require(ReplicatedStorage.Util.Rx)
 local Rxi = require(ReplicatedStorage.Util.Rxi)
 local Maid = require(ReplicatedStorage.Util.Maid)
-local GoodSignal = require(ReplicatedStorage.Packages.GoodSignal)
+local GoodSignal = require(ReplicatedStorage.Util.GoodSignal)
 
 local HumanoidController = {}
 
@@ -37,7 +37,7 @@ function HumanoidController:_addPlayer(player: Player)
 			self._playerHumanoid[player]:Destroy()
 			self._playerHumanoid[player] = nil
 		end
-		
+
 		if humanoid then
 			self._playerHumanoid[player] = Humanoid.new(humanoid)
 			self._playerHumanoid[player]:Init()
@@ -65,7 +65,7 @@ function HumanoidController:ObserveHumanoid(player: Player)
 		end),
 		Rx.map(function(_plr, humanoid)
 			return humanoid
-		end)
+		end),
 	}
 end
 
