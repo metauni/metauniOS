@@ -80,6 +80,25 @@ function U.toStream<T>(has: Has<T>): Stream<T>
 	end
 end
 
+--[[
+	Check if a Has<T> value is static - i.e. not a reactive value or Stream-like datasource.
+
+	Equivalently, U.isStaticHas(has) == true if and only if U.toStream(has) will return Stream.of(has)
+
+	Static values:
+	- Numeric value: `U.isStaticHas(42) == true`
+	- Table value: `U.isStaticHas({}) == true`
+	- Vector3: `U.isStaticHas(Vector3.new()) == true`
+	- Instance (non-ValueBase): `U.isStaticHas(Instance.new("Part")) == true`
+	- nil: `U.isStaticHas(nil) == true`
+
+	Non-static values:
+	- Stream: `U.isStaticHas(function() end) == false`
+	- ValueBase: `U.isStaticHas(Instance.new("StringValue")) == false`
+	- RBXScriptSignal: `U.isStaticHas(part:GetPropertyChangedSignal("Name")) == false`
+	- Object with Stream(): `U.isStaticHas(U.Value(1)) == false`
+	- Object with Observe(): `U.isStaticHas(ValueObject.new(1)) == false`
+]]
 function U.isStaticHas<T>(has: Has<T>)
 	return typeof(has) ~= "function"
 		and not (typeof(has) == "Instance" and has:IsA("ValueBase"))
@@ -336,7 +355,7 @@ function U.bind(instance: Instance, props: { [any]: any }): ()
 	for key, value in props do
 		-- Connect instance signals without the uneccessary cleanup-logic that
 		-- mount would do
-		if typeof(key) == "string" then
+		if typeof(key) == "string" and key ~= "instance" and key ~= "cleanup" then
 			local keyVal = (instance :: any)[key]
 			if typeof(keyVal) == "RBXScriptSignal" then
 				-- This is the same as the mount logic, but we don't add anything to a cleanup table

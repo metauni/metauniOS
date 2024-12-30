@@ -137,12 +137,13 @@ end
 		Err on max attempts exceeded with combined error info
 ]]
 function Result.retryAsync<T, U...>(
-	options: { maxAttempts: number?, delaySeconds: number? },
+	config: { maxAttempts: number?, delaySeconds: number? },
 	fn: (U...) -> Result<T>,
 	...: U...
 ): Result<T>
-	local maxAttempts = options.maxAttempts or 3
-	local delaySeconds = options.delaySeconds or 0
+	assert(typeof(config) == "table", "Bad retryAsync config")
+	local maxAttempts = config.maxAttempts or 3
+	local delaySeconds = config.delaySeconds or 0
 
 	assert(maxAttempts > 0, "maxAttempts must be greater than 0")
 	assert(delaySeconds >= 0, "delaySeconds must be non-negative")

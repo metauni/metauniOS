@@ -59,14 +59,16 @@ end
 	Internally creates a RenderStepped connection when listened to, but only emits values
 	when the spring is actually animating.
 ]]
-function UI.Spring<T>(target: Has<T>, speed: Has<number>?, damper: Has<number>?): Stream<T>
+function UI.Spring<T>(target: Has<T>, config: { speed: Has<number>?, damper: Has<number>? }): Stream<T>
+	assert(config == nil or typeof(config) == "table", "Bad spring config")
+
 	if U.isStaticHas(target) then
 		return Stream.of(target :: any)
 	end
 
-	local targetStream: Stream<T> = U.toStream(target)
-	local speedStream: Stream<number> = U.toStream(speed or 10)
-	local damperStream: Stream<number> = U.toStream(damper or 1)
+	local Target: Stream<T> = U.toStream(target)
+	local Speed: Stream<number> = U.toStream(config and config.speed or 30)
+	local Damper: Stream<number> = U.toStream(config and config.damper or 1)
 
 	return function(listener)
 		local spring = nil
@@ -79,13 +81,13 @@ function UI.Spring<T>(target: Has<T>, speed: Has<number>?, damper: Has<number>?)
 			end
 		end)
 
-		local cleanupStream = Stream.listen3(targetStream, speedStream, damperStream, function(value, s, d)
+		local cleanupStream = Stream.listen3(Target, Speed, Damper, function(value, speed, damper)
 			if spring == nil then
 				listener(value)
 				spring = Spring.new(Spring.toLinearIfNeeded(value))
 			end
-			spring.Speed = s
-			spring.Damper = d
+			spring.Speed = speed
+			spring.Damper = damper
 			spring.Target = Spring.toLinearIfNeeded(value)
 		end)
 
@@ -106,9 +108,15 @@ end
 	Internally creates a RenderStepped connection when listened to, but only emits values
 	while the acceltween is running (.rtime > 0), and once when it stops.
 ]]
-function UI.AccelTween<T>(target: Has<T>, acceleration: Has<number>?): Stream<T>
-	local targetStream: Stream<T> = U.toStream(target)
-	local accelerationStream: Stream<number> = U.toStream(acceleration or 1)
+function UI.AccelTween<T>(target: Has<T>, config: { acceleration: Has<number>? }): Stream<T>
+	assert(config == nil or typeof(config) == "table", "Bad acceltween config")
+
+	if U.isStaticHas(target) then
+		return Stream.of(target :: any)
+	end
+
+	local Target: Stream<T> = U.toStream(target)
+	local Acceleration: Stream<number> = U.toStream(config and config.acceleration or 10)
 
 	return function(listener)
 		local accelTween = nil
@@ -121,14 +129,14 @@ function UI.AccelTween<T>(target: Has<T>, acceleration: Has<number>?): Stream<T>
 			end
 		end)
 
-		local cleanupStream = Stream.listen2(targetStream, accelerationStream, function(value, a)
+		local cleanupStream = Stream.listen2(Target, Acceleration, function(value, acceleration)
 			if accelTween == nil then
 				listener(value)
-				accelTween = AccelTween.new(a)
+				accelTween = AccelTween.new(acceleration)
 				accelTween.p = Spring.toLinearIfNeeded(value)
 				accelTween.v = 0
 			end
-			accelTween.a = a
+			accelTween.a = acceleration
 			accelTween.t = Spring.toLinearIfNeeded(value)
 			active = accelTween.rtime > 0
 		end)
@@ -193,18 +201,10 @@ function UI.Backplate(props: {
 
 	Children: { any }?,
 })
-	local thickness = 10
+	local thickness = 2
 
 	return U.new "Frame" {
 		Name = "Backplate",
-
-		cleanup = task.spawn(function()
-			while true do
-				task.wait(2)
-				print("toggle")
-				UI.toggleTheme()
-			end
-		end),
 
 		Size = props.Size,
 		AnchorPoint = props.AnchorPoint,
@@ -259,9 +259,12 @@ function UI.CloseButton(props: {
 		Position = props.Position,
 		Size = props.Size,
 		Text = "",
-		BackgroundTransparency = U.compute2(Hovered, Pressed, function(hover, pressed)
-			return (hover and 0.75 or 1) * (pressed and 0.75 or 1)
-		end),
+		BackgroundTransparency = UI.Spring(
+			U.compute2(Hovered, Pressed, function(hover, pressed)
+				return (hover and 0.75 or 1) * (pressed and 0.75 or 1)
+			end),
+			{ speed = 20 }
+		),
 		BackgroundColor3 = Color3.new(1, 1, 1),
 
 		-- Two frame rectangles forming an X
@@ -326,7 +329,7 @@ function UI.TitledWindow(props: {
 
 	local titleLabel = U.new "TextLabel" {
 		Size = UDim2.new(1, 0, 0, titleHeight),
-		Text = U.format("<b>%s<b/>", props.Title),
+		Text = U.format("<b>%s</b>", props.Title),
 		Font = Enum.Font.Merriweather,
 		RichText = true,
 		TextScaled = true,
