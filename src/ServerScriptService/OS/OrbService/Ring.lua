@@ -1,20 +1,18 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Fusion = require(ReplicatedStorage.Packages.Fusion)
-local New = Fusion.New
-local Hydrate = Fusion.Hydrate
+local U = require(ReplicatedStorage.Util.U)
 
 return function(props)
 	-- Make the ring by subtracting two cylinders
-	local ringOuter = New "Part" {
+	local ringOuter = U.new "Part" {
 		Size = Vector3.new(0.10, props.OuterDiameter, props.OuterDiameter),
-		CFrame = CFrame.new(0,0,0),
+		CFrame = CFrame.new(0, 0, 0),
 		Shape = "Cylinder",
 		Color = props.Color,
 	}
 
-	local ringInner = New "Part" {
+	local ringInner = U.new "Part" {
 		Size = Vector3.new(0.15, props.InnerDiameter, props.InnerDiameter),
-		CFrame = CFrame.new(0,0,0),
+		CFrame = CFrame.new(0, 0, 0),
 		Shape = "Cylinder",
 		Color = props.Color,
 	}
@@ -28,8 +26,9 @@ return function(props)
 	passThroughProps.OuterDiameter = nil
 	passThroughProps.Size = nil
 	passThroughProps.Color = nil
-	
-	local ring = Hydrate(ringOuter:SubtractAsync({ringInner}))(passThroughProps)
+
+	local ring = ringOuter:SubtractAsync({ ringInner })
+	U.bind(ring, passThroughProps)
 
 	ringOuter:Destroy()
 	ringInner:Destroy()

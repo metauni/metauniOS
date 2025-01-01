@@ -674,6 +674,22 @@ local function switchMap<T..., U...>(fn: (T...) -> Stream<U...>): (Stream<T...>)
 end
 
 --[[
+	counter(seconds) emits increasing values 0,1,2,... with a delay between each using task.wait(delaySeconds)
+]]
+local function counter(delaySeconds): Stream<number>
+	return function(listener: (number) -> ()): CleanupTask
+		return task.spawn(function()
+			local i = 0
+			while true do
+				listener(i)
+				i+=1
+				task.wait(delaySeconds)
+			end
+		end)
+	end
+end
+
+--[[
 	`nilOnce: Stream<T?>`
 	Just emits `nil` immediately
 ]]
@@ -1097,6 +1113,7 @@ return {
 	switchAll = switchAll,
 	switchMap = switchMap,
 	-- Roblox-instance-related stream constructors/transformers
+	counter = counter,
 	nilOnce = nilOnce,
 	replaceNil = replaceNil,
 	blockNil = blockNil,

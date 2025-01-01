@@ -1,7 +1,6 @@
-
 --[[
 	Sourced from NevermoreEngine: https://github.com/Quenty/NevermoreEngine/blob/bf9e3d66e5c31ec0dafcc1c9e4142d963d309c65/src/maid/src/Shared/Maid.lua
-	
+
 	Changelog
 
 	14/11/23
@@ -42,8 +41,16 @@
 local Maid = {}
 Maid.ClassName = "Maid"
 
-export type Maid = typeof(setmetatable({}, Maid))
-export type Task = () -> () | thread | RBXScriptConnection | {Destroy: (self: any) -> ()} | {}
+export type Maid = {
+	Add: <T>(self: Maid, task: T) -> T,
+	Destroy: (self: Maid) -> (),
+	DoCleaning: (self: Maid) -> (),
+	GetDestroy: (maidOrTask: Task) -> () -> (),
+	GivePromise: (self: Maid, promise: any) -> any,
+	GiveTask: (self: Maid, task: Task) -> number,
+	Wrap: (maidOrTask: Task) -> () -> (),
+}
+export type Task = () -> () | thread | RBXScriptConnection | { Destroy: (self: any) -> () } | {}
 
 --[=[
 	Constructs a new Maid object
@@ -54,10 +61,10 @@ export type Task = () -> () | thread | RBXScriptConnection | {Destroy: (self: an
 
 	@return Maid
 ]=]
-function Maid.new()
+function Maid.new(): Maid
 	return setmetatable({
-		_tasks = {}
-	}, Maid)
+		_tasks = {},
+	}, Maid) :: any
 end
 
 --[=[
@@ -147,9 +154,9 @@ function Maid:Add(task)
 		error("Task cannot be false or nil", 2)
 	end
 
-	self[#self._tasks+1] = task
+	self[#self._tasks + 1] = task
 
-	if type(task) == "table" and (not task.Destroy) then
+	if type(task) == "table" and not task.Destroy then
 		warn("[Maid.GiveTask] - Gave table task without .Destroy\n\n" .. debug.traceback())
 	end
 
@@ -167,10 +174,10 @@ function Maid:GiveTask(task)
 		error("Task cannot be false or nil", 2)
 	end
 
-	local taskId = #self._tasks+1
+	local taskId = #self._tasks + 1
 	self[taskId] = task
 
-	if type(task) == "table" and (not task.Destroy) then
+	if type(task) == "table" and not task.Destroy then
 		warn("[Maid.GiveTask] - Gave table task without .Destroy\n\n" .. debug.traceback())
 	end
 
@@ -253,7 +260,7 @@ end
 	(nor will its values be recursively cleaned). This allows class objects to be
 	cleaned only once by dropping their Destroy method after Destroy is called.
 ]=]
-function Maid.cleanTask(job: Task, refs: {[any]:true}?)
+function Maid.cleanTask(job: Task, refs: { [any]: true }?)
 	if type(job) == "function" then
 		job()
 	elseif type(job) == "thread" then
@@ -292,7 +299,7 @@ function Maid.cleanTask(job: Task, refs: {[any]:true}?)
 				end
 				refs[job] = true
 			else
-				refs = {[job]=true}
+				refs = { [job] = true }
 			end
 			for k, v in taskTable do
 				Maid.cleanTask(v, refs)

@@ -7,7 +7,6 @@ local Blend = require(ReplicatedStorage.Util.Blend)
 local GoodSignal = require(ReplicatedStorage.Util.GoodSignal)
 local Maid = require(ReplicatedStorage.Util.Maid)
 local SpringObject = require(ReplicatedStorage.Util.SpringObject)
-local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 local UI = require(script.Parent.UIBlend)
 
 local Remotes = script.Remotes
@@ -19,7 +18,7 @@ local export = {}
 
 local function prettyPrint(value)
 	if typeof(value) == "table" then
-		return "{"..table.concat(value, ",").."}"
+		return "{" .. table.concat(value, ",") .. "}"
 	end
 	return tostring(value)
 end
@@ -37,8 +36,8 @@ local function makePanel()
 		if not dict[key] then
 			local Value = Blend.State(prettyValue)
 			local Updated = GoodSignal.new()
-			maid[key] = {Value, Updated}
-			Dict.Value = Sift.Dictionary.set(dict, key, {Value, Updated})
+			maid[key] = { Value, Updated }
+			Dict.Value = Sift.Dictionary.set(dict, key, { Value, Updated })
 		else
 			dict[key][1].Value = prettyValue
 			dict[key][2]:Fire()
@@ -46,10 +45,9 @@ local function makePanel()
 	end
 
 	function self.render()
-
 		local scrollingFrame = Blend.New "ScrollingFrame" {
 			LayoutOrder = 2,
-			
+
 			Size = Blend.Computed(Dict, function(dict)
 				local rows = Sift.Dictionary.count(dict)
 				local height = rows * 30
@@ -66,14 +64,13 @@ local function makePanel()
 				local height = rows * 30
 				return UDim2.fromOffset(300 + 12, height)
 			end),
-			
+
 			Blend.New "UIListLayout" {
 				SortOrder = Enum.SortOrder.Name,
 				FillDirection = Enum.FillDirection.Vertical,
 			},
 
 			Blend.ComputedPairs(Dict, function(key: string, pair, innerMaid: Maid.Maid)
-
 				local Value, Updated = table.unpack(pair)
 
 				local UpdatedSpring = innerMaid:Add(SpringObject.new(1, 20))
@@ -92,7 +89,7 @@ local function makePanel()
 						FillDirection = Enum.FillDirection.Horizontal,
 					},
 
-					Blend.New "UIStroke" { Thickness = 1, },
+					Blend.New "UIStroke" { Thickness = 1 },
 
 					Blend.New "TextLabel" {
 						LayoutOrder = 1,
@@ -101,35 +98,34 @@ local function makePanel()
 						TextWrapped = true,
 						BackgroundTransparency = 1,
 					},
-					
+
 					UI.VLine {
 						LayoutOrder = 3,
 						BackgroundColor3 = Color3.new(),
 					},
-					
+
 					Blend.New "TextLabel" {
 						LayoutOrder = 3,
-						Size = UDim2.new(0, 300-75, 1, 0),
+						Size = UDim2.new(0, 300 - 75, 1, 0),
 						Text = Value,
 						TextWrapped = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 
 						BackgroundColor3 = Blend.Computed(UpdatedSpring:Observe(), function(strength)
-							return Color3.new(1,1,1):Lerp(Color3.new(1,0,0), strength)
+							return Color3.new(1, 1, 1):Lerp(Color3.new(1, 0, 0), strength)
 						end),
 						BackgroundTransparency = Blend.Computed(UpdatedSpring:Observe(), function(strength)
 							return 1 - 0.8 * strength
 						end),
 						BorderSizePixel = 1,
 					},
-
 				}
-			end)
+			end),
 		}
 
 		return Blend.New "Frame" {
-			AnchorPoint = Vector2.new(0,0.5),
-			Position = UDim2.fromScale(0,0.5),
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.fromScale(0, 0.5),
 			Size = Blend.Computed(Minimised, function(minimised)
 				if minimised then
 					return UDim2.fromOffset(130, 330)
@@ -138,17 +134,17 @@ local function makePanel()
 				end
 			end),
 			BackgroundTransparency = 1,
-			
+
 			Blend.New "UIListLayout" {
 				SortOrder = Enum.SortOrder.LayoutOrder,
 				FillDirection = Enum.FillDirection.Vertical,
 			},
-			
+
 			UI.Div {
 				Size = UDim2.new(1, 0, 0, 30),
 				LayoutOrder = 1,
 				BackgroundTransparency = 0.5,
-				
+
 				Blend.New "TextLabel" {
 					Size = UDim2.new(0, 100, 0, 30),
 					Text = "DebugPanel",
@@ -159,24 +155,23 @@ local function makePanel()
 				},
 
 				Blend.New "TextButton" {
-					AnchorPoint = Vector2.new(1,0.5),
-					Position = UDim2.fromScale(1,0.5),
-					Size = UDim2.fromOffset(30,30),
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.fromScale(1, 0.5),
+					Size = UDim2.fromOffset(30, 30),
 					Text = "-",
 					FontFace = Font.fromName("Merriweather", Enum.FontWeight.Bold),
 					TextScaled = true,
-					
+
 					BackgroundColor3 = BrickColor.Black().Color,
 					BackgroundTransparency = 0.5,
 
 					[Blend.OnEvent "Activated"] = function()
 						Minimised.Value = not Minimised.Value
-					end
+					end,
 				},
 			},
 
 			scrollingFrame,
-
 		}
 	end
 
@@ -201,7 +196,7 @@ function export.Log(key, value)
 			Blend.New "ScreenGui" {
 				Name = "DebugPanel",
 				Panel.render(),
-			}
+			},
 		})
 	end
 

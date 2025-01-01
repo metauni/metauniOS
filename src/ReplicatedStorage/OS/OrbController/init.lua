@@ -36,7 +36,7 @@ local Blend = require(ReplicatedStorage.Util.Blend)
 local ValueObject = require(ReplicatedStorage.Util.ValueObject)
 
 local OrbController = {
-	Orbs = {} :: {[Part]: Orb}
+	Orbs = {} :: { [Part]: Orb },
 }
 
 function OrbController:ObserveAttachedOrb()
@@ -52,7 +52,6 @@ function OrbController:GetAttachedOrb()
 end
 
 function OrbController:Start()
-
 	self._showReplayMenu = ValueObject.new(false, "boolean")
 
 	-- Transform an observable into a Fusion StateObject that
@@ -63,7 +62,7 @@ function OrbController:Start()
 		observable:Subscribe(function(newValue)
 			value:set(newValue)
 		end)
-		return value 
+		return value
 	end
 
 	-- Returns an observable that emits values from a Fusion StateObject
@@ -86,11 +85,11 @@ function OrbController:Start()
 	}
 
 	-- Use SoundService:SetListener() to listen from orb/playerhead/camera
-	Rx.combineLatest{
-		AttachedOrbEarPart = observeAttachedOrb:Pipe{
+	Rx.combineLatest {
+		AttachedOrbEarPart = observeAttachedOrb:Pipe {
 			Rxi.findFirstChildWithClass("Part", "EarPart"),
 		},
-		PlayerHead = Rx.of(Players.LocalPlayer):Pipe{
+		PlayerHead = Rx.of(Players.LocalPlayer):Pipe {
 			Rxi.property("Character"),
 			Rxi.findFirstChildWithClassOf("BasePart", "Head"),
 		},
@@ -119,7 +118,7 @@ function OrbController:Start()
 		local observeAttachedToThisOrb = observeAttachedOrb:Pipe {
 			Rx.map(function(attachedOrb: Part?)
 				return attachedOrb == instance
-			end)
+			end),
 		}
 
 		self.Orbs[instance] = OrbClient.new(instance, observeAttachedToThisOrb)
@@ -136,27 +135,30 @@ function OrbController:Start()
 	end)
 
 	Rxi.tagged("spooky_part"):Subscribe(function(instance: BasePart)
-
 		local destructor = Destructor.new()
 
-		destructor:Add(
-			Rx.of(instance):Pipe {
+		destructor:Add(Rx.of(instance)
+			:Pipe {
 				Rxi.attribute("spooky_transparency"),
-			}:Subscribe(function(transparency: number?)
+			}
+			:Subscribe(function(transparency: number?)
 				if transparency then
-					TweenService:Create(instance, TweenInfo.new(
-						1.8, -- Time
-						Enum.EasingStyle.Linear, -- EasingStyle
-						Enum.EasingDirection.Out, -- EasingDirection
-						0, -- RepeatCount (when less than zero the tween will loop indefinitely)
-						false, -- Reverses (tween will reverse once reaching it's goal)
-						0 -- DelayTime
-					), {
-						Transparency = transparency,
-					}):Play()
+					TweenService:Create(
+						instance,
+						TweenInfo.new(
+							1.8, -- Time
+							Enum.EasingStyle.Linear, -- EasingStyle
+							Enum.EasingDirection.Out, -- EasingDirection
+							0, -- RepeatCount (when less than zero the tween will loop indefinitely)
+							false, -- Reverses (tween will reverse once reaching it's goal)
+							0 -- DelayTime
+						),
+						{
+							Transparency = transparency,
+						}
+					):Play()
 				end
-			end)
-		)
+			end))
 
 		instance.Destroying:Once(function()
 			destructor:Destroy()
@@ -177,10 +179,10 @@ function OrbController:Start()
 			Rxi.property("Value"),
 		}
 	local observeLocalSpeaker = -- Observable<Player?>
-		observeSpeaker:Pipe{
+		observeSpeaker:Pipe {
 			Rx.whereElse(function(speaker: Player?)
 				return speaker == Players.LocalPlayer, nil
-			end)
+			end),
 		}
 	export type ViewMode = "single" | "double" | "freecam"
 	local observeViewMode = -- Observable<ViewMode>
@@ -215,89 +217,83 @@ function OrbController:Start()
 		}
 
 	local DAMPING = 1
-	local SPEED = 1/3 * 2 * math.pi -- speed = frequency * 2π
+	local SPEED = 1 / 3 * 2 * math.pi -- speed = frequency * 2π
 	local CamPositionGoal = Value(workspace.CurrentCamera.CFrame.Position)
 	local CamLookAtGoal = Value(workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector)
 	local CamFOVGoal = Value(workspace.CurrentCamera.FieldOfView)
 	local PositionSpring = Spring(CamPositionGoal, SPEED, DAMPING)
 	local LookAtSpring = Spring(CamLookAtGoal, SPEED, DAMPING)
-	local FOVSpring = Spring(CamFOVGoal, 1.5*SPEED, DAMPING)
+	local FOVSpring = Spring(CamFOVGoal, 1.5 * SPEED, DAMPING)
 
 	local PlayerToOrb: Folder = ReplicatedStorage.OS.OrbController.PlayerToOrb
 
-	local observePeers =
-		observeAttachedOrb:Pipe {
-			Rxi.notNil(),
-			Rx.switchMap(function(attachedOrb: Part?)
-				return 
-					Rx.of(Players):Pipe {
-						Rxi.children(),
-						Rx.switchMap(function(players: {Players})
-							local attached = {}
-							for _, player in players do
-								attached[player] = Rx.of(PlayerToOrb):Pipe {
-									Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
-									Rxi.property("Value"),
-									Rx.map(function(playersOrb: Part?)
-										return playersOrb == attachedOrb or nil
-									end)
-								}
-							end
-							-- This emits the latest set of players attached to this orb
-							return Rx.combineLatest(attached)
-						end),
-					}
-			end),
-		}
+	local observePeers = observeAttachedOrb:Pipe {
+		Rxi.notNil(),
+		Rx.switchMap(function(attachedOrb: Part?)
+			return Rx.of(Players):Pipe {
+				Rxi.children(),
+				Rx.switchMap(function(players: { Players })
+					local attached = {}
+					for _, player in players do
+						attached[player] = Rx.of(PlayerToOrb):Pipe {
+							Rxi.findFirstChildWithClass("ObjectValue", tostring(player.UserId)),
+							Rxi.property("Value"),
+							Rx.map(function(playersOrb: Part?)
+								return playersOrb == attachedOrb or nil
+							end),
+						}
+					end
+					-- This emits the latest set of players attached to this orb
+					return Rx.combineLatest(attached)
+				end),
+			}
+		end),
+	}
 
-	local observePeerMovement =
-		observePeers:Pipe {
-			Rx.switchMap(function(peers: {[Player]: true?})
+	local observePeerMovement = observePeers:Pipe {
+		Rx.switchMap(function(peers: { [Player]: true? })
+			local movement = {}
+			for player in peers do
+				movement[player] = Rx.of(player):Pipe {
+					Rxi.property("Character"),
+					Rxi.property("PrimaryPart"),
+					Rx.switchMap(function(part: Part)
+						return Rx.timer(0, 0.5):Pipe({
+							Rx.map(function()
+								if not part then
+									return nil
+								else
+									return Vector3.new(
+										math.round(part.Position.X * 10),
+										math.round(part.Position.Y * 10),
+										math.round(part.Position.Z * 10)
+									)
+								end
+							end),
+							Rx.distinct(),
+							Rx.mapTo(part),
+						})
+					end),
+				}
+			end
 
-				local movement = {}
-				for player in peers do
-					movement[player] = Rx.of(player):Pipe {
-						Rxi.property("Character"),
-						Rxi.property("PrimaryPart"),
-						Rx.switchMap(function(part: Part)
-							return Rx.timer(0, 0.5):Pipe({
-								Rx.map(function()
-									if not part then
-										return nil
-									else
-										return Vector3.new(
-											math.round(part.Position.X * 10),
-											math.round(part.Position.Y * 10),
-											math.round(part.Position.Z * 10)
-										)
-									end
-								end),
-								Rx.distinct(),
-								Rx.mapTo(part),
-							})
-						end),
-					}
-				end
-
-				return Rx.combineLatest(movement)
-			end)
-		}
-		
+			return Rx.combineLatest(movement)
+		end),
+	}
 
 	-- For restoring after exiting orbcam
 	local playerCamCFrame = nil
 	local playerCamFOV = nil
 
 	-- Commandeer current camera
-	Rx.combineLatest{
+	Rx.combineLatest {
 		AttachedOrb = observeAttachedOrb,
 		OrbcamActive = observeState(OrbcamActive),
-		Camera = Rxi.propertyOf(workspace, "CurrentCamera")
+		Camera = Rxi.propertyOf(workspace, "CurrentCamera"),
 	}:Subscribe(function(data)
 		local camera: Camera? = data.Camera
 
 		if data.OrbcamActive and data.AttachedOrb and camera then
-
 			-- Camera is currently PlayerCam
 			playerCamFOV = camera.FieldOfView
 			playerCamCFrame = camera.CFrame
@@ -309,7 +305,7 @@ function OrbController:Start()
 			LookAtSpring:setVelocity(Vector3.zero)
 			FOVSpring:setPosition(CamFOVGoal:get())
 			FOVSpring:setVelocity(0)
-			
+
 			-- Allow code to steer orbcam
 			camera.CameraType = Enum.CameraType.Scriptable
 			camera.FieldOfView = FOVSpring:get()
@@ -351,13 +347,12 @@ function OrbController:Start()
 			end),
 		},
 		WaypointOnly = observeWaypointOnly,
-	}
-	:Subscribe(function(data)
+	}:Subscribe(function(data)
 		local attachedOrb: Part? = data.AttachedOrb
 		if not attachedOrb then
 			return
 		end
-		
+
 		local orbcamActive: boolean? = data.OrbcamActive
 		local viewportSize: Vector2 = data.ViewportSize
 		local poi1: Part? = data.Poi1
@@ -366,7 +361,7 @@ function OrbController:Start()
 		local speakerCharacter: Model? = data.SpeakerCharacter
 		local viewMode: ViewMode? = data.ViewMode
 		local showAudience: boolean? = data.ShowAudience
-		local audienceMovement: {[Player]: true?} = data.AudienceMovement
+		local audienceMovement: { [Player]: true? } = data.AudienceMovement
 		local waypointOnly: boolean? = data.WaypointOnly
 
 		if runConnection then
@@ -376,39 +371,40 @@ function OrbController:Start()
 
 		if orbcamActive then
 			runConnection = RunService.RenderStepped:Connect(function()
-	
 				local camera = workspace.CurrentCamera
 				if viewMode == nil or viewMode == "freecam" or camera.CameraType ~= Enum.CameraType.Scriptable then
 					return
 				end
-	
+
 				-- Chase speaker or orb if not looking at boards
 				if not poi1 and not poi2 then
-					local chaseTarget = if speakerCharacter then speakerCharacter:GetPivot().Position else attachedOrb.Position
+					local chaseTarget = if speakerCharacter
+						then speakerCharacter:GetPivot().Position
+						else attachedOrb.Position
 					local camPos
 
 					if nearestBoard then
 						local targetToBoard = (chaseTarget - nearestBoard.Position)
 						if targetToBoard.Magnitude < 30 then
-
 							-- Check that cam would be within 120 view of board (not too side-on)
 							if targetToBoard.Unit:Dot(nearestBoard.CFrame.LookVector.Unit) > math.cos(math.rad(60)) then
-								local awayFromBoard = targetToBoard * Vector3.new(1,0,1)
-								camPos = chaseTarget + awayFromBoard.Unit * 20 + Vector3.new(0,5,0)
+								local awayFromBoard = targetToBoard * Vector3.new(1, 0, 1)
+								camPos = chaseTarget + awayFromBoard.Unit * 20 + Vector3.new(0, 5, 0)
 							end
 						end
 					end
 
 					-- Default to looking from wherever camera currently is
 					if not camPos then
-						local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget) * Vector3.new(1,0,1)
-						camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0,5,0)
+						local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget)
+							* Vector3.new(1, 0, 1)
+						camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0, 5, 0)
 					end
 					CamPositionGoal:set(camPos)
 					CamLookAtGoal:set(chaseTarget)
 					CamFOVGoal:set(Config.OrbcamFOV)
 				end
-	
+
 				workspace.CurrentCamera.CFrame = CFrame.lookAt(PositionSpring:get(), LookAtSpring:get())
 				workspace.CurrentCamera.FieldOfView = FOVSpring:get()
 			end)
@@ -417,15 +413,15 @@ function OrbController:Start()
 		if not poi1 then
 			-- Need to set goals so the orbccam doesn't start far away
 			local chaseTarget = if speakerCharacter then speakerCharacter:GetPivot().Position else attachedOrb.Position
-			local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget) * Vector3.new(1,0,1)
-			local camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0,5,0)
+			local towardsCam = (workspace.CurrentCamera.CFrame.Position - chaseTarget) * Vector3.new(1, 0, 1)
+			local camPos = chaseTarget + towardsCam.Unit * 20 + Vector3.new(0, 5, 0)
 			CamPositionGoal:set(camPos)
 			CamLookAtGoal:set(chaseTarget)
 			CamFOVGoal:set(Config.OrbcamFOV)
 			return
 		end
 
-		local boards = {BoardController.Boards:Get(poi1)}
+		local boards = { BoardController.Boards:Get(poi1) }
 		if poi2 then
 			table.insert(boards, BoardController.Boards:Get(poi2))
 		end
@@ -433,13 +429,13 @@ function OrbController:Start()
 			return
 		end
 
-		local cframe, lookTarget = CameraUtils.ViewBoardsAtFOV(boards, Config.OrbcamFOV, Config.AssumedViewportSize, Config.OrbcamBuffer)
+		local cframe, lookTarget =
+			CameraUtils.ViewBoardsAtFOV(boards, Config.OrbcamFOV, Config.AssumedViewportSize, Config.OrbcamBuffer)
 		local fov = CameraUtils.GetFOVForBoards(cframe, boards, viewportSize, Config.OrbcamBuffer)
-		
+
 		if showAudience and speakerCharacter then
-			
 			-- The boards + the audience characters
-			local targets = {poi1, poi2}
+			local targets = { poi1, poi2 }
 			local audienceEmpty = true
 			local speakerPos = speakerCharacter:GetPivot().Position
 			local audienceRadius = math.max(30, (lookTarget - speakerPos).Magnitude)
@@ -482,16 +478,22 @@ function OrbController:Start()
 				CamPositionGoal:set(cframe.Position)
 				CamLookAtGoal:set(lookTarget)
 				CamFOVGoal:set(fov)
-				return 
+				return
 			end
 
-			local cframeWithAudience = CameraUtils.FitTargetsAlongCFrameRay(cframe, targets, Config.OrbcamFOV, viewportSize, Config.OrbcamBuffer)
+			local cframeWithAudience = CameraUtils.FitTargetsAlongCFrameRay(
+				cframe,
+				targets,
+				Config.OrbcamFOV,
+				viewportSize,
+				Config.OrbcamBuffer
+			)
 			local lookTargetWithAudience = Vector3.zero
 			for _, target in targets do
 				lookTargetWithAudience += target.Position
 			end
 			lookTargetWithAudience /= #targets
-			
+
 			CamPositionGoal:set(cframeWithAudience.Position + Vector3.new(0, 5, 0))
 			CamLookAtGoal:set(lookTargetWithAudience)
 			CamFOVGoal:set(Config.OrbcamFOV)
@@ -500,7 +502,6 @@ function OrbController:Start()
 			CamLookAtGoal:set(lookTarget)
 			CamFOVGoal:set(fov)
 		end
-		
 	end)
 
 	--[[
@@ -512,7 +513,6 @@ function OrbController:Start()
 		Humanoid = HumanoidController:ObserveHumanoid(Players.LocalPlayer),
 		Speaker = observeSpeaker,
 	}:Subscribe(function(data)
-
 		-- Walk slowly while orbcam looking at poi
 		if data.Speaker == Players.LocalPlayer and data.Humanoid and (data.Poi1 or data.Poi2) then
 			data.Humanoid:SetWalkSpeed(10)
@@ -523,12 +523,10 @@ function OrbController:Start()
 		end
 	end)
 
-
 	--[[
 		Make speaker turn towards camera when in frame
 	--]]
 	if not VRService.VREnabled then
-		
 		local turnTween: Tween?
 		local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad)
 		Rx.combineLatest {
@@ -536,7 +534,7 @@ function OrbController:Start()
 			MoveDirection = observeLocalSpeaker:Pipe {
 				Rxi.property("Character"),
 				Rxi.findFirstChildOfClass("Humanoid"),
-				Rxi.property("MoveDirection")
+				Rxi.property("MoveDirection"),
 			},
 			RootPart = observeLocalSpeaker:Pipe {
 				Rxi.property("Character"),
@@ -553,7 +551,7 @@ function OrbController:Start()
 							Rx.map(function(_, newState: Enum.HumanoidStateType)
 								return newState
 							end),
-							Rx.defaultsTo(humanoid:GetState())
+							Rx.defaultsTo(humanoid:GetState()),
 						}
 					end
 				end),
@@ -567,17 +565,17 @@ function OrbController:Start()
 			local moveDirection: Vector3? = data.MoveDirection
 			local camPositionGoal: Vector3 = data.CamPositionGoal
 			local camLookAtGoal: Vector3 = data.CamLookAtGoal
-	
+
 			-- We're either about to tween elsewhere or not tween at all
 			if turnTween then
 				turnTween:Cancel()
 			end
-	
+
 			-- We're moving, don't rotate
 			if moveDirection and moveDirection.Magnitude ~= 0 then
 				return
 			end
-	
+
 			-- We don't want to rotate the speaker if they're jumping or something else
 			-- Yes it says running but that's the state when just standing still
 			if
@@ -587,38 +585,41 @@ function OrbController:Start()
 			then
 				return
 			end
-	
+
 			-- print("not running")
-			
+
 			-- No character or poi1 not looking at anything
 			if not rootPart or not poi1 then
 				return
 			end
-			
+
 			local lookVector = camLookAtGoal - camPositionGoal
-			local horizontalFOVRad = 2 * math.atan(Config.AssumedViewportSize.X / Config.AssumedViewportSize.Y * math.tan(math.rad(Config.OrbcamFOV)/2))
+			local horizontalFOVRad = 2
+				* math.atan(
+					Config.AssumedViewportSize.X
+						/ Config.AssumedViewportSize.Y
+						* math.tan(math.rad(Config.OrbcamFOV) / 2)
+				)
 			local cosAngleToSpeaker = ((rootPart.Position - camPositionGoal).Unit):Dot(lookVector.Unit)
 			local distanceToFocalPoint = (camLookAtGoal - camPositionGoal).Magnitude
 			local distanceToCharacter = (rootPart.Position - camPositionGoal).Magnitude
-			
+
 			local ANGLE_BUFFER = math.rad(2.5)
-			local outsideCamView = cosAngleToSpeaker < math.cos(horizontalFOVRad/2 + ANGLE_BUFFER)
+			local outsideCamView = cosAngleToSpeaker < math.cos(horizontalFOVRad / 2 + ANGLE_BUFFER)
 			local tooFarBehindBoard = distanceToCharacter > 2 * distanceToFocalPoint
-			
+
 			if not outsideCamView and not tooFarBehindBoard then
-				
 				local target = Vector3.new(camPositionGoal.X, rootPart.Position.Y, camPositionGoal.Z)
 				turnTween = TweenService:Create(rootPart, tweenInfo, {
-					CFrame = CFrame.lookAt(rootPart.Position, target)
-				})
-				;(turnTween :: Tween):Play()
+					CFrame = CFrame.lookAt(rootPart.Position, target),
+				});
+				(turnTween :: Tween):Play()
 			end
 		end)
 	end
 
 	local function PoiHighlight(observePoi)
-
-		local observeAdornee = observePoi:Pipe{
+		local observeAdornee = observePoi:Pipe {
 			Rx.map(function(poi: Part?)
 				if poi and poi.Parent and poi.Parent:IsA("Model") and poi.Parent.PrimaryPart == poi then
 					return poi.Parent
@@ -636,10 +637,10 @@ function OrbController:Start()
 			end),
 		}
 
-		local holdPromise
-		if holdPromise then
-			holdPromise:cancel()
-			holdPromise = nil
+		local holdThread
+		if holdThread then
+			task.cancel(holdThread)
+			holdThread = nil
 		end
 
 		local Transparency = Value(1)
@@ -647,27 +648,25 @@ function OrbController:Start()
 
 		-- When the player is moving, show the highlights,
 		-- when they stop, hide the highlights after a short delay
-		Rx.combineLatest{
+		Rx.combineLatest {
 			Adornee = observeAdornee,
 			Moving = observeMoving,
 		}:Subscribe(function(data)
 			if data.Moving and data.Adornee then
-				if holdPromise then
-					holdPromise:cancel()
-					holdPromise = nil
+				if holdThread then
+					task.cancel(holdThread)
+					holdThread = nil
 				end
-				holdPromise = 
-					UtilPromise.delayed(0.6)
-						:andThen(function()
-							Transparency:set(1)
-						end)
+				holdThread = task.delay(0.6, function()
+					Transparency:set(1)
+				end)
 				Transparency:set(0)
 			end
 		end)
 
 		local highlight = New "Highlight" {
 			Adornee = observedValue(observeAdornee),
-			FillColor = Color3.new(1,1,1),
+			FillColor = Color3.new(1, 1, 1),
 			-- This would be better if it made it brighter, not darker...
 			-- FillTransparency = Computed(function()
 			-- 	return 0.8 + 0.2 * SpringTransparency:get()
@@ -707,7 +706,7 @@ function OrbController:Start()
 				setAllGuiVisibility(newVisible)
 				Visible:set(newVisible)
 			end),
-			
+
 			function() -- Unhide everything when exiting orbcam
 				setAllGuiVisibility(true)
 			end,
@@ -723,62 +722,61 @@ function OrbController:Start()
 			end),
 		},
 
-		[Children] = 
-			Computed(function()
-				local attachedOrb = AttachedOrb:get()
-				if not attachedOrb then
-					return nil
-				end
-				return New "Frame" {
-		
-					AnchorPoint = Vector2.new(0, 1),
-					Position = UDim2.new(0, 15, 1, -15),
-					Size = UDim2.fromOffset(250, 125),
-		
-					BackgroundTransparency = 1,
-		
-					[Children] = OrbMenu {
-						OrbBrickColor = attachedOrb.BrickColor,
-						OrbMaterial = attachedOrb.Material,
-						ViewMode = observedValue(observeViewMode),
-						SetViewMode = function(viewMode: ViewMode)
-							Remotes.SetViewMode:FireServer(attachedOrb, viewMode)
-						end,
-						Detach = function()
-							OrbcamActive:set(false)
-							Remotes.DetachPlayer:FireServer(attachedOrb)
-						end,
-						IsSpeaker = observedValue(observeSpeaker:Pipe{
-							Rx.map(function(speaker: Player?)
-								return speaker == Players.LocalPlayer
-							end)
-						}),
-						Audience = observedValue(observeShowAudience),
-						SetAudience = function(audience)
-							Remotes.SetShowAudience:FireServer(attachedOrb, audience)
-						end,
-						OrbcamActive = OrbcamActive,
-						SetOrbcamActive = function(active)
-							Remotes.OrbcamStatus:FireServer(attachedOrb, active)
-							OrbcamActive:set(active)
-						end,
-						Teleport = function()
-							Remotes.Teleport:FireServer(attachedOrb)
-						end,
-						SendEmoji = function(emojiName: string)
-							Remotes.SendEmoji:FireServer(attachedOrb, emojiName)
-						end,
-						ReceiveEmojiSignal = Remotes.SendEmoji.OnClientEvent,
-						WaypointOnly = observedValue(observeWaypointOnly),
-						SetWaypointOnly = function(waypointOnly: boolean)
-							Remotes.SetWaypointOnly:FireServer(attachedOrb, waypointOnly)
-						end,
-						OnClickReplayMenu = function()
-							self._showReplayMenu.Value = true
-						end
-					}
-				}
-			end, Fusion.cleanup)
+		[Children] = Computed(function()
+			local attachedOrb = AttachedOrb:get()
+			if not attachedOrb then
+				return nil
+			end
+			return New "Frame" {
+
+				AnchorPoint = Vector2.new(0, 1),
+				Position = UDim2.new(0, 15, 1, -15),
+				Size = UDim2.fromOffset(250, 125),
+
+				BackgroundTransparency = 1,
+
+				[Children] = OrbMenu {
+					OrbBrickColor = attachedOrb.BrickColor,
+					OrbMaterial = attachedOrb.Material,
+					ViewMode = observedValue(observeViewMode),
+					SetViewMode = function(viewMode: ViewMode)
+						Remotes.SetViewMode:FireServer(attachedOrb, viewMode)
+					end,
+					Detach = function()
+						OrbcamActive:set(false)
+						Remotes.DetachPlayer:FireServer(attachedOrb)
+					end,
+					IsSpeaker = observedValue(observeSpeaker:Pipe {
+						Rx.map(function(speaker: Player?)
+							return speaker == Players.LocalPlayer
+						end),
+					}),
+					Audience = observedValue(observeShowAudience),
+					SetAudience = function(audience)
+						Remotes.SetShowAudience:FireServer(attachedOrb, audience)
+					end,
+					OrbcamActive = OrbcamActive,
+					SetOrbcamActive = function(active)
+						Remotes.OrbcamStatus:FireServer(attachedOrb, active)
+						OrbcamActive:set(active)
+					end,
+					Teleport = function()
+						Remotes.Teleport:FireServer(attachedOrb)
+					end,
+					SendEmoji = function(emojiName: string)
+						Remotes.SendEmoji:FireServer(attachedOrb, emojiName)
+					end,
+					ReceiveEmojiSignal = Remotes.SendEmoji.OnClientEvent,
+					WaypointOnly = observedValue(observeWaypointOnly),
+					SetWaypointOnly = function(waypointOnly: boolean)
+						Remotes.SetWaypointOnly:FireServer(attachedOrb, waypointOnly)
+					end,
+					OnClickReplayMenu = function()
+						self._showReplayMenu.Value = true
+					end,
+				},
+			}
+		end, Fusion.cleanup),
 	}
 
 	Rx.combineLatest {
@@ -788,7 +786,8 @@ function OrbController:Start()
 		},
 	}:Subscribe(function(state)
 		if state.OrbPart and state.BoardAncestorValue then
-			local BoardGroupAncestor do
+			local BoardGroupAncestor
+			do
 				local parent: Instance? = state.OrbPart.Parent
 				while true do
 					-- not reactive to BoardGroup changes
@@ -816,7 +815,7 @@ function OrbController:Start()
 				humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
 			end
 		end
-	
+
 		observeState(OrbcamActive):Subscribe(function(orbcamActive: boolean)
 			for _, player in Players:GetPlayers() do
 				updateNameTag(player.Character and player.Character:FindFirstChild("Humanoid"), orbcamActive)
@@ -852,7 +851,6 @@ function OrbController:Start()
 		end,
 		SaveReplayCharacterVoicesPromise = function(replayId, characterVoices)
 			return UtilPromise.spawn(function(resolve, reject)
-				
 				local saveSuccess, saveMsg
 				local ok, msg = pcall(function()
 					saveSuccess, saveMsg = ReplayRemotes.SaveCharacterVoices:InvokeServer(replayId, characterVoices)
@@ -897,9 +895,9 @@ function OrbController:Start()
 		Blend.New "ScreenGui" {
 			Name = "ReplayMenu",
 			Enabled = self._showReplayMenu,
-			
+
 			menu:render(),
-		}
+		},
 	})
 end
 

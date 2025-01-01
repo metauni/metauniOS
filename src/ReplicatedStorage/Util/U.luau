@@ -4,6 +4,7 @@
 local Stream = require(script.Parent.Stream)
 local Value = require(script.Parent.Value)
 local Map = require(script.Parent.Map)
+local Types = require(script.Parent.Types)
 
 local U = {}
 
@@ -158,8 +159,8 @@ function U.mountToProp(instance: Instance, prop: string, has: Has<any>): Cleanup
 		if has:IsA("ObjectValue") then
 			(instance :: any)[prop] = has
 		else
-			return has:GetPropertyChangedSignal(prop):Connect(function(value)
-				(instance :: any)[prop] = value
+			return has:GetPropertyChangedSignal("Value" :: any):Connect(function()
+				(instance :: any)[prop] = (has :: any).Value
 			end)
 		end
 	elseif typeof(has) == "RBXScriptSignal" then
@@ -535,9 +536,52 @@ function U.new(className: string): (props: { [any]: any }) -> Instance
 			end
 		end
 
-		U.bind(instance, props)
+		local scope: { any }? = props.scope
+		if scope then
+			props.scope = nil
+			table.insert(scope, instance)
+			local cleanup = U.mount(instance, props)
+			table.insert(scope, cleanup)
+		else
+			U.bind(instance, props)
+		end
+
 		return instance
 	end
+end
+
+export type Scope = {
+	insert: (self: any, any) -> (),
+	new: Types.UNewWithSelf,
+	Value: <T>(self: any, initial: T) -> Value<T>,
+	Map: <K, V>(self: any, initial: { [K]: V }?) -> Map<K, V>,
+}
+
+local ScopeMT = {
+	insert = function(scope, cleanupTask)
+		table.insert(scope, cleanupTask)
+	end,
+	new = function(scope, className)
+		return function(props)
+			props.scope = scope
+			return U.new(className)(props)
+		end
+	end,
+	Value = function(scope, initial)
+		local value = Value(initial)
+		table.insert(scope, value)
+		return value
+	end,
+	Map = function(scope, initial)
+		local map = Map(initial)
+		table.insert(scope, map)
+		return map
+	end,
+}
+ScopeMT.__index = ScopeMT
+
+function U.Scope(): Scope
+	return setmetatable({}, ScopeMT) :: any
 end
 
 --[[
@@ -740,4 +784,4 @@ function U.compute4<A, B, C, D, Z>(a: Has<A>, b: Has<B>, c: Has<C>, d: Has<D>, f
 	end
 end
 
-return U
+return U :: typeof(U) & { new: Types.UNew }
