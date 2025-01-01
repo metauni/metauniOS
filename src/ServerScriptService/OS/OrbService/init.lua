@@ -7,10 +7,6 @@ local OrbPlayer = require(script.OrbPlayer)
 local Ring = require(script.Ring)
 local Stream = require(ReplicatedStorage.Util.Stream)
 
-local Service = {
-	Orbs = {} :: { [Part]: OrbServer.OrbServer },
-}
-
 local function makeHaloTemplates()
 	local earHalo: UnionOperation = Ring {
 		Name = "EarHalo",
@@ -44,6 +40,10 @@ local function makeHaloTemplates()
 	eyeWeld.Part0 = eyeHalo
 	eyeWeld.Parent = eyeHalo
 end
+
+local Service = {
+	Orbs = {} :: { [BasePart]: OrbServer.OrbServer },
+}
 
 local function connectEvents()
 	local Remotes = ReplicatedStorage.OS.OrbController.Remotes
@@ -149,7 +149,7 @@ function Service.Start()
 			error(`[Service] {instance:GetFullName()} is a Model. Must tag PrimaryPart with "metaorb".`)
 		end
 
-		local orb = OrbServer.new(instance :: any)
+		local orb = OrbServer(instance :: any)
 		Service.Orbs[instance] = orb
 		return function()
 			Service.Orbs[instance] = nil

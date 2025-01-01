@@ -44,7 +44,7 @@ local function throttledMovement(interval: number): (Stream.Stream<Instance?>) -
 	end
 end
 
-local function setupSpeakerAttachment(self: OrbServer, scope: U.Scope, orbPart: Part, speakerAttachment: Attachment)
+local function setupSpeakerAttachment(self: OrbServer, scope: U.Scope, orbPart: BasePart, speakerAttachment: Attachment)
 	-- Parent the speaker attachment to the speaker
 	local SpeakerPrimaryPart =
 		Stream.toProperty("PrimaryPart")(Stream.fromValueBase(self.SpeakerCharacter :: ObjectValue))
@@ -69,7 +69,7 @@ local function setupSpeakerAttachment(self: OrbServer, scope: U.Scope, orbPart: 
 	end))
 end
 
-local function followSpeakerMovement(self: OrbServer, scope: U.Scope, orbPart: Part, speakerAttachment: Attachment)
+local function followSpeakerMovement(self: OrbServer, scope: U.Scope, orbPart: BasePart, speakerAttachment: Attachment)
 	-- Watch speaker movement to update Waypoint and OrbMode
 	local SpeakerHead: Stream.Stream<Instance?> =
 		Stream.toFirstChild("Head")(Stream.fromValueBase(self.SpeakerCharacter :: ObjectValue))
@@ -237,7 +237,7 @@ end
 local function setupOrbAlignment(
 	self: OrbServer,
 	scope: U.Scope,
-	orbPart: Part,
+	orbPart: BasePart,
 	speakerAttachment: Attachment,
 	orbAttachment: Attachment
 )
@@ -284,7 +284,7 @@ local function setupOrbAlignment(
 	}
 end
 
-local function setupRings(self: OrbServer, scope: U.Scope, orbPart: Part, orbAttachment: Attachment)
+local function setupRings(self: OrbServer, scope: U.Scope, orbPart: BasePart, orbAttachment: Attachment)
 	local eyeRingAttachment = U.new "Attachment" {}
 	local EyeRingOrientationCFrame = scope:Value(orbPart.CFrame * CFrame.Angles(0, math.pi / 2, 0))
 
@@ -413,7 +413,7 @@ local function setupRings(self: OrbServer, scope: U.Scope, orbPart: Part, orbAtt
 	end))
 end
 
-local function OrbServer(orbPart: Part): OrbServer
+local function OrbServer(orbPart: BasePart): OrbServer
 	local scope = U.Scope()
 
 	-- The orb will be aligned with physics to this position
