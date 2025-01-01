@@ -413,9 +413,7 @@ local function setupRings(self: OrbServer, scope: U.Scope, orbPart: Part, orbAtt
 	end))
 end
 
-local OrbServer = {}
-
-function OrbServer.new(orbPart: Part)
+local function OrbServer(orbPart: Part): OrbServer
 	local scope = U.Scope()
 
 	-- The orb will be aligned with physics to this position
@@ -691,6 +689,6 @@ function OrbServer.new(orbPart: Part)
 	return self
 end
 
-export type OrbServer = typeof(OrbServer.new(nil :: any))
+export type OrbServer = typeof(OrbServer(nil :: any))
 
 return OrbServer

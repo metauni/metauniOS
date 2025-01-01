@@ -6,6 +6,17 @@ so changes are loosely divided by date (dd/mm/yy), either corresponding to date-
 
 See #metauni-commits in the metauni discord to find commits by date
 
+## 01/01/25
+- Removed two wally dependencies
+	- a Promise library (the evaera one, we still have ReplicatedStorage.Util.Promise)
+	- GoodSignal (our own tweaked version is in ReplicatedStorage.Util.GoodSignal)
+- Added scope-prop to U.new and added U.Scope()
+	- A scope is just a cleanup array + convenience methods
+	- scope:new(), scope:Value(), scope:Map() just adds the thing to the cleanup array before returning it
+- Tested OrbServer rewrite with Streams and scopes (actually this motivated scopes)
+- Added Spring and AccelTween to UI library
+- Added Result.luau library for possible-error values. I think I prefer plain tasks/coroutines + Results over promises.
+
 ## 25/10/24
 - Improved U.mount with U.mountToProp, which can also used by itself
 - Added occlusion to board hover highlight and made it more transparent
@@ -116,4 +127,3 @@ AttributesSerialize because invalid value type: 4")
 	- Allowed placeId inputs
 	- Use CloudAPI for publishing which has better success rate (but fails if place is open in Studio - a good thing!)
 	- Need to setup your own publishing key if you want to publish
-
